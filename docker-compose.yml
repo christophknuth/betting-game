@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.php
+    container_name: betting-game-php
+    volumes:
+      - .:/var/www/html
+      - ./docker/php-fpm.conf:/usr/local/etc/php-fpm.d/zz-custom.conf
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    environment:
+      - APP_ENV=development
+      - APP_DEBUG=true
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=betting_game
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+    depends_on:
+      - db
+    networks:
+      - betting-game-network
+
+  caddy:
+    image: caddy:2.7-alpine
+    container_name: betting-game-caddy
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - .:/var/www/html
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - php
+    networks:
+      - betting-game-network
+
+  db:
+    image: mariadb:11.3
+    container_name: betting-game-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: betting_game
+      MYSQL_USER: betting_user
+      MYSQL_PASSWORD: betting_pass
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+      --innodb-buffer-pool-size=256M
+      --innodb-log-file-size=64M
+    networks:
+      - betting-game-network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: betting-game-phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: secret
+    depends_on:
+      - db
+    networks:
+      - betting-game-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: betting-game-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - caddy
+    networks:
+      - betting-game-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: betting-game-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME_STRICT: false
+      KC_HTTP_ENABLED: true
+      KC_PROXY: edge
+    command:
+      - start-dev
+      - --import-realm
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    depends_on:
+      - keycloak-db
+    networks:
+      - betting-game-network
+
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: betting-game-keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    networks:
+      - betting-game-network
+
+networks:
+  betting-game-network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  keycloak_db_data:
+    driver: local

@@ -1,0 +1,1318 @@
+openapi: 3.0.3
+info:
+  title: Betting Game Management API
+  description: |
+    REST API for managing betting games with CQRS pattern.
+    Supports sports betting and lottery-style games.
+    Secured with OIDC and JWT tokens.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@bettinggame.com
+
+servers:
+  - url: https://api.bettinggame.com/v1
+    description: Production server
+  - url: https://staging-api.bettinggame.com/v1
+    description: Staging server
+
+security:
+  - oidcAuth: []
+  - bearerAuth: []
+
+tags:
+  - name: Participant - Predictions
+    description: Participant operations for managing predictions
+  - name: Participant - Scores
+    description: Participant operations for viewing scores and prizes
+  - name: Participant - Participation
+    description: Participant operations for managing game participation
+  - name: Admin - Predictions
+    description: Administrator operations for viewing all predictions
+  - name: Admin - Games
+    description: Administrator operations for managing betting games
+  - name: Admin - Results
+    description: Administrator operations for managing results and scores
+  - name: Admin - Participants
+    description: Administrator operations for managing participants
+
+paths:
+  # ============================================
+  # PARTICIPANT ENDPOINTS - Predictions (CQRS)
+  # ============================================
+  
+  /participants/{participantId}/predictions:
+    get:
+      tags:
+        - Participant - Predictions
+      summary: Query own predictions
+      description: Retrieve all predictions made by the participant (CQRS Query)
+      operationId: getParticipantPredictions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - name: bettingGameId
+          in: query
+          description: Filter by specific betting game
+          schema:
+            type: integer
+        - name: eventId
+          in: query
+          description: Filter by specific event
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: Filter by prediction status
+          schema:
+            type: string
+            enum: [pending, submitted, evaluated]
+      responses:
+        '200':
+          description: List of predictions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  predictions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PredictionReadModel'
+                  totalCount:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /participants/{participantId}/predictions/{predictionId}:
+    get:
+      tags:
+        - Participant - Predictions
+      summary: Query specific prediction
+      description: Retrieve a specific prediction (CQRS Query)
+      operationId: getParticipantPrediction
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/PredictionIdPath'
+      responses:
+        '200':
+          description: Prediction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    
+    put:
+      tags:
+        - Participant - Predictions
+      summary: Update prediction
+      description: Update an existing prediction before deadline (CQRS Command)
+      operationId: updatePrediction
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/PredictionIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePredictionCommand'
+      responses:
+        '202':
+          description: Prediction update accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Deadline passed or event already started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /participants/{participantId}/events/{eventId}/predictions:
+    post:
+      tags:
+        - Participant - Predictions
+      summary: Submit new prediction
+      description: Create a new prediction for an event (CQRS Command)
+      operationId: submitPrediction
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/EventIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitPredictionCommand'
+      responses:
+        '202':
+          description: Prediction submission accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Prediction already exists or deadline passed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================
+  # PARTICIPANT ENDPOINTS - Scores (CQRS Query)
+  # ============================================
+  
+  /participants/{participantId}/scores:
+    get:
+      tags:
+        - Participant - Scores
+      summary: Query own scores and prizes
+      description: Retrieve all scores and prize amounts (CQRS Query)
+      operationId: getParticipantScores
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - name: bettingGameId
+          in: query
+          description: Filter by specific betting game
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scores:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ParticipantScoreReadModel'
+                  summary:
+                    type: object
+                    properties:
+                      totalPoints:
+                        type: integer
+                      totalPrizeAmount:
+                        type: number
+                        format: decimal
+                      gamesParticipated:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /participants/{participantId}/games/{bettingGameId}/leaderboard:
+    get:
+      tags:
+        - Participant - Scores
+      summary: Query game leaderboard
+      description: View leaderboard for a specific game (CQRS Query)
+      operationId: getGameLeaderboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - name: limit
+          in: query
+          description: Number of top participants to return
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Leaderboard rankings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # PARTICIPANT ENDPOINTS - Participation
+  # ============================================
+  
+  /participants/{participantId}/participations:
+    get:
+      tags:
+        - Participant - Participation
+      summary: Query own participations
+      description: View all games the participant is enrolled in (CQRS Query)
+      operationId: getParticipations
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - name: status
+          in: query
+          description: Filter by participation status
+          schema:
+            type: string
+            enum: [active, ended, pending_approval]
+      responses:
+        '200':
+          description: List of participations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  participations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ParticipationReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /participants/{participantId}/games/{bettingGameId}/participation:
+    post:
+      tags:
+        - Participant - Participation
+      summary: Join a betting game
+      description: Register for a new betting game (CQRS Command)
+      operationId: joinBettingGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/BettingGameIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinGameCommand'
+      responses:
+        '202':
+          description: Join request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Already participating or game full
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Participant - Participation
+      summary: Leave a betting game
+      description: End participation in a betting game (CQRS Command)
+      operationId: leaveBettingGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/BettingGameIdPath'
+      responses:
+        '202':
+          description: Leave request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Predictions (CQRS Query)
+  # ============================================
+  
+  /admin/predictions:
+    get:
+      tags:
+        - Admin - Predictions
+      summary: Query all predictions
+      description: Retrieve all predictions across all participants (CQRS Query)
+      operationId: getAllPredictions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bettingGameId
+          in: query
+          description: Filter by betting game
+          schema:
+            type: integer
+        - name: eventId
+          in: query
+          description: Filter by event
+          schema:
+            type: integer
+        - name: participantId
+          in: query
+          description: Filter by participant
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of all predictions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  predictions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PredictionReadModel'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Games (CQRS)
+  # ============================================
+  
+  /admin/games:
+    get:
+      tags:
+        - Admin - Games
+      summary: Query all betting games
+      description: Retrieve all betting games (CQRS Query)
+      operationId: getAllGames
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by game status
+          schema:
+            type: string
+            enum: [upcoming, active, ended, cancelled]
+        - name: gameTypeId
+          in: query
+          description: Filter by game type
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of betting games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BettingGameReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Admin - Games
+      summary: Create new betting game
+      description: Create a new betting game (CQRS Command)
+      operationId: createBettingGame
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBettingGameCommand'
+      responses:
+        '202':
+          description: Game creation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/games/{bettingGameId}:
+    get:
+      tags:
+        - Admin - Games
+      summary: Query specific betting game
+      description: Retrieve details of a specific game (CQRS Query)
+      operationId: getGameDetails
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+      responses:
+        '200':
+          description: Game details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BettingGameReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/games/{bettingGameId}/end:
+    post:
+      tags:
+        - Admin - Games
+      summary: End a betting game
+      description: Terminate an active betting game (CQRS Command)
+      operationId: endBettingGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndGameCommand'
+      responses:
+        '202':
+          description: Game termination accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Results (CQRS Command)
+  # ============================================
+  
+  /admin/events/{eventId}/results:
+    post:
+      tags:
+        - Admin - Results
+      summary: Record event result
+      description: Submit result for an event (CQRS Command)
+      operationId: recordEventResult
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordResultCommand'
+      responses:
+        '202':
+          description: Result recording accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    put:
+      tags:
+        - Admin - Results
+      summary: Update event result
+      description: Update an existing result (CQRS Command)
+      operationId: updateEventResult
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateResultCommand'
+      responses:
+        '202':
+          description: Result update accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/events/{eventId}/scores/calculate:
+    post:
+      tags:
+        - Admin - Results
+      summary: Calculate scores for event
+      description: Trigger score calculation for all predictions (CQRS Command)
+      operationId: calculateEventScores
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      responses:
+        '202':
+          description: Score calculation initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/participants/{participantId}/scores:
+    post:
+      tags:
+        - Admin - Results
+      summary: Award points/prizes manually
+      description: Manually assign points or prize amounts (CQRS Command)
+      operationId: awardScore
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AwardScoreCommand'
+      responses:
+        '202':
+          description: Score award accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Participants
+  # ============================================
+  
+  /admin/participants:
+    get:
+      tags:
+        - Admin - Participants
+      summary: Query all participants
+      description: Retrieve all participants (CQRS Query)
+      operationId: getAllParticipants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [active, inactive, pending_approval]
+        - name: bettingGameId
+          in: query
+          description: Filter by game participation
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of participants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  participants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ParticipantReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Admin - Participants
+      summary: Create new participant
+      description: Register a new participant (CQRS Command)
+      operationId: createParticipant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateParticipantCommand'
+      responses:
+        '202':
+          description: Participant creation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/participants/{participantId}/approve:
+    post:
+      tags:
+        - Admin - Participants
+      summary: Approve participant registration
+      description: Approve a pending participant (CQRS Command)
+      operationId: approveParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveParticipantCommand'
+      responses:
+        '202':
+          description: Approval accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/games/{bettingGameId}/participants/pending:
+    get:
+      tags:
+        - Admin - Participants
+      summary: Query pending participants
+      description: View participants awaiting approval for a game (CQRS Query)
+      operationId: getPendingParticipants
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+      responses:
+        '200':
+          description: List of pending participants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pendingParticipants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ParticipantReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+# ============================================
+# COMPONENTS
+# ============================================
+
+components:
+  securitySchemes:
+    oidcAuth:
+      type: openIdConnect
+      openIdConnectUrl: https://auth.bettinggame.com/.well-known/openid-configuration
+      description: OIDC authentication
+    
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from OIDC provider
+
+  parameters:
+    ParticipantIdPath:
+      name: participantId
+      in: path
+      required: true
+      description: Participant identifier
+      schema:
+        type: integer
+    
+    BettingGameIdPath:
+      name: bettingGameId
+      in: path
+      required: true
+      description: Betting game identifier
+      schema:
+        type: integer
+    
+    EventIdPath:
+      name: eventId
+      in: path
+      required: true
+      description: Event identifier
+      schema:
+        type: integer
+    
+    PredictionIdPath:
+      name: predictionId
+      in: path
+      required: true
+      description: Prediction identifier
+      schema:
+        type: integer
+
+  schemas:
+    # ============================================
+    # READ MODELS (CQRS Queries)
+    # ============================================
+    
+    PredictionReadModel:
+      type: object
+      properties:
+        predictionId:
+          type: integer
+        participantId:
+          type: integer
+        eventId:
+          type: integer
+        eventName:
+          type: string
+        predictionData:
+          type: object
+          description: JSON structure containing the prediction details
+        submittedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, submitted, evaluated]
+        isEditable:
+          type: boolean
+        result:
+          type: object
+          nullable: true
+          properties:
+            resultData:
+              type: object
+            pointsEarned:
+              type: integer
+              nullable: true
+            prizeAmount:
+              type: number
+              format: decimal
+              nullable: true
+
+    ParticipantScoreReadModel:
+      type: object
+      properties:
+        scoreId:
+          type: integer
+        participantId:
+          type: integer
+        bettingGameId:
+          type: integer
+        bettingGameName:
+          type: string
+        eventId:
+          type: integer
+        eventName:
+          type: string
+        pointsEarned:
+          type: integer
+          nullable: true
+        prizeAmount:
+          type: number
+          format: decimal
+          nullable: true
+        calculatedAt:
+          type: string
+          format: date-time
+        rank:
+          type: integer
+          nullable: true
+
+    LeaderboardReadModel:
+      type: object
+      properties:
+        bettingGameId:
+          type: integer
+        bettingGameName:
+          type: string
+        rankings:
+          type: array
+          items:
+            type: object
+            properties:
+              rank:
+                type: integer
+              participantId:
+                type: integer
+              displayName:
+                type: string
+              totalPoints:
+                type: integer
+                nullable: true
+              totalPrizeAmount:
+                type: number
+                format: decimal
+                nullable: true
+              predictionsCount:
+                type: integer
+        updatedAt:
+          type: string
+          format: date-time
+
+    ParticipationReadModel:
+      type: object
+      properties:
+        participantId:
+          type: integer
+        bettingGameId:
+          type: integer
+        bettingGameName:
+          type: string
+        gameType:
+          type: string
+        status:
+          type: string
+          enum: [active, ended, pending_approval]
+        joinedAt:
+          type: string
+          format: date-time
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        currentPoints:
+          type: integer
+          nullable: true
+        currentPrizeAmount:
+          type: number
+          format: decimal
+          nullable: true
+        feesRequired:
+          type: boolean
+        feesPaid:
+          type: boolean
+
+    BettingGameReadModel:
+      type: object
+      properties:
+        bettingGameId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        gameType:
+          type: object
+          properties:
+            gameTypeId:
+              type: integer
+            typeName:
+              type: string
+            category:
+              type: string
+        status:
+          type: string
+          enum: [upcoming, active, ended, cancelled]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        baseFee:
+          type: number
+          format: decimal
+          nullable: true
+        feePeriodDays:
+          type: integer
+          nullable: true
+        participantCount:
+          type: integer
+        eventCount:
+          type: integer
+        configuration:
+          type: object
+          nullable: true
+          description: Points or prize distribution configuration
+        createdAt:
+          type: string
+          format: date-time
+
+    ParticipantReadModel:
+      type: object
+      properties:
+        participantId:
+          type: integer
+        userId:
+          type: integer
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, pending_approval]
+        registeredAt:
+          type: string
+          format: date-time
+        gamesParticipated:
+          type: integer
+        totalPoints:
+          type: integer
+        totalPrizes:
+          type: number
+          format: decimal
+
+    # ============================================
+    # COMMANDS (CQRS Write Models)
+    # ============================================
+    
+    SubmitPredictionCommand:
+      type: object
+      required:
+        - predictionData
+      properties:
+        predictionData:
+          type: object
+          description: Prediction details (structure varies by game type)
+          example:
+            homeScore: 2
+            awayScore: 1
+
+    UpdatePredictionCommand:
+      type: object
+      required:
+        - predictionData
+      properties:
+        predictionData:
+          type: object
+          description: Updated prediction details
+
+    JoinGameCommand:
+      type: object
+      properties:
+        acceptTerms:
+          type: boolean
+        paymentReference:
+          type: string
+          description: Payment reference if fee is required
+
+    CreateBettingGameCommand:
+      type: object
+      required:
+        - name
+        - gameTypeId
+        - startDate
+        - endDate
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        gameTypeId:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        baseFee:
+          type: number
+          format: decimal
+          nullable: true
+        feePeriodDays:
+          type: integer
+          nullable: true
+        pointConfiguration:
+          type: object
+          nullable: true
+          description: For sports games
+          properties:
+            pointsExactMatch:
+              type: integer
+            pointsCloseMatch:
+              type: integer
+            pointsPartialMatch:
+              type: integer
+            pointsWrong:
+              type: integer
+        prizeDistribution:
+          type: object
+          nullable: true
+          description: For lottery games
+          properties:
+            totalPrizePool:
+              type: number
+              format: decimal
+            distributionSchema:
+              type: string
+            rankPercentages:
+              type: string
+
+    EndGameCommand:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+        finalizeScores:
+          type: boolean
+          default: true
+
+    RecordResultCommand:
+      type: object
+      required:
+        - resultData
+      properties:
+        resultData:
+          type: object
+          description: Result details (structure varies by game type)
+          example:
+            homeScore: 3
+            awayScore: 2
+        source:
+          type: string
+          description: Source of the result data
+
+    UpdateResultCommand:
+      type: object
+      required:
+        - resultData
+      properties:
+        resultData:
+          type: object
+        reason:
+          type: string
+          description: Reason for updating the result
+
+    AwardScoreCommand:
+      type: object
+      required:
+        - bettingGameId
+        - eventId
+      properties:
+        bettingGameId:
+          type: integer
+        eventId:
+          type: integer
+        pointsEarned:
+          type: integer
+          nullable: true
+        prizeAmount:
+          type: number
+          format: decimal
+          nullable: true
+        reason:
+          type: string
+
+    CreateParticipantCommand:
+      type: object
+      required:
+        - userId
+        - displayName
+      properties:
+        userId:
+          type: integer
+        displayName:
+          type: string
+        autoApprove:
+          type: boolean
+          default: false
+
+    ApproveParticipantCommand:
+      type: object
+      required:
+        - approved
+      properties:
+        approved:
+          type: boolean
+        bettingGameId:
+          type: integer
+          description: Specific game to approve for (if applicable)
+        notes:
+          type: string
+
+    # ============================================
+    # COMMON SCHEMAS
+    # ============================================
+    
+    CommandResponse:
+      type: object
+      properties:
+        commandId:
+          type: string
+          format: uuid
+          description: Unique identifier for this command
+        status:
+          type: string
+          enum: [accepted, processing, completed]
+        message:
+          type: string
+        resourceId:
+          type: integer
+          nullable: true
+          description: ID of created/updated resource
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+        totalCount:
+          type: integer
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    BadRequestError:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

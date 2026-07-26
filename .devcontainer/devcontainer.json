@@ -1,0 +1,14 @@
+{
+    "name": "Betting Game PHP",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "php",
+    "workspaceFolder": "/var/www/html",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "felixbecker.php-intellisense",
+                "bmewburn.vscode-intelephense-client"
+            ]
+        }
+    }
+}

@@ -1,0 +1,66 @@
+# Alternative Caddyfile mit expliziter Konfiguration
+# Verwende diese, falls die Standard-Caddyfile nicht funktioniert
+
+{
+    admin off
+    auto_https off
+}
+
+:80 {
+    root * /var/www/html/public
+    
+    # Compression
+    encode gzip zstd
+    
+    # Security Headers
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Authorization, Content-Type, X-Correlation-ID"
+    }
+    
+    # CORS Preflight
+    @options method OPTIONS
+    respond @options 204
+    
+    # Try files first, then PHP
+    @phpFiles {
+        path *.php
+    }
+    
+    # For non-PHP files, try file server
+    @staticFiles {
+        not path *.php
+        file
+    }
+    
+    handle @staticFiles {
+        file_server
+    }
+    
+    # For PHP files
+    handle @phpFiles {
+        reverse_proxy php:9000 {
+            transport fastcgi
+        }
+    }
+    
+    # For all other requests, route to index.php
+    handle {
+        rewrite * /index.php
+        reverse_proxy php:9000 {
+            transport fastcgi
+        }
+    }
+    
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+}

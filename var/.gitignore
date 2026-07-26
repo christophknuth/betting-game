@@ -1,0 +1,8 @@
+# Ignore cache files
+*.cache
+
+# Ignore log files
+*.log
+
+# But keep directory structure
+!.gitkeep

@@ -1,0 +1,73 @@
+# Caddyfile for Betting Game API
+{
+    # Global options
+    admin off
+    auto_https off
+}
+
+:80 {
+    # Root directory
+    root * /var/www/html/public
+    
+    # Enable gzip compression
+    encode gzip zstd
+    
+    # Security headers
+    header {
+        # Remove Server header
+        -Server
+        
+        # Security headers
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # CORS headers (adjust for production)
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Authorization, Content-Type, X-Correlation-ID"
+    }
+    
+    # Handle OPTIONS requests for CORS preflight
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+    
+    # PHP-FPM configuration with try_files
+    php_fastcgi php:9000
+    
+    # Enable file server for static files
+    file_server
+    
+    # Logging
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# HTTPS configuration (uncomment for production with real domain)
+# yourdomain.com {
+#     root * /var/www/html/public
+#     encode gzip zstd
+#     
+#     php_fastcgi php:9000
+#     file_server
+#     
+#     # Security headers
+#     header {
+#         -Server
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "SAMEORIGIN"
+#         X-XSS-Protection "1; mode=block"
+#         Referrer-Policy "strict-origin-when-cross-origin"
+#     }
+#     
+#     log {
+#         output file /var/log/caddy/access.log
+#         format json
+#     }
+# }

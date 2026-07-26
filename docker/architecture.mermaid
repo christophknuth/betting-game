@@ -1,0 +1,51 @@
+graph TB
+    subgraph "Docker Host"
+        subgraph "betting-game-network"
+            Caddy["🌐 Caddy 2.7<br/>Port 8080, 8443<br/>Alpine"]
+            PHP["🐘 PHP-FPM 8.3<br/>Port 9000<br/>Alpine"]
+            MariaDB["🗄️ MariaDB 11.3<br/>Port 3306"]
+            PHPMyAdmin["📊 PHPMyAdmin<br/>Port 8081"]
+        end
+        
+        subgraph "Volumes"
+            DB_Data["db_data<br/>(Database)"]
+            Caddy_Data["caddy_data<br/>(Certificates)"]
+            Caddy_Config["caddy_config<br/>(Config)"]
+        end
+        
+        subgraph "Files"
+            App["📁 Application Code<br/>/var/www/html"]
+            Caddyfile["📄 Caddyfile"]
+            PHP_INI["📄 php.ini"]
+            FPM_CONF["📄 php-fpm.conf"]
+        end
+    end
+    
+    Client["👤 Client<br/>Browser/API Client"] -->|HTTP/HTTPS| Caddy
+    
+    Caddy -->|FastCGI| PHP
+    Caddy -.->|Mount| Caddyfile
+    Caddy -.->|Mount| App
+    
+    PHP -->|PDO| MariaDB
+    PHP -.->|Mount| App
+    PHP -.->|Mount| PHP_INI
+    PHP -.->|Mount| FPM_CONF
+    
+    PHPMyAdmin -->|MySQL Protocol| MariaDB
+    
+    MariaDB -.->|Persist| DB_Data
+    Caddy -.->|Persist| Caddy_Data
+    Caddy -.->|Persist| Caddy_Config
+    
+    style Caddy fill:#00ADD8,stroke:#00728B,color:#fff
+    style PHP fill:#777BB4,stroke:#4F5B93,color:#fff
+    style MariaDB fill:#003545,stroke:#00758F,color:#fff
+    style PHPMyAdmin fill:#F89A00,stroke:#C77700,color:#fff
+    style Client fill:#4CAF50,stroke:#388E3C,color:#fff
+    
+    classDef volume fill:#FFE082,stroke:#FFA000
+    classDef file fill:#B0BEC5,stroke:#607D8B
+    
+    class DB_Data,Caddy_Data,Caddy_Config volume
+    class App,Caddyfile,PHP_INI,FPM_CONF file

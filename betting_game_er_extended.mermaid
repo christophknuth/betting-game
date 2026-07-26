@@ -1,0 +1,184 @@
+erDiagram
+    %% Core Domain Tables (Projections)
+    User ||--|| Participant : "is assigned to"
+    Participant }o--o{ BettingGame : "participates in"
+    BettingGame ||--o{ Event : "contains"
+    Participant ||--o{ Prediction : "makes"
+    Event ||--o{ Prediction : "receives"
+    Event ||--o| Result : "has"
+    BettingGame ||--|| GameType : "has type"
+    BettingGame ||--o| PointConfiguration : "uses (sports)"
+    BettingGame ||--o| PrizeDistribution : "uses (lottery)"
+    Participant ||--o{ ParticipantScore : "earns"
+    BettingGame ||--o{ ParticipantScore : "awards"
+    Participant ||--o{ Fee : "pays"
+    BettingGame ||--o{ Fee : "requires"
+
+    %% Event Sourcing Tables
+    EventStore ||--o{ EventStream : "contains"
+    EventStream ||--o{ Snapshot : "has"
+    Participant ||--o{ EventStream : "owns stream"
+    BettingGame ||--o{ EventStream : "owns stream"
+    Prediction ||--o{ EventStream : "owns stream"
+    EventStore ||--|| EventPublisher : "publishes to"
+    EventPublisher ||--o{ ProjectionState : "updates"
+
+    User {
+        int user_id PK
+        string username UK
+        string password_hash
+        string email UK
+        datetime created_at
+        datetime last_login
+        boolean is_active
+    }
+
+    Participant {
+        int participant_id PK
+        int user_id FK
+        string display_name
+        datetime registered_at
+        boolean is_active
+        int version "Optimistic locking"
+    }
+
+    BettingGame {
+        int betting_game_id PK
+        string name
+        string description
+        int game_type_id FK
+        datetime start_date
+        datetime end_date
+        string status
+        decimal base_fee
+        int fee_period_days
+        datetime created_at
+        int version "Optimistic locking"
+    }
+
+    GameType {
+        int game_type_id PK
+        string type_name
+        string category
+        string description
+    }
+
+    Event {
+        int event_id PK
+        int betting_game_id FK
+        string event_name
+        string external_event_id
+        datetime event_date
+        string status
+        datetime deadline
+        string event_details
+        int version "Optimistic locking"
+    }
+
+    Prediction {
+        int prediction_id PK
+        int participant_id FK
+        int event_id FK
+        string prediction_data
+        datetime submitted_at
+        datetime updated_at
+        int version "Optimistic locking"
+    }
+
+    Result {
+        int result_id PK
+        int event_id FK
+        string result_data
+        datetime recorded_at
+        datetime updated_at
+        string source
+    }
+
+    PointConfiguration {
+        int config_id PK
+        int betting_game_id FK
+        string scoring_rule_name
+        int points_exact_match
+        int points_close_match
+        int points_partial_match
+        int points_wrong
+        string configuration_json
+    }
+
+    PrizeDistribution {
+        int distribution_id PK
+        int betting_game_id FK
+        decimal total_prize_pool
+        string distribution_schema
+        string rank_percentages
+        int min_winners
+        int max_winners
+    }
+
+    ParticipantScore {
+        int score_id PK
+        int participant_id FK
+        int betting_game_id FK
+        int event_id FK
+        int points_earned
+        decimal prize_amount
+        datetime calculated_at
+    }
+
+    Fee {
+        int fee_id PK
+        int participant_id FK
+        int betting_game_id FK
+        decimal amount
+        datetime period_start
+        datetime period_end
+        datetime paid_at
+        string payment_status
+        string payment_method
+    }
+
+    %% Event Sourcing Tables
+    EventStore {
+        bigint event_store_id PK
+        string aggregate_type
+        string aggregate_id
+        bigint version
+        string event_type
+        text event_data "JSON"
+        text metadata "JSON"
+        datetime occurred_at
+        string causation_id "Command ID"
+        string correlation_id "Trace ID"
+    }
+
+    EventStream {
+        string stream_id PK
+        string aggregate_type
+        string aggregate_id
+        bigint current_version
+        datetime created_at
+        datetime updated_at
+    }
+
+    Snapshot {
+        bigint snapshot_id PK
+        string stream_id FK
+        bigint version
+        text aggregate_state "JSON"
+        datetime created_at
+    }
+
+    ProjectionState {
+        string projection_name PK
+        bigint last_processed_position
+        string status
+        datetime updated_at
+        text error_message
+    }
+
+    EventPublisher {
+        bigint publisher_id PK
+        string event_type
+        bigint last_published_position
+        datetime last_published_at
+    }
