@@ -3,381 +3,239 @@
 Arbeitsdokument: Welche fachlichen Anforderungen bildet das System ab, über welchen
 Endpunkt, auf welchen Tabellen — und was davon ist bereits implementiert.
 
-Abgeleitet aus [betting_game_api.yaml](betting_game_api.yaml) (v1.1.0) und
-[betting_game_er_extended.mermaid](betting_game_er_extended.mermaid).
+Abgeleitet aus [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid).
 Stand: 2026-07-27.
+
+## Die Domäne
+
+Verwaltung einer **Lotterie-Tippgemeinschaft für Lotto 6 aus 49**.
+
+Jeder Teilnehmer hat pro Tippjahr **genau eine Tippreihe** aus sechs Zahlen. Sie gilt bis auf
+Widerruf und wandert automatisch auf jeden Tippschein — der Teilnehmer tippt nicht pro
+Ziehung, sondern einmal pro Jahr.
+
+Zum Monatsanfang reicht die Gemeinschaft alle aktiven Reihen als **einen gemeinsamen
+Tippschein** bei der Lottogesellschaft ein. Die Kosten dieses Scheins werden auf die
+Teilnehmer aufgeteilt und sind im Laufe des Monats zu zahlen.
+
+Gewinne fallen **je Ziehung für den Tippschein als Ganzes** an, werden über das Tippjahr
+gesammelt und am Jahresende **gleichmäßig auf alle Teilnehmer** ausgeschüttet — unabhängig
+davon, wie viele Perioden jemand bezahlt hat.
+
+Beitritt, Austritt und Änderung der Tippreihe sind regulär **nur zum Jahreswechsel** möglich,
+im Zuge der Jahresausschüttung.
+
+### Festlegungen
+
+| Frage | Entscheidung |
+|---|---|
+| Tippjahr | Frei definierbarer Zeitraum, kein Kalenderjahr — `TippYear.start_date`/`end_date` |
+| Gewinnverteilung | Gleichmäßig auf alle Teilnehmer des Tippjahres |
+| Tippreihe ändern | Nur zum Jahreswechsel (durchgesetzt über UK `(participant_id, tipp_year_id)`) |
+| Superzahl | Pro Tippschein, aus der Losnummer — eine Tippreihe sind nur die sechs Zahlen |
+
+## Ausbaustufen
+
+| Stufe | Inhalt |
+|---|---|
+| **Basis** | Lotto-Tippgemeinschaft. Teilnehmer nur lesend, Admin pflegt Reihen, Zahlungen, Ziehungen und Gewinne. |
+| **E1 — Selbstverwaltung** | Selbstregistrierung, Profil, eigene Reihenwahl, Beitritt/Austritt, Benachrichtigungen |
+| **E2 — Sportwetten** | Tippspiel auf Sportergebnisse: Ereignisse mit Tippschluss, Tipp je Ereignis, Punkte, Rangliste |
 
 ## Rollen
 
 | Rolle | Keycloak | Beschreibung |
 |---|---|---|
-| **Teilnehmer** | `user` | Tippt, sieht eigene Daten; `participant_id` kommt als JWT-Claim |
-| **Administrator** | `admin` | Verwaltet Spiele, Ereignisse, Ergebnisse, Teilnehmer, Gebühren |
-| **Betreiber** | `admin` | Betriebssicht auf Event Sourcing (Audit, Projektionen) |
-| **System** | — | Zeitgesteuerte Abläufe (Gebührenlauf, Deadline-Erinnerungen) |
+| **Teilnehmer** | `user` | Sieht in der Basis ausschließlich eigene Daten — kein Schreibzugriff |
+| **Administrator** | `admin` | Pflegt Tippjahr, Reihen, Tippscheine, Ziehungen, Gewinne und Zahlungen |
+| **Betreiber** | `admin` | Betriebssicht auf Event Sourcing |
 
 ## Status-Legende
 
 | Symbol | Bedeutung |
 |---|---|
-| 🟢 | Route + Handler + Persistenz vorhanden — über HTTP nutzbar |
-| 🟠 | Route erreichbar, **Handler ist noch ein Stub** — validiert und quittiert mit `202`, schreibt aber nichts |
-| 🔵 | In der API spezifiziert, noch nicht implementiert |
-
-Maßgeblich für 🟢 ist der Eintrag in [Router.php](src/Presentation/Router/Router.php)
-zusammen mit einem Handler, der tatsächlich persistiert. Der Routen-Bestand ist durch
-[RouterTest.php](tests/Unit/Presentation/RouterTest.php) abgesichert.
+| 🟢 | Route + Handler + Persistenz vorhanden |
+| 🟠 | Route erreichbar, Handler noch ein Stub |
+| 🔵 | Spezifiziert, noch nicht implementiert |
+| ♻️ | Bestehender Code direkt weiterverwendbar (siehe Migrationstabelle) |
 
 ---
 
-## Epic 1 — Registrierung & Profil
+# Basisversion
 
-| ID | Story | Endpunkt | ER-Modell | Status |
+## Teilnehmer — nur lesend
+
+| ID | Story | Endpunkt | Datenmodell | Status |
 |---|---|---|---|---|
-| **US-01** | Als **neuer Nutzer** möchte ich mich selbst als Teilnehmer registrieren, damit ich ohne Admin-Eingriff starten kann. | `POST /registrations` | **Participant** (`pending_approval`), **EventStream**, opt. **GameParticipation** | 🔵 |
-| **US-02** | Als **Teilnehmer** möchte ich mein Profil einsehen, damit ich meine hinterlegten Daten kenne. | `GET /participants/{id}` | **Participant** + **User** (optional) + Aggregate | 🔵 |
-| **US-03** | Als **Teilnehmer** möchte ich Anzeigename und Benachrichtigungseinstellungen ändern. | `PUT /participants/{id}` | **Participant**`.display_name`, `.version`; **NotificationPreference** | 🔵 |
-| **US-04** | Als **Teilnehmer** möchte ich meine personenbezogenen Daten exportieren (DSGVO Art. 20). | `GET /participants/{id}/data-export` | **Participant** + **GameParticipation** + **Prediction** + **ParticipantScore** + **Fee** | 🔵 |
-| **US-05** | Als **Teilnehmer** möchte ich die Löschung meiner Daten verlangen (DSGVO Art. 17). | `DELETE /participants/{id}` | Pseudonymisiert **Participant**, löst `user_id` — Tipps/Punkte bleiben anonymisiert erhalten | 🔵 |
-
-**Akzeptanzkriterien US-05:** Kein physisches Löschen (Event Sourcing); `409`, solange offene
-Gebühren bestehen.
-
----
-
-## Epic 2 — Spiele und Ereignisse entdecken
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-06** | Als **Teilnehmer** möchte ich beitrittsfähige Spiele finden, damit ich weiß, wo ich mitmachen kann. | `GET /games` | **BettingGame** + **GameType**, `joinable` aus **GameParticipation** | 🔵 |
-| **US-07** | Als **Teilnehmer** möchte ich Details und Gebührenbedingungen eines Spiels sehen, bevor ich beitrete. | `GET /games/{bettingGameId}` | **BettingGame**`.base_fee`, `.fee_period_days` | 🔵 |
-| **US-08** | Als **Teilnehmer** möchte ich die Ereignisse eines Spiels mit Tippschluss sehen, damit ich weiß, worauf ich tippen kann. | `GET /games/{bettingGameId}/events` | **Event** + eigene **Prediction** | 🔵 |
-
-**Warum zentral:** Ohne US-08 ist die Tippabgabe (Epic 3) blind — der Teilnehmer kennt die
-`event_id` sonst nicht. Diese Story war in v1.0 der größte Bruch im Ablauf.
-
----
-
-## Epic 3 — Tippabgabe
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-09** | Als **Teilnehmer** möchte ich für ein Ereignis einen Tipp abgeben, damit ich am Spiel teilnehme. | `POST /participants/{id}/events/{eventId}/predictions` | **Prediction** + **EventStream** (`aggregate_type='Prediction'`) | 🟢 |
-| **US-10** | Als **Teilnehmer** möchte ich meinen Tipp bis zum Tippschluss ändern, damit ich auf neue Infos reagieren kann. | `PUT /participants/{id}/predictions/{predictionId}` | **Prediction**`.prediction_data`, `.updated_at`, `.version` | 🟢 |
-| **US-11** | Als **Teilnehmer** möchte ich alle meine Tipps gefiltert einsehen, damit ich den Überblick behalte. | `GET /participants/{id}/predictions` | **Prediction** ⋈ **Event** ⋈ **Result** | 🟢 |
-| **US-12** | Als **Teilnehmer** möchte ich zu einem Tipp Ergebnis und Punkte sehen, damit ich die Bewertung nachvollziehe. | `GET /participants/{id}/predictions/{predictionId}` | + **Result**, **ParticipantScore** | 🟢 |
-| **US-13** | Als **Teilnehmer** möchte ich nach Tippschluss die Tipps der anderen sehen, damit das Mitfiebern funktioniert. | `GET /participants/{id}/events/{eventId}/predictions/peers` | **Prediction** aller Teilnehmer des Spiels ⋈ **Participant** | 🔵 |
-| **US-63** | Als **Administrator** möchte ich alle Tipps über alle Teilnehmer hinweg einsehen, damit ich Auffälligkeiten prüfen kann. | `GET /admin/predictions` | **Prediction** ohne Teilnehmerfilter, mit Pagination | 🟢 |
+| **B-01** | Als **Teilnehmer** möchte ich meine Tippreihe sehen, damit ich weiß, mit welchen Zahlen ich im laufenden Tippjahr spiele. | `GET /participants/{id}/bet-row` | **BetRow** ⋈ **TippYear** | 🔵 ♻️ |
+| **B-02** | Als **Teilnehmer** möchte ich meine Teilnahmen im laufenden Tippjahr sehen, damit ich weiß, auf welchen Tippscheinen meine Reihe stand. | `GET /participants/{id}/memberships` | **Membership** ⋈ **TippYear**, **TicketRow** ⋈ **Ticket** | 🔵 ♻️ |
+| **B-03** | Als **Teilnehmer** möchte ich meine Zahlungen sehen, damit ich weiß, welche Gebühren offen sind. | `GET /participants/{id}/fees` | **Fee** ⋈ **Ticket** | 🔵 ♻️ |
+| **B-04** | Als **Teilnehmer** möchte ich meinen anteiligen Gewinn des Tippjahres sehen, damit ich weiß, was ausgeschüttet wird. | `GET /participants/{id}/payout-share` | **PayoutShare** ⋈ **Payout** ⋈ **TippYear** | 🔵 |
+| **B-05** | Als **Teilnehmer** möchte ich den Gewinn des Tippscheins je Ziehung sehen, damit ich den Verlauf des Tippjahres nachvollziehen kann. | `GET /tipp-years/{id}/draws` | **Draw** ⋈ **TicketDrawResult** | 🔵 |
 
 **Akzeptanzkriterien:**
-- US-09: `409` bei überschrittener `Event.deadline`; UK `(participant_id, event_id)` verhindert Doppeltipp
-- US-10: `409` nach Deadline; Optimistic Locking über `Prediction.version`
-- US-13: `409`, solange `Event.deadline` in der Zukunft liegt — sonst wäre Abschreiben möglich
-- `status` (`pending`/`submitted`/`evaluated`) ist **kein Feld**, sondern abgeleitet aus Existenz von **Result**/**ParticipantScore**; `isEditable` aus `deadline` vs. `now()`
 
----
+- B-01: `404`, solange dem Teilnehmer für das laufende Tippjahr keine Reihe zugeordnet ist
+- B-02: enthält je Tippschein, ob die eigene Reihe darauf stand — bei unterjährigem Beitritt fehlt sie auf früheren Scheinen
+- B-04: `200` mit `amount: null`, solange die Jahresausschüttung nicht gebucht ist — die Story ist erst nach B-13 gehaltvoll
+- B-05: zeigt den Gewinn des **gesamten** Tippscheins, nicht den eigenen Anteil. Der Anteil entsteht erst bei der Ausschüttung
 
-## Epic 4 — Punkte, Gewinne, Rangliste
+## Administrator
 
-| ID | Story | Endpunkt | ER-Modell | Status |
+| ID | Story | Endpunkt | Datenmodell | Status |
 |---|---|---|---|---|
-| **US-14** | Als **Teilnehmer** möchte ich meine Punkte und Gewinne inkl. Summe sehen, damit ich meinen Erfolg einschätze. | `GET /participants/{id}/scores` | **ParticipantScore** ⋈ **BettingGame** ⋈ **Event**; Summary = `SUM`/`COUNT DISTINCT` | 🟢 |
-| **US-15** | Als **Teilnehmer** möchte ich die Rangliste eines Spiels sehen, damit ich meine Position kenne. | `GET /participants/{id}/games/{gameId}/leaderboard` | Aggregation **ParticipantScore** ⋈ **Participant** | 🟢 |
-| **US-16** | Als **Teilnehmer** möchte ich den Verlauf meiner Platzierung sehen, damit ich meine Entwicklung erkenne. | `.../leaderboard/history` | Zeitreihe über **ParticipantScore**`.calculated_at` | 🔵 |
-
-**Hinweis:** `rank` existiert in keiner Tabelle. Umgesetzt ist es in
-[LeaderboardReadModelRepository.php](src/Infrastructure/Persistence/LeaderboardReadModelRepository.php)
-als laufende Nummer über der sortierten Aggregation (`points DESC, prize DESC, name ASC`) —
-ohne Fensterfunktion, dafür deterministisch bei Punktegleichstand. `pointsEarned` und
-`prizeAmount` sind beide nullable, weil **ParticipantScore** Sport- **und** Lotteriespiele bedient.
-
----
-
-## Epic 5 — Spielteilnahme
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-17** | Als **Teilnehmer** möchte ich einem Spiel beitreten und Bedingungen akzeptieren, damit ich mittippen kann. | `POST /participants/{id}/games/{gameId}/participation` | **GameParticipation** (`joined_at`, `status`), opt. **Fee** | 🟢 |
-| **US-18** | Als **Teilnehmer** möchte ich ein Spiel verlassen, damit ich nicht weiter zahlungspflichtig bin. | `DELETE .../participation` | `GameParticipation.left_at`, `status='ended'` — kein DELETE | 🟢 |
-| **US-19** | Als **Teilnehmer** möchte ich alle meine Teilnahmen mit Status, Punktestand und Zahlungsstatus sehen. | `GET /participants/{id}/participations` | **GameParticipation** ⋈ **BettingGame** ⋈ **GameType** ⋈ **Fee** | 🟢 |
-
-**ER-Bezug:** Dieses Epic ist der Grund für die Zwischentabelle **GameParticipation** — die
-ursprüngliche `Participant }o--o{ BettingGame`-Beziehung konnte `joinedAt` und `status` nicht
-tragen. `409` bei US-17 entspricht dem UK `(participant_id, betting_game_id)`.
-
----
-
-## Epic 6 — Gebühren
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-20** | Als **Teilnehmer** möchte ich offene und bezahlte Gebühren mit Zeiträumen sehen, damit ich meinen Zahlungsstand kenne. | `GET /participants/{id}/fees` | **Fee** ⋈ **BettingGame** | 🔵 |
-| **US-21** | Als **Teilnehmer** möchte ich eine Zahlung mit Referenz melden, damit meine Gebühr als beglichen erfasst wird. | `POST /participants/{id}/fees/{feeId}/payment` | `Fee.payment_status='pending'`, `.payment_method` | 🔵 |
-| **US-22** | Als **Administrator** möchte ich alle Gebühren inkl. Rückstände sehen, damit ich die Abrechnung im Griff habe. | `GET /admin/fees` | **Fee** ⋈ **Participant** ⋈ **BettingGame** | 🔵 |
-| **US-23** | Als **Administrator** möchte ich Zahlungseingänge bestätigen oder Gebühren erlassen. | `PUT /admin/fees/{feeId}/payment` | `Fee.payment_status='paid'\|'waived'`, `.paid_at` | 🔵 |
-| **US-24** | Als **System** möchte ich periodisch Gebührensätze erzeugen, damit `feePeriodDays` fachlich wirksam wird. | `POST /admin/games/{gameId}/fees/generate` | **Fee** je aktiver **GameParticipation** | 🔵 |
-
-**Akzeptanzkriterien US-24:** idempotent je `periodStart` — ein zweiter Lauf für dieselbe
-Periode erzeugt keine Doppelgebühr. Aufruf durch Scheduler oder Admin.
-
-**Lücke im Bestand:** `BettingGame.base_fee` und `fee_period_days` existierten in v1.0 ohne
-jeden Prozess dahinter — die **Fee**-Tabelle war reine Datenhaltung ohne Endpunkt.
-
----
-
-## Epic 7 — Spielverwaltung (Admin)
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-25** | Als **Administrator** möchte ich ein Spiel mit Typ, Zeitraum, Gebühr und Regelwerk anlegen. | `POST /admin/games` | **BettingGame** + **PointConfiguration** *oder* **PrizeDistribution** | 🟢 |
-| **US-26** | Als **Administrator** möchte ich alle Spiele nach Status und Typ gefiltert sehen. | `GET /admin/games` | **BettingGame** ⋈ **GameType** | 🟢 |
-| **US-27** | Als **Administrator** möchte ich Spieldetails inkl. Teilnehmer- und Ereigniszahl sehen. | `GET /admin/games/{id}` | + `COUNT` **GameParticipation** / **Event** | 🟢 |
-| **US-28** | Als **Administrator** möchte ich ein Spiel nachträglich bearbeiten, damit Korrekturen möglich sind. | `PUT /admin/games/{id}` | **BettingGame**, **PointConfiguration**, **PrizeDistribution** | 🔵 |
-| **US-29** | Als **Administrator** möchte ich ein Spiel mit Begründung beenden und die Punktestände finalisieren. | `POST /admin/games/{id}/end` | `status='ended'`, Massenlauf **ParticipantScore** | 🟢 |
-| **US-30** | Als **Administrator** möchte ich ein Spiel absagen und Gebühren erstatten. | `POST /admin/games/{id}/cancel` | `status='cancelled'`, **GameParticipation** beenden, **Fee** erlassen | 🔵 |
-| **US-31** | Als **Administrator** möchte ich Ergebnisse und Salden exportieren, damit die Abrechnung außerhalb erfolgen kann. | `GET /admin/games/{id}/export` | **ParticipantScore** ⋈ **Fee** ⋈ **Participant** | 🔵 |
-
-**Akzeptanzkriterium US-28:** Änderungen an **PointConfiguration**/**PrizeDistribution**
-werden mit `409` abgelehnt, sobald **ParticipantScore**-Sätze existieren — bereits vergebene
-Punkte müssen reproduzierbar bleiben.
-
-**Regel ohne ER-Ausdruck:** Ob **PointConfiguration** oder **PrizeDistribution** zulässig ist,
-hängt von `GameType.category` ab. Das lässt sich im ER-Diagramm nicht darstellen und gehört
-in Applikationslogik bzw. Check-Constraint.
-
----
-
-## Epic 8 — Ereignisverwaltung (Admin)
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-32** | Als **Administrator** möchte ich Ereignisse mit Datum und Tippschluss zu einem Spiel anlegen. | `POST /admin/games/{gameId}/events` | **Event** | 🔵 |
-| **US-33** | Als **Administrator** möchte ich alle Ereignisse eines Spiels mit Tipp- und Ergebnisstand sehen. | `GET /admin/games/{gameId}/events` | **Event** ⋈ **Result**, `COUNT` **Prediction** | 🔵 |
-| **US-34** | Als **Administrator** möchte ich ein Ereignis einsehen und korrigieren. | `GET`/`PUT /admin/events/{eventId}` | **Event**`.version` | 🔵 |
-| **US-35** | Als **Administrator** möchte ich ein Ereignis absagen und die Punkte entwerten. | `POST /admin/events/{eventId}/cancel` | `Event.status='cancelled'`, **ParticipantScore** entwerten | 🔵 |
-| **US-36** | Als **Administrator** möchte ich Spielpläne aus einer externen Quelle importieren. | `POST /admin/games/{gameId}/events/import` | **Event** via `external_event_id` (Upsert) | 🔵 |
-
-**Warum blockierend:** v1.0 hatte für **Event** keinen einzigen Endpunkt, obwohl
-`BettingGame ||--o{ Event` die Achse des Datenmodells ist. Ohne dieses Epic lässt sich kein
-Spiel befüllen und damit kein Tipp abgeben. `external_event_id` existierte als Feld ohne
-zugehörigen Prozess.
+| **B-06** | Als **Administrator** möchte ich einem Teilnehmer eine Tippreihe zuordnen, damit er am Tippjahr teilnimmt. | `PUT /admin/participants/{id}/bet-row` | **BetRow** | 🔵 |
+| **B-07** | Als **Administrator** möchte ich den Zahlungsstatus eines Teilnehmers für eine Periode setzen, damit die Gebührenlage stimmt. | `PUT /admin/fees/{feeId}/payment` | `Fee.payment_status`, `.paid_at`, `.booked_by` | 🔵 ♻️ |
+| **B-08** | Als **Administrator** möchte ich eine Ziehung mit Zahlen und Superzahl eintragen. | `POST /admin/draws` | **Draw** | 🔵 |
+| **B-09** | Als **Administrator** möchte ich die Gewinne einer Ziehung eintragen, damit sie in die Jahressumme eingehen. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 🔵 |
 
 **Akzeptanzkriterien:**
-- US-32: `deadline <= eventDate`
-- US-34: `409`, sobald Tipps bewertet wurden
-- US-36: Matching über `externalEventId` → Wiederholung aktualisiert statt zu duplizieren
 
----
+- B-06: `409`, wenn für dieses Tippjahr bereits eine Reihe existiert — das ist die Durchsetzung der Regel „nur zum Jahreswechsel änderbar". Eine Korrektur braucht einen expliziten Ersetzungsgrund
+- B-06: genau sechs verschiedene Zahlen aus 1–49, aufsteigend gespeichert
+- B-08: `409` bei doppeltem Ziehungsdatum; Zahlen und Superzahl (0–9) werden gegen dieselben Regeln geprüft
+- B-09: rechnet aus `Draw.numbers` und den `TicketRow`-Snapshots die Treffer je Reihe (**TicketRowMatch**) und summiert den Scheingewinn
 
-## Epic 9 — Ergebnisse und Bewertung (Admin)
+## Implizit erforderlich
 
-| ID | Story | Endpunkt | ER-Modell | Status |
+Diese vier Stories stehen nicht in der Aufgabenliste, aber ohne sie können die Daten für
+B-01 bis B-09 gar nicht entstehen. Sie gehören in die Basis.
+
+| ID | Story | Endpunkt | Datenmodell | Status |
 |---|---|---|---|---|
-| **US-37** | Als **Administrator** möchte ich das Ergebnis eines Ereignisses mit Quellenangabe erfassen. | `POST /admin/events/{eventId}/results` | **Result** (UK auf `event_id`) | 🟢 |
-| **US-38** | Als **Administrator** möchte ich ein falsches Ergebnis mit Begründung korrigieren. | `PUT /admin/events/{eventId}/results` | **Result**`.updated_at`; Grund → `EventStore.metadata` | 🟢 |
-| **US-39** | Als **Administrator** möchte ich die Punkteberechnung für ein Ereignis auslösen. | `POST /admin/events/{eventId}/scores/calculate` | **Prediction** × **Result** × **PointConfiguration** → **ParticipantScore** | 🟠 |
-| **US-40** | Als **Administrator** möchte ich Punkte oder Gewinne manuell zuweisen, damit Sonderfälle lösbar sind. | `POST /admin/participants/{id}/scores` | **ParticipantScore** (Upsert wegen UK) | 🟠 |
+| **B-10** | Als **Administrator** möchte ich ein Tippjahr mit Zeitraum und Reihenpreis anlegen. | `POST /admin/tipp-years` | **TippYear** | 🔵 ♻️ |
+| **B-11** | Als **Administrator** möchte ich einen Teilnehmer in ein Tippjahr aufnehmen. | `POST /admin/tipp-years/{id}/members` | **Membership** | 🔵 ♻️ |
+| **B-12** | Als **Administrator** möchte ich den monatlichen Tippschein erfassen, damit Gebühren entstehen und Ziehungen zugeordnet werden können. | `POST /admin/tipp-years/{id}/tickets` | **Ticket**, **TicketRow**, **Fee** je Teilnehmer | 🔵 |
+| **B-13** | Als **Administrator** möchte ich die Jahresausschüttung buchen, damit jeder Teilnehmer seinen Anteil erhält. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | 🔵 |
 
-**Neu in v1.1:** `RecordResultCommand.autoCalculateScores` (Default `true`) — die Berechnung
-läuft direkt bei Ergebniserfassung. US-39 bleibt als manueller Nachlauf bestehen, etwa nach
-einer Ergebniskorrektur (US-38).
+**Akzeptanzkriterien:**
 
-**⚠️ US-39 und US-40 sind Stubs.** `CalculateScoresHandler` und `AwardScoreHandler` prüfen die
-Existenz von Ereignis bzw. Teilnehmer, werfen sauber `404` und quittieren mit `202` — schreiben
-aber **keinen ParticipantScore**. Die Endpunkte sind erreichbar und vertragskonform, fachlich
-passiert noch nichts. Solange das so ist, entstehen Punktestände ausschließlich über
-Testdaten oder direkte DB-Inserts.
+- B-12: bündelt alle Reihen mit aktiver **Membership**; `total_cost = row_count × draw_count × ticket_cost_per_row`; erzeugt je Teilnehmer eine **Fee** über `total_cost / row_count`
+- B-12: die Reihen werden als Snapshot in **TicketRow** kopiert — eine spätere Korrektur der **BetRow** verändert eingereichte Scheine nicht
+- B-13: `total_winnings` = Summe aller **TicketDrawResult** des Jahres; `share_per_participant = total_winnings / participant_count`; Rundungsdifferenz geht auf den ersten Anteil
+- B-13: `409`, wenn das Tippjahr nicht `closed` ist oder bereits eine Ausschüttung existiert
 
-**Akzeptanzkriterium US-40:** Kollidiert mit UK `(participant_id, event_id)` — muss als Upsert
-implementiert sein, nicht als Insert.
-
----
-
-## Epic 10 — Teilnehmerverwaltung (Admin)
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-41** | Als **Administrator** möchte ich alle Teilnehmer mit Status und Statistiken sehen. | `GET /admin/participants` | **Participant** + Aggregate | 🟢 |
-| **US-42** | Als **Administrator** möchte ich einen Teilnehmer anlegen, optional mit Sofortfreigabe. | `POST /admin/participants` | **Participant** + **EventStream** | 🟢 |
-| **US-43** | Als **Administrator** möchte ich einen Teilnehmer ohne Benutzerkonto anlegen (Gastspieler). | `POST /admin/participants` mit `userId: null` | `Participant.user_id` nullable | 🔵 |
-| **US-44** | Als **Administrator** möchte ich einem Gastspieler später ein Konto zuordnen. | `PUT /admin/participants/{id}/user-link` | `Participant.user_id` setzen (UK) | 🔵 |
-| **US-45** | Als **Administrator** möchte ich eine Kontoverknüpfung wieder lösen. | `DELETE /admin/participants/{id}/user-link` | `Participant.user_id = NULL` | 🔵 |
-| **US-46** | Als **Administrator** möchte ich Registrierungen freigeben oder ablehnen. | `POST /admin/participants/{id}/approve` | `Participant.is_active` bzw. `GameParticipation.status` | 🟢 |
-| **US-47** | Als **Administrator** möchte ich offene Freigaben für ein Spiel sehen. | `GET /admin/games/{gameId}/participants/pending` | **GameParticipation** `status='pending_approval'` | 🟢 |
-| **US-48** | Als **Administrator** möchte ich einen Teilnehmer sperren. | `POST /admin/participants/{id}/deactivate` | `Participant.is_active=false` | 🔵 |
-| **US-49** | Als **Administrator** möchte ich einen Teilnehmer aus einem Spiel entfernen. | `DELETE /admin/games/{gameId}/participants/{id}` | `GameParticipation.left_at`, `status='removed'` | 🔵 |
-
-**ER-Bezug US-43 bis US-45:** Die Beziehung ist `User |o--|| Participant` — ein Teilnehmer
-**kann** ein Konto haben, muss aber nicht. `CreateParticipantCommand.userId` wurde in v1.1
-entsprechend von `required` auf optional geändert.
-
-**Offene Abweichung:** Der PHP-seitige `CreateParticipantCommand` verlangt weiterhin ein
-`int $userId`. `POST /admin/participants` lehnt eine Anlage ohne `userId` deshalb mit `400` ab —
-US-43 bleibt offen, bis Command und `Participant::create()` einen nullbaren Wert annehmen.
-
----
-
-## Epic 11 — Stammdaten (Admin)
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-50** | Als **Administrator** möchte ich Spieltypen einsehen. | `GET /admin/game-types` | **GameType** | 🔵 |
-| **US-51** | Als **Administrator** möchte ich Spieltypen anlegen und pflegen. | `POST /admin/game-types`, `PUT /admin/game-types/{id}` | **GameType** | 🔵 |
-
-**Hinweis:** `category` ist auf `sports`/`lottery` festgelegt, weil daran die Auswahl zwischen
-**PointConfiguration** und **PrizeDistribution** hängt. Ein neuer Wert erfordert Codeänderung,
-nicht nur einen Stammdatensatz.
-
----
-
-## Epic 12 — Benachrichtigungen
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-52** | Als **Teilnehmer** möchte ich über nahende Tippschlüsse, neue Ergebnisse und fällige Gebühren informiert werden. | `GET /participants/{id}/notifications` | **Notification** ⋈ **EventStore** (`source_event_id`) | 🔵 |
-| **US-53** | Als **Teilnehmer** möchte ich Benachrichtigungen als gelesen markieren. | `POST .../notifications/{id}/read` | `Notification.read_at` | 🔵 |
-| **US-54** | Als **Teilnehmer** möchte ich Aktualisierungen live erhalten, statt zu pollen. | `GET .../notifications/stream` (SSE) | **EventPublisher** als Quelle, `Last-Event-ID` = Position | 🔵 |
-
-Das Einstellen der Benachrichtigungen (**NotificationPreference**) läuft über **US-03**,
-`PUT /participants/{id}` mit `notificationPreferences`.
-
-**ER-Bezug:** **Notification** ist eine Projektion — `source_event_id` zeigt auf den
-**EventStore**-Eintrag, der sie ausgelöst hat, und macht jede Benachrichtigung rückverfolgbar.
-**NotificationPreference** ist als eigene 0..1-Tabelle modelliert statt als Spalten am
-**Participant**, damit neue Kanäle (E-Mail, Push) ohne Schemaänderung am Kernaggregat
-hinzukommen können.
-
-**Warum wichtig:** Die gesamte Schreibseite antwortet mit `202 Accepted`. Ohne Rückkanal hat
-der Client keine Möglichkeit zu erfahren, wann eine Änderung wirksam wurde.
-
----
-
-## Epic 13 — Betrieb: CQRS und Event Sourcing
-
-| ID | Story | Endpunkt | ER-Modell | Status |
-|---|---|---|---|---|
-| **US-55** | Als **Client** möchte ich den Verarbeitungsstand eines akzeptierten Commands abfragen, damit ich nach `202` nicht blind bin. | `GET /commands/{commandId}` | **CommandLog**`.status` ⋈ **EventStore** | 🔵 |
-| **US-56** | Als **Client** möchte ich Commands mit `Idempotency-Key` senden, damit ein Retry keine Doppelbuchung erzeugt. | Header auf **allen** Commands | `CommandLog.idempotency_key` UK, `response_body` wird erneut ausgeliefert | 🔵 |
-| **US-57** | Als **Betreiber** möchte ich die Event-Historie eines Aggregats einsehen, damit jede Änderung nachvollziehbar ist. | `GET /admin/audit/{aggregateType}/{aggregateId}` | **EventStore** ⋈ **EventStream** | 🔵 |
-| **US-58** | Als **Betreiber** möchte ich Status und Lag aller Projektionen sehen. | `GET /admin/projections` | **ProjectionState** vs. **EventStore**-Head | 🔵 |
-| **US-59** | Als **Betreiber** möchte ich eine Projektion neu aufbauen, damit ich nach einem Bug korrigieren kann. | `POST /admin/projections/{name}/rebuild` | Replay **EventStore** → Lesetabellen, **Snapshot** | 🔵 |
-
-**Zusammenhang:** `CommandResponse.commandId` ist der PK von **CommandLog** und zugleich
-`EventStore.causation_id` — daher die Kante `CommandLog ||--o{ EventStore`. Ein Command kann
-mehrere Events erzeugen (Massenimport, Punkteberechnung), deshalb `o{` und nicht `o|`.
-`correlation_id` verbindet mehrere Aggregate zu einem Trace.
-
-**Akzeptanzkriterium US-56:** Trifft ein Command mit bereits bekanntem `idempotency_key` ein,
-wird das gespeicherte `response_body` unverändert zurückgegeben — kein zweiter Eintrag im
-**EventStore**.
-
----
-
-## Epic 14 — Sicherheit (querschnittlich)
+## Querschnitt
 
 | ID | Story | Umsetzung | Status |
 |---|---|---|---|
-| **US-60** | Als **Nutzer** möchte ich mich per SSO anmelden. | OIDC/Keycloak, JWT mit Claim `participant_id` — siehe [KEYCLOAK.md](KEYCLOAK.md) | 🟢 |
-| **US-61** | Als **Teilnehmer** möchte ich sicher sein, dass niemand meine Daten sieht. | `403`, wenn `participantId` im Pfad ≠ Claim | 🟢 |
-| **US-62** | Als **Betreiber** möchte ich den Admin-Bereich rollengeschützt wissen. | `realm_access.roles` muss `admin` enthalten | 🟢 |
+| **B-14** | Als **Nutzer** möchte ich mich per SSO anmelden. | OIDC/Keycloak, `participant_id` als JWT-Claim | 🟢 ♻️ |
+| **B-15** | Als **Teilnehmer** möchte ich sicher sein, dass niemand meine Daten sieht. | `403`, wenn `participantId` im Pfad ≠ Claim | 🟢 ♻️ |
+| **B-16** | Als **Betreiber** möchte ich den Adminbereich rollengeschützt wissen. | `realm_access.roles` enthält `admin` | 🟢 ♻️ |
 
 ---
 
-## Umsetzungsstand
+# E1 — Selbstverwaltung
 
-| Status | Anzahl | Anteil |
+Alles, was Teilnehmern Schreibzugriff auf ihre eigenen Daten gibt.
+
+| ID | Story | Endpunkt |
 |---|---|---|
-| 🟢 implementiert | 23 | 37 % |
-| 🟠 Route vorhanden, Handler ist Stub | 2 | 3 % |
-| 🔵 nur spezifiziert | 38 | 60 % |
-| **Summe** | **63** | |
+| **E1-01** | Selbstregistrierung als Teilnehmer | `POST /registrations` |
+| **E1-02** | Eigenes Profil sehen und ändern | `GET`/`PUT /participants/{id}` |
+| **E1-03** | Eigene Tippreihe zum Jahreswechsel selbst wählen | `PUT /participants/{id}/bet-row` |
+| **E1-04** | Beitritt zum nächsten Tippjahr beantragen | `POST /tipp-years/{id}/join-requests` |
+| **E1-05** | Austritt zum Jahresende erklären | `POST /tipp-years/{id}/leave-requests` |
+| **E1-06** | Zahlung selbst melden | `POST /participants/{id}/fees/{feeId}/payment` |
+| **E1-07** | Über fällige Gebühren, ausgewertete Ziehungen und die Ausschüttung benachrichtigt werden | `GET .../notifications`, SSE-Stream |
+| **E1-08** | Offene Tippgemeinschaften finden und einsehen | `GET /tipp-years` |
+| **E1-09** | Eigene Daten exportieren und Löschung verlangen (DSGVO) | `GET .../data-export`, `DELETE /participants/{id}` |
 
-### Nächste sinnvolle Schritte
+**Warum nicht in der Basis:** E1-03 bis E1-05 verschieben Entscheidungen vom Admin zum
+Teilnehmer und brauchen einen Genehmigungsfluss. In der Basis bucht der Admin alles direkt.
 
-1. **US-39 und US-40 ausimplementieren** — die Routen stehen, es fehlt die Persistenz in
-   **ParticipantScore**. Ohne Punkteberechnung bleibt die Rangliste (US-15) leer, obwohl sie
-   technisch funktioniert.
-2. **Epic 8 (Ereignisverwaltung)** — ohne diese Stories ist das System fachlich nicht
-   betreibbar, weil kein Spiel befüllt werden kann.
-3. **Epic 2 (Katalog)** — macht Epic 3 für Teilnehmer erst nutzbar.
-4. **Epic 13, US-55/56** — je länger die asynchrone Schreibseite ohne Statusabfrage und
-   Idempotenz läuft, desto teurer wird das Nachrüsten.
-5. **Epic 6 (Gebühren)** — vollständiger Lebenszyklus für eine Tabelle, die es schon gibt.
+---
 
-### Persistenz-Schicht
+# E2 — Sportwetten-Tippspiel
 
-Alle 13 Repository-Interfaces haben inzwischen eine Implementierung; **alle acht Controller
-lassen sich aus dem DI-Container auflösen**. Sieben Implementierungen sind nachträglich
-entstanden, weil sie schlicht fehlten:
+Das ursprüngliche Sportergebnis-Tippspiel als zweite Spielart neben der Lotterie.
 
-| Interface | Implementierung |
-|---|---|
-| `ParticipantRepositoryInterface` | war unvollständig (2 von 5 Methoden) — ergänzt |
-| `ResultRepositoryInterface` | [ResultRepository.php](src/Infrastructure/Persistence/ResultRepository.php) |
-| `LeaderboardReadModelRepositoryInterface` | [LeaderboardReadModelRepository.php](src/Infrastructure/Persistence/LeaderboardReadModelRepository.php) |
-| `PredictionRepositoryInterface` | [PredictionRepository.php](src/Infrastructure/Persistence/PredictionRepository.php) |
-| `BettingGameRepositoryInterface` | [BettingGameRepository.php](src/Infrastructure/Persistence/BettingGameRepository.php) |
-| `BettingGameReadModelRepositoryInterface` | [BettingGameReadModelRepository.php](src/Infrastructure/Persistence/BettingGameReadModelRepository.php) |
-| `ParticipationReadModelRepositoryInterface` | [ParticipationReadModelRepository.php](src/Infrastructure/Persistence/ParticipationReadModelRepository.php) |
-| `ParticipantReadModelRepositoryInterface` | [ParticipantReadModelRepository.php](src/Infrastructure/Persistence/ParticipantReadModelRepository.php) |
-| `AdminPredictionReadModelRepositoryInterface` | [AdminPredictionReadModelRepository.php](src/Infrastructure/Persistence/AdminPredictionReadModelRepository.php) |
-
-**Projektionslücke geschlossen:** `JoinGameHandler` schrieb bisher nur ein
-`ParticipantJoinedGame`-Event, ohne dass jemand **GameParticipation** befüllte — die Tabelle
-wäre dauerhaft leer geblieben und US-19 hätte immer eine leere Liste geliefert.
-`ParticipantRepository::save()` wendet Join-, Leave- und Approve-Events jetzt auf die
-Projektion an.
-
-Jede Repository-Methode hat inzwischen einen Aufrufer — US-27, US-41 und US-47 wurden
-nachträglich über Query-Handler, Controller-Methoden und Routen angeschlossen.
-
-### Offene Punkte
-
-| Problem | Auswirkung |
-|---|---|
-| `CalculateScoresHandler` und `AwardScoreHandler` sind Stubs | US-39 und US-40 quittieren mit `202`, ohne einen **ParticipantScore** zu schreiben |
-| `Infrastructure/Auth` und `Infrastructure/Logging` sind ungetestet | JWT-Auswertung und Rollenprüfung sind zu 0 % abgedeckt — sicherheitsrelevant |
-
-### Testabdeckung
-
-Gemessen mit pcov (`composer test-coverage`): **76 % Zeilenabdeckung** über 262 Tests.
-
-| Schicht | Abdeckung |
-|---|---|
-| Router | 100 % |
-| Command-Handler | 99 % |
-| Query-Handler | 99 % |
-| Domain-Modelle | 98 % |
-| Infrastructure/Persistence | 89 % |
-| Controller | 82 % |
-| Value Objects | 78 % |
-| Presentation/Http | 75 % |
-| Domain-Events | 72 % |
-| DI / Config | 65–69 % |
-| Cache | 49 % |
-| EventStore | 41 % |
-| **Auth / Logging** | **0 %** |
-
-Zwei Suites:
-
-- **Unit** (210 Tests) — Domain, Handler und Controller mit gemockten Repository-Interfaces.
-  Die Handler sind `final`, deshalb werden sie echt gebaut und nur die Interfaces darunter
-  gedoppelt; das testet Controller und Handler in einem Zug.
-- **Integration** (52 Tests) — die volle Kette Controller → Handler → Repository gegen eine
-  echte MariaDB. Ohne erreichbare Datenbank überspringt sich die Suite selbst, statt zu
-  scheitern. Verbindung über `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`;
-  die Werte in [phpunit.xml](phpunit.xml) sind Vorgaben, echte Umgebungsvariablen haben Vorrang.
-
-### ER-Erweiterungen aus v1.1
-
-Drei Entitäten wurden für die neuen Epics ergänzt und sind in
-[betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) enthalten:
-
-| Entität | Für | Zweck |
+| ID | Story | Endpunkt |
 |---|---|---|
-| **CommandLog** | Epic 13 | Command-Status nach `202`, Idempotenz über `idempotency_key` |
-| **Notification** | Epic 12 | Benachrichtigungsprojektion, rückverfolgbar über `source_event_id` |
-| **NotificationPreference** | Epic 12 | Pro Teilnehmer 0..1 Einstellungssatz |
+| **E2-01** | Spielart und Punkteregeln verwalten | `GET`/`POST /admin/game-types`, `PointConfiguration` |
+| **E2-02** | Sportereignisse mit Tippschluss anlegen und importieren | `POST /admin/games/{id}/events`, `.../events/import` |
+| **E2-03** | Tipp je Ereignis abgeben und bis Tippschluss ändern | `POST`/`PUT .../predictions` |
+| **E2-04** | Ergebnis erfassen und Punkte berechnen | `POST /admin/events/{id}/results`, `.../scores/calculate` |
+| **E2-05** | Rangliste eines Spiels sehen | `GET .../leaderboard` |
+| **E2-06** | Tipps der anderen nach Tippschluss sehen | `GET .../predictions/peers` |
+| **E2-07** | Spielkatalog durchsuchen | `GET /games`, `/games/{id}/events` |
 
-Damit umfasst das Modell 20 Entitäten und 27 Beziehungen; jede Beziehung hat einen
-korrespondierenden Fremdschlüssel.
+**Struktureller Unterschied zur Lotterie:** Dort ist ein Tipp `(Teilnehmer, Ereignis)` und pro
+Ereignis änderbar. In der Lotterie ist er `(Teilnehmer, Tippjahr)` und nur jährlich änderbar.
+Beide Modelle nebeneinander zu betreiben heißt, `BetRow` und `Prediction` als getrennte
+Aggregate zu führen — nicht, eines zu verallgemeinern.
+
+---
+
+# Betrieb (stufenübergreifend)
+
+| ID | Story | Endpunkt |
+|---|---|---|
+| **OPS-01** | Verarbeitungsstand eines Commands abfragen | `GET /commands/{commandId}` |
+| **OPS-02** | Commands mit `Idempotency-Key` wiederholen können | Header auf allen Commands |
+| **OPS-03** | Event-Historie eines Aggregats einsehen | `GET /admin/audit/{type}/{id}` |
+| **OPS-04** | Projektionen überwachen und neu aufbauen | `GET /admin/projections`, `.../rebuild` |
+
+---
+
+# Migration des bestehenden Codes
+
+Der Kurswechsel betrifft die Domäne, nicht die Architektur. CQRS, Event Sourcing,
+Repository-Struktur, HTTP-Schicht und Testgerüst bleiben unverändert.
+
+## Direkt weiterverwendbar
+
+| Baustein | Anmerkung |
+|---|---|
+| [Db.php](src/Infrastructure/Persistence/Db.php), [Row.php](src/Infrastructure/Persistence/Row.php) | Typisierter PDO-Zugriff — domänenneutral |
+| [Input.php](src/Presentation/Http/Input.php), [JsonResponse.php](src/Presentation/Http/JsonResponse.php), [Request.php](src/Presentation/Http/Request.php) | HTTP-Schicht — domänenneutral |
+| [Router.php](src/Presentation/Router/Router.php) | Struktur bleibt, nur die Routen ändern sich |
+| [Container.php](src/Infrastructure/DI/Container.php), [Config.php](src/Infrastructure/Config/Config.php) | Verdrahtung |
+| [PdoEventStore.php](src/Infrastructure/EventStore/PdoEventStore.php) | Event Store inkl. Optimistic Locking |
+| `Domain/Exception/*` | Ausnahmehierarchie |
+| [IntegrationTestCase.php](tests/Integration/IntegrationTestCase.php) | Testbasis inkl. Skip-Verhalten |
+| `Participant`, `User`, `Fee` | Fachlich unverändert; Fee bekommt `ticket_id` statt `betting_game_id` |
+
+## Umbenannt und umgebaut
+
+| Bisher | Wird zu | Änderung |
+|---|---|---|
+| `BettingGame` | **TippYear** | Zeitraum + Reihenpreis statt Spieltyp und Gebührenrhythmus |
+| `GameParticipation` | **Membership** | Bezug auf Tippjahr statt Spiel |
+| `Prediction` | **BetRow** | **Grundlegend**: kein `event_id` mehr, stattdessen `tipp_year_id`; sechs Zahlen statt freiem JSON; UK erzwingt eine Reihe pro Jahr |
+| `Event` | **Draw** | Ziehungsdatum, Zahlen, Superzahl — kein Tippschluss, weil nicht pro Ziehung getippt wird |
+| `Result` | Geht in **Draw** auf | Die Ziehung *ist* das Ergebnis. `TicketDrawResult` ist neu und meint den Gewinn, nicht das Ergebnis |
+| `ParticipantScore` | **TicketRowMatch** + **PayoutShare** | Treffer je Reihe und Ziehung einerseits, Jahresanteil andererseits |
+
+## Entfällt in der Basis, kehrt in E2 zurück
+
+`GameType`, `PointConfiguration`, `PrizeDistribution`, Leaderboard, Peer-Ansicht der Tipps und
+der gesamte Spielkatalog. Der Code bleibt im Repository, wird aber nicht mehr geroutet.
+
+## Neu
+
+**Ticket**, **TicketRow**, **TicketDrawResult**, **TicketRowMatch**, **Payout**, **PayoutShare**.
+Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprechung.
+
+## Auswirkung auf den Bestand
+
+| Bereich | Auswirkung |
+|---|---|
+| 262 Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2 |
+| [demo/](demo/) | Zeigt Prediction/Result — wird auf Tippreihe/Ziehung umgestellt |
+| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.0, 16 Operationen). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
+| PHPStan Level 10, PSR-12 | Unverändert gültig |
+
+---
+
+# Umsetzungsstand
+
+| Stufe | Stories | Implementiert |
+|---|---|---|
+| Basis | 16 | 3 (Querschnitt B-14 bis B-16) |
+| E1 | 9 | 0 |
+| E2 | 7 | teilweise vorhanden, aber nicht mehr geroutet |
+| Betrieb | 4 | 0 |
+
+Der bestehende Code deckt Sportwetten (E2) recht weit ab — für die Basisversion ist davon vor
+allem die Infrastruktur nutzbar, nicht die Fachlogik.

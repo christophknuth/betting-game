@@ -1,38 +1,57 @@
 erDiagram
-    %% Core Domain Tables (Projections)
-    User |o--|| Participant : "is assigned to"
-    Participant ||--o{ GameParticipation : "joins via"
-    BettingGame ||--o{ GameParticipation : "has members via"
-    BettingGame ||--o{ Event : "contains"
-    Participant ||--o{ Prediction : "makes"
-    Event ||--o{ Prediction : "receives"
-    Event ||--o| Result : "has"
-    BettingGame ||--|| GameType : "has type"
-    BettingGame ||--o| PointConfiguration : "uses (sports)"
-    BettingGame ||--o| PrizeDistribution : "uses (lottery)"
-    Participant ||--o{ ParticipantScore : "earns"
-    BettingGame ||--o{ ParticipantScore : "awards"
-    Event ||--o{ ParticipantScore : "scored for"
-    Participant ||--o{ Fee : "pays"
-    BettingGame ||--o{ Fee : "requires"
+    %% =====================================================================
+    %% BASISVERSION - Lotterie-Tippgemeinschaft (Lotto 6 aus 49)
+    %%
+    %% Kernidee: Jeder Teilnehmer hat pro Tippjahr GENAU EINE Tippreihe.
+    %% Diese wird monatlich auf einem gemeinsamen Tippschein eingereicht und
+    %% nimmt automatisch an allen Ziehungen des Monats teil. Gewinne werden
+    %% ueber das Tippjahr gesammelt und am Ende gleichmaessig ausgeschuettet.
+    %% =====================================================================
 
-    %% Event Sourcing Tables
+    %% --- Stammdaten ---
+    User |o--|| Participant : "is assigned to"
+
+    %% --- Tippjahr und Teilnahme ---
+    TippYear ||--o{ Membership : "has members"
+    Participant ||--o{ Membership : "participates in"
+
+    %% --- Tippreihe: eine je Teilnehmer und Tippjahr ---
+    TippYear ||--o{ BetRow : "scopes"
+    Participant ||--o{ BetRow : "owns"
+
+    %% --- Monatlicher Tippschein ---
+    TippYear ||--o{ Ticket : "is submitted as"
+    Ticket ||--o{ TicketRow : "carries"
+    BetRow ||--o{ TicketRow : "is printed as"
+
+    %% --- Ziehungen und Gewinne des Tippscheins ---
+    TippYear ||--o{ Draw : "covers"
+    Ticket ||--o{ TicketDrawResult : "wins in"
+    Draw ||--o{ TicketDrawResult : "produces"
+    TicketRow ||--o{ TicketRowMatch : "is evaluated as"
+    Draw ||--o{ TicketRowMatch : "evaluates"
+
+    %% --- Gebuehren ---
+    Ticket ||--o{ Fee : "is charged as"
+    Participant ||--o{ Fee : "owes"
+
+    %% --- Jahresausschuettung ---
+    TippYear ||--o| Payout : "is settled by"
+    Payout ||--o{ PayoutShare : "splits into"
+    Participant ||--o{ PayoutShare : "receives"
+
+    %% --- Event Sourcing ---
     EventStore ||--o{ EventStream : "contains"
     EventStream ||--o{ Snapshot : "has"
     Participant ||--o{ EventStream : "owns stream"
-    BettingGame ||--o{ EventStream : "owns stream"
-    Prediction ||--o{ EventStream : "owns stream"
+    TippYear ||--o{ EventStream : "owns stream"
+    BetRow ||--o{ EventStream : "owns stream"
+    Ticket ||--o{ EventStream : "owns stream"
+    Draw ||--o{ EventStream : "owns stream"
     EventStore ||--o{ EventPublisher : "publishes to"
     EventPublisher ||--o{ ProjectionState : "updates"
-
-    %% Command Tracking (idempotency + async status)
     CommandLog ||--o{ EventStore : "causes (causation_id)"
     Participant ||--o{ CommandLog : "issues"
-
-    %% Notifications (projection of the event store)
-    Participant ||--o{ Notification : "receives"
-    Participant ||--o| NotificationPreference : "configures"
-    EventStore ||--o{ Notification : "triggers"
 
     User {
         int user_id PK
@@ -53,116 +72,125 @@ erDiagram
         int version "Optimistic locking"
     }
 
-    GameParticipation {
-        int participation_id PK
-        int participant_id FK "UK(participant_id, betting_game_id)"
-        int betting_game_id FK
+    TippYear {
+        int tipp_year_id PK
+        string name "e.g. Tippjahr 2026"
+        date start_date "freely defined, not tied to the calendar"
+        date end_date
+        string status "planned / running / closed / distributed"
+        decimal ticket_cost_per_row "cost of one row per draw"
+        int version "Optimistic locking"
+        datetime created_at
+    }
+
+    Membership {
+        int membership_id PK
+        int participant_id FK "UK(participant_id, tipp_year_id)"
+        int tipp_year_id FK
         datetime joined_at
         datetime left_at "nullable"
-        string status
+        string status "active / ended"
         int version "Optimistic locking"
     }
 
-    BettingGame {
-        int betting_game_id PK
-        string name
-        string description
-        int game_type_id FK
-        datetime start_date
-        datetime end_date
-        string status
-        decimal base_fee
-        int fee_period_days
-        datetime created_at
+    BetRow {
+        int bet_row_id PK
+        int participant_id FK "UK(participant_id, tipp_year_id) - exactly one row per year"
+        int tipp_year_id FK
+        json numbers "JSONB - the six numbers, sorted ascending"
+        datetime assigned_at
         int version "Optimistic locking"
     }
 
-    GameType {
-        int game_type_id PK
-        string type_name
-        string category
-        string description
-    }
-
-    Event {
-        int event_id PK
-        int betting_game_id FK
-        string event_name
-        string external_event_id
-        datetime event_date
-        string status
-        datetime deadline
-        json event_details "JSONB - queryable/validated"
+    Ticket {
+        int ticket_id PK
+        int tipp_year_id FK "UK(tipp_year_id, period_start)"
+        date period_start "first day of the covered month"
+        date period_end
+        string lottery_reference "receipt id from the lottery operator"
+        int superzahl "0-9, from the ticket serial - applies to every row"
+        int row_count "rows on the ticket when it was submitted"
+        int draw_count "draws the ticket takes part in"
+        decimal total_cost
+        string status "draft / submitted / settled"
+        datetime submitted_at "nullable"
         int version "Optimistic locking"
     }
 
-    Prediction {
-        int prediction_id PK
-        int participant_id FK "UK(participant_id, event_id)"
-        int event_id FK
-        json prediction_data "JSONB - queryable/validated"
-        datetime submitted_at
-        datetime updated_at
+    TicketRow {
+        int ticket_row_id PK
+        int ticket_id FK "UK(ticket_id, bet_row_id)"
+        int bet_row_id FK
+        json numbers "JSONB - snapshot at submission time"
+    }
+
+    Draw {
+        int draw_id PK
+        int tipp_year_id FK
+        date draw_date "UK - Wednesday or Saturday"
+        json numbers "JSONB - the six drawn numbers"
+        int superzahl "0-9"
+        string status "scheduled / drawn / evaluated"
+        datetime recorded_at "nullable"
         int version "Optimistic locking"
     }
 
-    Result {
-        int result_id PK
-        int event_id FK "UK - max. one result per event"
-        json result_data "JSONB - queryable/validated"
+    TicketDrawResult {
+        int ticket_draw_result_id PK
+        int ticket_id FK "UK(ticket_id, draw_id)"
+        int draw_id FK
+        decimal total_amount "what the whole ticket won in this draw"
+        json winning_classes "JSONB - class -> count and amount"
         datetime recorded_at
-        datetime updated_at
-        string source
         int version "Optimistic locking"
     }
 
-    PointConfiguration {
-        int config_id PK
-        int betting_game_id FK "UK - max. one config per game"
-        string scoring_rule_name
-        int points_exact_match
-        int points_close_match
-        int points_partial_match
-        int points_wrong
-        json configuration_json "JSONB"
-    }
-
-    PrizeDistribution {
-        int distribution_id PK
-        int betting_game_id FK "UK - max. one distribution per game"
-        decimal total_prize_pool
-        string distribution_schema
-        json rank_percentages "JSONB"
-        int min_winners
-        int max_winners
-    }
-
-    ParticipantScore {
-        int score_id PK
-        int participant_id FK "UK(participant_id, event_id)"
-        int betting_game_id FK
-        int event_id FK
-        int points_earned
-        decimal prize_amount
+    TicketRowMatch {
+        int ticket_row_match_id PK
+        int ticket_row_id FK "UK(ticket_row_id, draw_id)"
+        int draw_id FK
+        int matched_numbers "0-6"
+        boolean superzahl_matched
+        int winning_class "nullable - 1..9, null when nothing was won"
+        decimal amount "share attributable to this row"
         datetime calculated_at
-        datetime updated_at
-        int version "Optimistic locking"
     }
 
     Fee {
         int fee_id PK
-        int participant_id FK "UK(participant_id, betting_game_id, period_start)"
-        int betting_game_id FK
-        decimal amount
-        datetime period_start
-        datetime period_end
-        datetime paid_at
-        string payment_status
-        string payment_method
+        int participant_id FK "UK(participant_id, ticket_id)"
+        int ticket_id FK
+        decimal amount "ticket cost divided by the participants on it"
+        date due_date
+        string payment_status "open / paid / waived"
+        datetime paid_at "nullable"
+        string payment_method "nullable"
+        string booked_by "admin who recorded the payment"
+        string note "nullable"
         int version "Optimistic locking"
     }
 
-    %% Event Sourcing Tables
+    Payout {
+        int payout_id PK
+        int tipp_year_id FK "UK - one distribution per year"
+        decimal total_winnings "sum over all TicketDrawResult of the year"
+        int participant_count "shares the total is split into"
+        decimal share_per_participant
+        datetime distributed_at
+        string booked_by
+        int version "Optimistic locking"
+    }
+
+    PayoutShare {
+        int payout_share_id PK
+        int payout_id FK "UK(payout_id, participant_id)"
+        int participant_id FK
+        decimal amount "equal share, independent of periods paid"
+        string payment_status "open / paid"
+        datetime paid_at "nullable"
+    }
+
+    %% --- Event Sourcing Tables ---
     EventStore {
         bigint event_store_id PK
         string aggregate_type "UK(aggregate_type, aggregate_id, version)"
@@ -209,7 +237,6 @@ erDiagram
         datetime last_published_at
     }
 
-    %% Command Tracking Table
     CommandLog {
         string command_id PK "UUID - returned as CommandResponse.commandId"
         string idempotency_key UK "nullable - client supplied, dedupes retries"
@@ -219,35 +246,10 @@ erDiagram
         string aggregate_id "nullable until resolved"
         string status "accepted / processing / completed / failed"
         bigint event_store_position "nullable - denormalised position of first resulting event"
-        int resource_id "nullable - created/updated resource"
+        int resource_id "nullable"
         json response_body "JSONB - replayed on idempotent retry"
         text error_message "nullable"
         string correlation_id "Trace ID - propagated to EventStore"
         datetime accepted_at
         datetime completed_at "nullable"
-    }
-
-    %% Notification Tables (read-side projection)
-    Notification {
-        bigint notification_id PK
-        int participant_id FK
-        string type "deadline_approaching / result_recorded / score_calculated / fee_due / participation_approved / game_ended"
-        string title
-        text message
-        json payload "JSONB - betting_game_id, event_id, fee_id, ..."
-        bigint source_event_id FK "nullable - EventStore entry that triggered it"
-        datetime created_at
-        datetime read_at "nullable"
-    }
-
-    NotificationPreference {
-        int preference_id PK
-        int participant_id FK "UK - max. one preference set per participant"
-        boolean deadline_reminder
-        int deadline_reminder_hours "lead time in hours"
-        boolean result_recorded
-        boolean score_calculated
-        boolean fee_due
-        datetime updated_at
-        int version "Optimistic locking"
     }
