@@ -8,27 +8,44 @@ use BettingGame\Domain\Repository\PredictionRepositoryInterface;
 use BettingGame\Domain\Repository\EventStoreInterface;
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
 use BettingGame\Domain\Repository\GameEventRepositoryInterface;
+use BettingGame\Domain\Repository\BettingGameRepositoryInterface;
 use BettingGame\Domain\Repository\ResultRepositoryInterface;
+use BettingGame\Application\Query\AdminPredictionReadModelRepositoryInterface;
+use BettingGame\Application\Query\BettingGameReadModelRepositoryInterface;
 use BettingGame\Application\Query\LeaderboardReadModelRepositoryInterface;
+use BettingGame\Application\Query\ParticipantReadModelRepositoryInterface;
+use BettingGame\Application\Query\ParticipationReadModelRepositoryInterface;
 use BettingGame\Application\Query\PredictionReadModelRepositoryInterface;
 use BettingGame\Application\Query\ScoreReadModelRepositoryInterface;
 use BettingGame\Application\Command\ApproveParticipantHandler;
 use BettingGame\Application\Command\AwardScoreHandler;
 use BettingGame\Application\Command\CalculateScoresHandler;
+use BettingGame\Application\Command\CreateBettingGameHandler;
 use BettingGame\Application\Command\CreateParticipantHandler;
+use BettingGame\Application\Command\EndGameHandler;
+use BettingGame\Application\Command\JoinGameHandler;
+use BettingGame\Application\Command\LeaveGameHandler;
 use BettingGame\Application\Command\RecordResultHandler;
 use BettingGame\Application\Command\SubmitPredictionHandler;
 use BettingGame\Application\Command\UpdatePredictionHandler;
 use BettingGame\Application\Command\UpdateResultHandler;
+use BettingGame\Application\Query\GetAllGamesHandler;
+use BettingGame\Application\Query\GetAllPredictionsHandler;
 use BettingGame\Application\Query\GetLeaderboardHandler;
 use BettingGame\Application\Query\GetParticipantPredictionsHandler;
 use BettingGame\Application\Query\GetParticipantScoresHandler;
+use BettingGame\Application\Query\GetParticipationsHandler;
 use BettingGame\Infrastructure\EventStore\PdoEventStore;
 use BettingGame\Infrastructure\Persistence\PredictionRepository;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
 use BettingGame\Infrastructure\Config\Config;
+use BettingGame\Infrastructure\Persistence\AdminPredictionReadModelRepository;
+use BettingGame\Infrastructure\Persistence\BettingGameReadModelRepository;
+use BettingGame\Infrastructure\Persistence\BettingGameRepository;
 use BettingGame\Infrastructure\Persistence\Db;
 use BettingGame\Infrastructure\Persistence\GameEventRepository;
+use BettingGame\Infrastructure\Persistence\ParticipantReadModelRepository;
+use BettingGame\Infrastructure\Persistence\ParticipationReadModelRepository;
 use BettingGame\Infrastructure\Persistence\LeaderboardReadModelRepository;
 use BettingGame\Infrastructure\Persistence\PredictionReadModelRepository;
 use BettingGame\Infrastructure\Persistence\ResultRepository;
@@ -37,8 +54,11 @@ use BettingGame\Infrastructure\Logging\LoggerFactory;
 use BettingGame\Infrastructure\Cache\FileCache;
 use BettingGame\Infrastructure\Auth\KeycloakService;
 use BettingGame\Infrastructure\Auth\AuthMiddleware;
+use BettingGame\Presentation\Controller\AdminGameController;
 use BettingGame\Presentation\Controller\AdminParticipantController;
+use BettingGame\Presentation\Controller\AdminPredictionController;
 use BettingGame\Presentation\Controller\AdminResultController;
+use BettingGame\Presentation\Controller\ParticipationController;
 use BettingGame\Presentation\Controller\PredictionController;
 use BettingGame\Presentation\Controller\ScoreController;
 use BettingGame\Presentation\Router\Router;
@@ -133,11 +153,17 @@ final class Container
             ParticipantRepositoryInterface::class => \DI\autowire(ParticipantRepository::class),
             GameEventRepositoryInterface::class => \DI\autowire(GameEventRepository::class),
             ResultRepositoryInterface::class => \DI\autowire(ResultRepository::class),
+            BettingGameRepositoryInterface::class => \DI\autowire(BettingGameRepository::class),
 
             // Read Model Repositories
             PredictionReadModelRepositoryInterface::class => \DI\autowire(PredictionReadModelRepository::class),
             ScoreReadModelRepositoryInterface::class => \DI\autowire(ScoreReadModelRepository::class),
             LeaderboardReadModelRepositoryInterface::class => \DI\autowire(LeaderboardReadModelRepository::class),
+            BettingGameReadModelRepositoryInterface::class => \DI\autowire(BettingGameReadModelRepository::class),
+            ParticipationReadModelRepositoryInterface::class => \DI\autowire(ParticipationReadModelRepository::class),
+            ParticipantReadModelRepositoryInterface::class => \DI\autowire(ParticipantReadModelRepository::class),
+            AdminPredictionReadModelRepositoryInterface::class
+                => \DI\autowire(AdminPredictionReadModelRepository::class),
 
             // Command Handlers
             SubmitPredictionHandler::class => \DI\autowire(),
@@ -148,17 +174,27 @@ final class Container
             AwardScoreHandler::class => \DI\autowire(),
             CreateParticipantHandler::class => \DI\autowire(),
             ApproveParticipantHandler::class => \DI\autowire(),
+            CreateBettingGameHandler::class => \DI\autowire(),
+            EndGameHandler::class => \DI\autowire(),
+            JoinGameHandler::class => \DI\autowire(),
+            LeaveGameHandler::class => \DI\autowire(),
 
             // Query Handlers
             GetParticipantPredictionsHandler::class => \DI\autowire(),
             GetParticipantScoresHandler::class => \DI\autowire(),
             GetLeaderboardHandler::class => \DI\autowire(),
+            GetAllGamesHandler::class => \DI\autowire(),
+            GetAllPredictionsHandler::class => \DI\autowire(),
+            GetParticipationsHandler::class => \DI\autowire(),
 
             // Controllers
             PredictionController::class => \DI\autowire(),
             ScoreController::class => \DI\autowire(),
             AdminResultController::class => \DI\autowire(),
             AdminParticipantController::class => \DI\autowire(),
+            AdminGameController::class => \DI\autowire(),
+            AdminPredictionController::class => \DI\autowire(),
+            ParticipationController::class => \DI\autowire(),
 
             // Router
             Router::class => \DI\autowire(),

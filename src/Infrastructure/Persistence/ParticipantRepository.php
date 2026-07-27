@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Domain\Event\DomainEvent;
+use BettingGame\Domain\Event\ParticipantApproved;
+use BettingGame\Domain\Event\ParticipantJoinedGame;
+use BettingGame\Domain\Event\ParticipantLeftGame;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\Repository\EventStoreInterface;
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
@@ -70,6 +74,69 @@ final class ParticipantRepository implements ParticipantRepositoryInterface
         // The projection version mirrors the stream version, so the next load
         // knows which version to expect when appending.
         $this->updateProjection($participant, $expectedVersion + count($events));
+        $this->projectParticipations($events);
+    }
+
+    /**
+     * Participation lives on the Participant aggregate but has its own read
+     * table, so the join/leave events have to be applied to it here. Without
+     * this, game_participation would never receive a row.
+     *
+     * @param list<DomainEvent> $events
+     */
+    private function projectParticipations(array $events): void
+    {
+        foreach ($events as $event) {
+            if ($event instanceof ParticipantJoinedGame) {
+                $this->db->execute(
+                    '
+                    INSERT INTO game_participation (participant_id, betting_game_id, joined_at, status)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        status = VALUES(status),
+                        joined_at = VALUES(joined_at),
+                        left_at = NULL
+                    ',
+                    [
+                        (int) $event->aggregateId(),
+                        $event->bettingGameId(),
+                        $event->occurredAt()->format('Y-m-d H:i:s'),
+                        'pending_approval',
+                    ]
+                );
+
+                continue;
+            }
+
+            if ($event instanceof ParticipantLeftGame) {
+                $this->db->execute(
+                    '
+                    UPDATE game_participation
+                    SET status = "ended", left_at = ?
+                    WHERE participant_id = ? AND betting_game_id = ?
+                    ',
+                    [
+                        $event->occurredAt()->format('Y-m-d H:i:s'),
+                        (int) $event->aggregateId(),
+                        $event->bettingGameId(),
+                    ]
+                );
+
+                continue;
+            }
+
+            if ($event instanceof ParticipantApproved) {
+                // Approval without a game applies to every pending participation
+                $this->db->execute(
+                    '
+                    UPDATE game_participation
+                    SET status = "active"
+                    WHERE participant_id = ? AND status = "pending_approval"
+                    ',
+                    [(int) $event->aggregateId()]
+                );
+            }
+        }
     }
 
     public function nextIdentity(): int
