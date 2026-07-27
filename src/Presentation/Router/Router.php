@@ -84,6 +84,12 @@ final class Router
                 'role' => 'admin'
             ]);
 
+            $r->addRoute('GET', '/admin/games/{bettingGameId:\d+}', [
+                'controller' => 'AdminGameController',
+                'method' => 'getGameDetails',
+                'role' => 'admin'
+            ]);
+
             $r->addRoute('POST', '/admin/games/{bettingGameId:\d+}/end', [
                 'controller' => 'AdminGameController',
                 'method' => 'endGame',
@@ -116,6 +122,12 @@ final class Router
             ]);
 
             // Admin - Participants
+            $r->addRoute('GET', '/admin/participants', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'getAllParticipants',
+                'role' => 'admin'
+            ]);
+
             $r->addRoute('POST', '/admin/participants', [
                 'controller' => 'AdminParticipantController',
                 'method' => 'createParticipant',
@@ -125,6 +137,12 @@ final class Router
             $r->addRoute('POST', '/admin/participants/{participantId:\d+}/approve', [
                 'controller' => 'AdminParticipantController',
                 'method' => 'approveParticipant',
+                'role' => 'admin'
+            ]);
+
+            $r->addRoute('GET', '/admin/games/{bettingGameId:\d+}/participants/pending', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'getPendingParticipants',
                 'role' => 'admin'
             ]);
 

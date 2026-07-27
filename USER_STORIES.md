@@ -131,7 +131,7 @@ jeden Prozess dahinter — die **Fee**-Tabelle war reine Datenhaltung ohne Endpu
 |---|---|---|---|---|
 | **US-25** | Als **Administrator** möchte ich ein Spiel mit Typ, Zeitraum, Gebühr und Regelwerk anlegen. | `POST /admin/games` | **BettingGame** + **PointConfiguration** *oder* **PrizeDistribution** | 🟢 |
 | **US-26** | Als **Administrator** möchte ich alle Spiele nach Status und Typ gefiltert sehen. | `GET /admin/games` | **BettingGame** ⋈ **GameType** | 🟢 |
-| **US-27** | Als **Administrator** möchte ich Spieldetails inkl. Teilnehmer- und Ereigniszahl sehen. | `GET /admin/games/{id}` | + `COUNT` **GameParticipation** / **Event** | 🔵 |
+| **US-27** | Als **Administrator** möchte ich Spieldetails inkl. Teilnehmer- und Ereigniszahl sehen. | `GET /admin/games/{id}` | + `COUNT` **GameParticipation** / **Event** | 🟢 |
 | **US-28** | Als **Administrator** möchte ich ein Spiel nachträglich bearbeiten, damit Korrekturen möglich sind. | `PUT /admin/games/{id}` | **BettingGame**, **PointConfiguration**, **PrizeDistribution** | 🔵 |
 | **US-29** | Als **Administrator** möchte ich ein Spiel mit Begründung beenden und die Punktestände finalisieren. | `POST /admin/games/{id}/end` | `status='ended'`, Massenlauf **ParticipantScore** | 🟢 |
 | **US-30** | Als **Administrator** möchte ich ein Spiel absagen und Gebühren erstatten. | `POST /admin/games/{id}/cancel` | `status='cancelled'`, **GameParticipation** beenden, **Fee** erlassen | 🔵 |
@@ -197,13 +197,13 @@ implementiert sein, nicht als Insert.
 
 | ID | Story | Endpunkt | ER-Modell | Status |
 |---|---|---|---|---|
-| **US-41** | Als **Administrator** möchte ich alle Teilnehmer mit Status und Statistiken sehen. | `GET /admin/participants` | **Participant** + Aggregate | 🔵 |
+| **US-41** | Als **Administrator** möchte ich alle Teilnehmer mit Status und Statistiken sehen. | `GET /admin/participants` | **Participant** + Aggregate | 🟢 |
 | **US-42** | Als **Administrator** möchte ich einen Teilnehmer anlegen, optional mit Sofortfreigabe. | `POST /admin/participants` | **Participant** + **EventStream** | 🟢 |
 | **US-43** | Als **Administrator** möchte ich einen Teilnehmer ohne Benutzerkonto anlegen (Gastspieler). | `POST /admin/participants` mit `userId: null` | `Participant.user_id` nullable | 🔵 |
 | **US-44** | Als **Administrator** möchte ich einem Gastspieler später ein Konto zuordnen. | `PUT /admin/participants/{id}/user-link` | `Participant.user_id` setzen (UK) | 🔵 |
 | **US-45** | Als **Administrator** möchte ich eine Kontoverknüpfung wieder lösen. | `DELETE /admin/participants/{id}/user-link` | `Participant.user_id = NULL` | 🔵 |
 | **US-46** | Als **Administrator** möchte ich Registrierungen freigeben oder ablehnen. | `POST /admin/participants/{id}/approve` | `Participant.is_active` bzw. `GameParticipation.status` | 🟢 |
-| **US-47** | Als **Administrator** möchte ich offene Freigaben für ein Spiel sehen. | `GET /admin/games/{gameId}/participants/pending` | **GameParticipation** `status='pending_approval'` | 🔵 |
+| **US-47** | Als **Administrator** möchte ich offene Freigaben für ein Spiel sehen. | `GET /admin/games/{gameId}/participants/pending` | **GameParticipation** `status='pending_approval'` | 🟢 |
 | **US-48** | Als **Administrator** möchte ich einen Teilnehmer sperren. | `POST /admin/participants/{id}/deactivate` | `Participant.is_active=false` | 🔵 |
 | **US-49** | Als **Administrator** möchte ich einen Teilnehmer aus einem Spiel entfernen. | `DELETE /admin/games/{gameId}/participants/{id}` | `GameParticipation.left_at`, `status='removed'` | 🔵 |
 
@@ -287,9 +287,9 @@ wird das gespeicherte `response_body` unverändert zurückgegeben — kein zweit
 
 | Status | Anzahl | Anteil |
 |---|---|---|
-| 🟢 implementiert | 20 | 32 % |
+| 🟢 implementiert | 23 | 37 % |
 | 🟠 Route vorhanden, Handler ist Stub | 2 | 3 % |
-| 🔵 nur spezifiziert | 41 | 65 % |
+| 🔵 nur spezifiziert | 38 | 60 % |
 | **Summe** | **63** | |
 
 ### Nächste sinnvolle Schritte
@@ -328,13 +328,15 @@ wäre dauerhaft leer geblieben und US-19 hätte immer eine leere Liste geliefert
 `ParticipantRepository::save()` wendet Join-, Leave- und Approve-Events jetzt auf die
 Projektion an.
 
+Jede Repository-Methode hat inzwischen einen Aufrufer — US-27, US-41 und US-47 wurden
+nachträglich über Query-Handler, Controller-Methoden und Routen angeschlossen.
+
 ### Offene Punkte
 
 | Problem | Auswirkung |
 |---|---|
-| `ParticipantReadModelRepositoryInterface` hat noch keinen Aufrufer | Query-Handler, Controller und Routen für US-41 und US-47 fehlen — das Repository ist fertig und getestet, aber über HTTP nicht erreichbar |
-| `BettingGameReadModelRepository::findById()` hat noch keinen Aufrufer | dito für US-27 (`GET /admin/games/{id}`) |
 | `PredictionControllerTest` mockt die `final` Klasse `SubmitPredictionHandler` | 7 Testfehler; entweder `final` entfernen oder gegen ein Interface mocken |
+| `CalculateScoresHandler` und `AwardScoreHandler` sind Stubs | US-39 und US-40 quittieren mit `202`, ohne einen **ParticipantScore** zu schreiben |
 
 ### ER-Erweiterungen aus v1.1
 

@@ -10,7 +10,10 @@ use BettingGame\Application\Command\EndGameCommand;
 use BettingGame\Application\Command\EndGameHandler;
 use BettingGame\Application\Query\GetAllGamesQuery;
 use BettingGame\Application\Query\GetAllGamesHandler;
+use BettingGame\Application\Query\GetGameDetailsHandler;
+use BettingGame\Application\Query\GetGameDetailsQuery;
 use BettingGame\Domain\Exception\DomainException;
+use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Presentation\Http\Input;
 use BettingGame\Presentation\Http\InvalidInputException;
 use BettingGame\Presentation\Http\JsonResponse;
@@ -21,7 +24,8 @@ final class AdminGameController
     public function __construct(
         private CreateBettingGameHandler $createGameHandler,
         private EndGameHandler $endGameHandler,
-        private GetAllGamesHandler $getAllGamesHandler
+        private GetAllGamesHandler $getAllGamesHandler,
+        private GetGameDetailsHandler $getGameDetailsHandler
     ) {
     }
 
@@ -38,6 +42,21 @@ final class AdminGameController
         try {
             $result = $this->getAllGamesHandler->handle($query);
             return JsonResponse::ok($result->data());
+        } catch (DomainException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
+    }
+
+    /** @param array<string, string> $params */
+    public function getGameDetails(Request $request, array $params): JsonResponse
+    {
+        $query = new GetGameDetailsQuery((int) $params['bettingGameId']);
+
+        try {
+            $result = $this->getGameDetailsHandler->handle($query);
+            return JsonResponse::ok($result->data());
+        } catch (EntityNotFoundException $e) {
+            return JsonResponse::notFound($e->getMessage());
         } catch (DomainException $e) {
             return JsonResponse::badRequest($e->getMessage());
         }

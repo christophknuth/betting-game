@@ -30,8 +30,11 @@ use BettingGame\Application\Command\SubmitPredictionHandler;
 use BettingGame\Application\Command\UpdatePredictionHandler;
 use BettingGame\Application\Command\UpdateResultHandler;
 use BettingGame\Application\Query\GetAllGamesHandler;
+use BettingGame\Application\Query\GetAllParticipantsHandler;
 use BettingGame\Application\Query\GetAllPredictionsHandler;
+use BettingGame\Application\Query\GetGameDetailsHandler;
 use BettingGame\Application\Query\GetLeaderboardHandler;
+use BettingGame\Application\Query\GetPendingParticipantsHandler;
 use BettingGame\Application\Query\GetParticipantPredictionsHandler;
 use BettingGame\Application\Query\GetParticipantScoresHandler;
 use BettingGame\Application\Query\GetParticipationsHandler;
@@ -186,6 +189,9 @@ final class Container
             GetAllGamesHandler::class => \DI\autowire(),
             GetAllPredictionsHandler::class => \DI\autowire(),
             GetParticipationsHandler::class => \DI\autowire(),
+            GetGameDetailsHandler::class => \DI\autowire(),
+            GetAllParticipantsHandler::class => \DI\autowire(),
+            GetPendingParticipantsHandler::class => \DI\autowire(),
 
             // Controllers
             PredictionController::class => \DI\autowire(),
