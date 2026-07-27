@@ -5,7 +5,18 @@ info:
     REST API for managing betting games with CQRS pattern.
     Supports sports betting and lottery-style games.
     Secured with OIDC and JWT tokens.
-  version: 1.0.0
+
+    ## Conventions
+
+    - **Queries** (`GET`) return `200` with a read model projected from the event store.
+    - **Commands** (`POST`/`PUT`/`DELETE`) return `202 Accepted` with a `CommandResponse`.
+      The write is appended to the event store; read models follow asynchronously.
+      Poll `GET /commands/{commandId}` to observe processing progress.
+    - All commands accept an **`Idempotency-Key`** header. Replaying a command with the
+      same key returns the original `CommandResponse` instead of producing a second write.
+    - Read models may lag behind accepted commands. Clients must not assume a `GET`
+      immediately after a `202` reflects the command.
+  version: 1.1.0
   contact:
     name: API Support
     email: support@bettinggame.com
@@ -21,20 +32,40 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: Registration
+    description: Self-service registration for new participants
+  - name: Catalog
+    description: Publicly discoverable betting games and events
+  - name: Participant - Profile
+    description: Participant operations for managing the own profile
   - name: Participant - Predictions
     description: Participant operations for managing predictions
   - name: Participant - Scores
     description: Participant operations for viewing scores and prizes
   - name: Participant - Participation
     description: Participant operations for managing game participation
+  - name: Participant - Fees
+    description: Participant operations for viewing and paying fees
+  - name: Participant - Notifications
+    description: Participant operations for deadline and result notifications
   - name: Admin - Predictions
     description: Administrator operations for viewing all predictions
   - name: Admin - Games
     description: Administrator operations for managing betting games
+  - name: Admin - Events
+    description: Administrator operations for managing events within a game
   - name: Admin - Results
     description: Administrator operations for managing results and scores
   - name: Admin - Participants
     description: Administrator operations for managing participants
+  - name: Admin - Fees
+    description: Administrator operations for managing fees and payments
+  - name: Admin - Game Types
+    description: Administrator operations for maintaining game type master data
+  - name: Operations - Commands
+    description: Command status tracking for the asynchronous write path
+  - name: Operations - Event Sourcing
+    description: Audit trail and projection management
 
 paths:
   # ============================================
@@ -124,6 +155,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ParticipantIdPath'
         - $ref: '#/components/parameters/PredictionIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -162,6 +194,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ParticipantIdPath'
         - $ref: '#/components/parameters/EventIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -315,6 +348,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ParticipantIdPath'
         - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -350,6 +384,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ParticipantIdPath'
         - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       responses:
         '202':
           description: Leave request accepted
@@ -472,6 +507,8 @@ paths:
       operationId: createBettingGame
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -517,6 +554,44 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundError'
 
+    put:
+      tags:
+        - Admin - Games
+      summary: Update betting game
+      description: |
+        Change name, description, schedule, fee terms or scoring configuration of a
+        game (CQRS Command). Scoring changes are rejected with `409` once scores have
+        been calculated, to keep already awarded points reproducible.
+      operationId: updateBettingGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBettingGameCommand'
+      responses:
+        '202':
+          description: Game update accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
   /admin/games/{bettingGameId}/end:
     post:
       tags:
@@ -528,6 +603,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -565,6 +641,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EventIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -595,6 +672,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EventIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -628,6 +706,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EventIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       responses:
         '202':
           description: Score calculation initiated
@@ -653,6 +732,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -723,6 +803,8 @@ paths:
       operationId: createParticipant
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -754,6 +836,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -804,6 +887,1348 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
 
+  # ============================================
+  # REGISTRATION (self-service)
+  # ============================================
+
+  /registrations:
+    post:
+      tags:
+        - Registration
+      summary: Register as participant
+      description: |
+        Self-service registration for an authenticated user who has no participant
+        profile yet (CQRS Command). Creates a Participant in state `pending_approval`
+        unless the target game allows auto-approval.
+      operationId: registerParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterParticipantCommand'
+      responses:
+        '202':
+          description: Registration accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  # ============================================
+  # CATALOG - discoverable games and events
+  # ============================================
+
+  /games:
+    get:
+      tags:
+        - Catalog
+      summary: Browse joinable betting games
+      description: |
+        Retrieve betting games that are open for participation (CQRS Query).
+        Available to every authenticated user, unlike `/admin/games`.
+      operationId: browseGames
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by game status
+          schema:
+            type: string
+            enum: [upcoming, active]
+            default: upcoming
+        - name: gameTypeId
+          in: query
+          schema:
+            type: integer
+        - name: joinable
+          in: query
+          description: Only games the caller may still join
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: List of games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameCatalogReadModel'
+                  totalCount:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /games/{bettingGameId}:
+    get:
+      tags:
+        - Catalog
+      summary: Query public game details
+      description: Public-facing details of a game including fee terms (CQRS Query)
+      operationId: getCatalogGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+      responses:
+        '200':
+          description: Game details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameCatalogReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /games/{bettingGameId}/events:
+    get:
+      tags:
+        - Catalog
+      summary: Query events of a game
+      description: |
+        Events belonging to a game with deadlines and the caller's own prediction
+        status (CQRS Query). This is the list a participant tips on.
+      operationId: getGameEvents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, open, closed, finished, cancelled]
+        - name: openForPrediction
+          in: query
+          description: Only events whose deadline has not passed
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventReadModel'
+                  totalCount:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # PARTICIPANT ENDPOINTS - Profile
+  # ============================================
+
+  /participants/{participantId}:
+    get:
+      tags:
+        - Participant - Profile
+      summary: Query own profile
+      description: Retrieve the participant's own profile (CQRS Query)
+      operationId: getParticipantProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+      responses:
+        '200':
+          description: Profile details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantProfileReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Participant - Profile
+      summary: Update own profile
+      description: Change the display name and notification preferences (CQRS Command)
+      operationId: updateParticipantProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateParticipantProfileCommand'
+      responses:
+        '202':
+          description: Profile update accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    delete:
+      tags:
+        - Participant - Profile
+      summary: Erase own participant data
+      description: |
+        Request erasure of personal data (GDPR Art. 17, CQRS Command).
+        Pseudonymises the participant and detaches the user account; scores and
+        predictions are retained in anonymised form so game history stays consistent.
+      operationId: eraseParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '202':
+          description: Erasure request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /participants/{participantId}/data-export:
+    get:
+      tags:
+        - Participant - Profile
+      summary: Export own personal data
+      description: Machine-readable export of all personal data (GDPR Art. 20, CQRS Query)
+      operationId: exportParticipantData
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+      responses:
+        '200':
+          description: Personal data export
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantDataExport'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # PARTICIPANT ENDPOINTS - Peer predictions
+  # ============================================
+
+  /participants/{participantId}/events/{eventId}/predictions/peers:
+    get:
+      tags:
+        - Participant - Predictions
+      summary: Query other participants' predictions
+      description: |
+        View the predictions of fellow participants for an event (CQRS Query).
+        Only available after `Event.deadline` has passed, so nobody can copy a tip.
+      operationId: getPeerPredictions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/EventIdPath'
+      responses:
+        '200':
+          description: Predictions of all participants in the game
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: integer
+                  deadline:
+                    type: string
+                    format: date-time
+                  predictions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PeerPredictionReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Deadline has not passed yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /participants/{participantId}/games/{bettingGameId}/leaderboard/history:
+    get:
+      tags:
+        - Participant - Scores
+      summary: Query leaderboard history
+      description: Rank and point development over time for a game (CQRS Query)
+      operationId: getLeaderboardHistory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - name: granularity
+          in: query
+          schema:
+            type: string
+            enum: [event, day, week]
+            default: event
+      responses:
+        '200':
+          description: Historical rankings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardHistoryReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # PARTICIPANT ENDPOINTS - Fees
+  # ============================================
+
+  /participants/{participantId}/fees:
+    get:
+      tags:
+        - Participant - Fees
+      summary: Query own fees
+      description: All fee records with period, amount and payment status (CQRS Query)
+      operationId: getParticipantFees
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - name: bettingGameId
+          in: query
+          schema:
+            type: integer
+        - name: paymentStatus
+          in: query
+          schema:
+            type: string
+            enum: [open, pending, paid, overdue, waived]
+      responses:
+        '200':
+          description: List of fees
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fees:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeeReadModel'
+                  summary:
+                    type: object
+                    properties:
+                      totalOpen:
+                        type: number
+                        format: decimal
+                      totalPaid:
+                        type: number
+                        format: decimal
+                      overdueCount:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /participants/{participantId}/fees/{feeId}/payment:
+    post:
+      tags:
+        - Participant - Fees
+      summary: Report a fee payment
+      description: |
+        Submit a payment reference for an open fee (CQRS Command).
+        Moves the fee to `pending` until an administrator confirms the incoming payment.
+      operationId: payFee
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/FeeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayFeeCommand'
+      responses:
+        '202':
+          description: Payment report accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  # ============================================
+  # PARTICIPANT ENDPOINTS - Notifications
+  # ============================================
+
+  /participants/{participantId}/notifications:
+    get:
+      tags:
+        - Participant - Notifications
+      summary: Query own notifications
+      description: |
+        Notifications about upcoming deadlines, recorded results, score changes
+        and due fees (CQRS Query).
+      operationId: getNotifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [deadline_approaching, result_recorded, score_calculated, fee_due, participation_approved, game_ended]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificationReadModel'
+                  unreadCount:
+                    type: integer
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /participants/{participantId}/notifications/{notificationId}/read:
+    post:
+      tags:
+        - Participant - Notifications
+      summary: Mark notification as read
+      operationId: markNotificationRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/NotificationIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '202':
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /participants/{participantId}/notifications/stream:
+    get:
+      tags:
+        - Participant - Notifications
+      summary: Subscribe to live notifications
+      description: |
+        Server-Sent Events stream pushed by the event publisher. Lets clients react to
+        asynchronously completed commands and newly recorded results without polling.
+      operationId: streamNotifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - name: Last-Event-ID
+          in: header
+          description: Resume the stream after this event store position
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream of notification events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Events (CQRS)
+  # ============================================
+
+  /admin/games/{bettingGameId}/events:
+    get:
+      tags:
+        - Admin - Events
+      summary: Query events of a game
+      description: All events of a betting game including result state (CQRS Query)
+      operationId: getGameEventsAdmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, open, closed, finished, cancelled]
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventAdminReadModel'
+                  totalCount:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    post:
+      tags:
+        - Admin - Events
+      summary: Create event
+      description: Add a new event to a betting game (CQRS Command)
+      operationId: createEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventCommand'
+      responses:
+        '202':
+          description: Event creation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /admin/games/{bettingGameId}/events/import:
+    post:
+      tags:
+        - Admin - Events
+      summary: Import events from an external source
+      description: |
+        Bulk import of a fixture list (CQRS Command). Events are matched on
+        `externalEventId`, so re-running an import updates instead of duplicating.
+      operationId: importEvents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportEventsCommand'
+      responses:
+        '202':
+          description: Import accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/events/{eventId}:
+    get:
+      tags:
+        - Admin - Events
+      summary: Query specific event
+      operationId: getEventDetails
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAdminReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Admin - Events
+      summary: Update event
+      description: |
+        Change name, date, deadline or details of an event (CQRS Command).
+        Rejected with `409` once predictions have been evaluated.
+      operationId: updateEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventCommand'
+      responses:
+        '202':
+          description: Event update accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /admin/events/{eventId}/cancel:
+    post:
+      tags:
+        - Admin - Events
+      summary: Cancel event
+      description: |
+        Cancel an event with a reason (CQRS Command). Sets `status='cancelled'` and
+        voids the associated scores; predictions are retained for the audit trail.
+      operationId: cancelEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EventIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelEventCommand'
+      responses:
+        '202':
+          description: Cancellation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Games (extensions)
+  # ============================================
+
+  /admin/games/{bettingGameId}/cancel:
+    post:
+      tags:
+        - Admin - Games
+      summary: Cancel a betting game
+      description: |
+        Cancel a game before or during its runtime (CQRS Command). Sets
+        `status='cancelled'`, ends all participations and optionally refunds fees.
+      operationId: cancelBettingGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelGameCommand'
+      responses:
+        '202':
+          description: Cancellation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /admin/games/{bettingGameId}/export:
+    get:
+      tags:
+        - Admin - Games
+      summary: Export game results
+      description: Export scores, prizes and fees of a game for external settlement
+      operationId: exportGameResults
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+      responses:
+        '200':
+          description: Export file
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameExportReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/games/{bettingGameId}/participants/{participantId}:
+    delete:
+      tags:
+        - Admin - Participants
+      summary: Remove participant from a game
+      description: |
+        End a participation administratively (CQRS Command). Sets
+        `GameParticipation.left_at` and `status='removed'`; no physical delete.
+      operationId: removeParticipantFromGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveParticipantCommand'
+      responses:
+        '202':
+          description: Removal accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Fees
+  # ============================================
+
+  /admin/fees:
+    get:
+      tags:
+        - Admin - Fees
+      summary: Query all fees
+      description: Fee records across participants and games, including arrears (CQRS Query)
+      operationId: getAllFees
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bettingGameId
+          in: query
+          schema:
+            type: integer
+        - name: participantId
+          in: query
+          schema:
+            type: integer
+        - name: paymentStatus
+          in: query
+          schema:
+            type: string
+            enum: [open, pending, paid, overdue, waived]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of fees
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fees:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeeReadModel'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/fees/{feeId}/payment:
+    put:
+      tags:
+        - Admin - Fees
+      summary: Confirm or waive a fee payment
+      description: Record an incoming payment or waive the fee (CQRS Command)
+      operationId: recordFeePayment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FeeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordFeePaymentCommand'
+      responses:
+        '202':
+          description: Payment record accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/games/{bettingGameId}/fees/generate:
+    post:
+      tags:
+        - Admin - Fees
+      summary: Generate fees for a period
+      description: |
+        Create fee records for all active participants of a game based on
+        `baseFee` and `feePeriodDays` (CQRS Command). Idempotent per period:
+        re-running for the same `periodStart` does not duplicate fees.
+      operationId: generateFees
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BettingGameIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateFeesCommand'
+      responses:
+        '202':
+          description: Fee generation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Participants (extensions)
+  # ============================================
+
+  /admin/participants/{participantId}/deactivate:
+    post:
+      tags:
+        - Admin - Participants
+      summary: Deactivate or block a participant
+      description: Set `is_active = false` with a reason (CQRS Command)
+      operationId: deactivateParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateParticipantCommand'
+      responses:
+        '202':
+          description: Deactivation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/participants/{participantId}/user-link:
+    put:
+      tags:
+        - Admin - Participants
+      summary: Link participant to a user account
+      description: |
+        Attach a user account to a guest participant that was created without one
+        (CQRS Command). Reflects the optional `User 0..1 Participant` relation.
+      operationId: linkParticipantUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkParticipantUserCommand'
+      responses:
+        '202':
+          description: Link accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+    delete:
+      tags:
+        - Admin - Participants
+      summary: Detach user account from participant
+      description: Turn an account-bound participant back into a guest participant (CQRS Command)
+      operationId: unlinkParticipantUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '202':
+          description: Unlink accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # ADMIN ENDPOINTS - Game Types (master data)
+  # ============================================
+
+  /admin/game-types:
+    get:
+      tags:
+        - Admin - Game Types
+      summary: Query game types
+      operationId: getGameTypes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [sports, lottery]
+      responses:
+        '200':
+          description: List of game types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  gameTypes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameTypeReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Admin - Game Types
+      summary: Create game type
+      operationId: createGameType
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameTypeCommand'
+      responses:
+        '202':
+          description: Game type creation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/game-types/{gameTypeId}:
+    put:
+      tags:
+        - Admin - Game Types
+      summary: Update game type
+      operationId: updateGameType
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GameTypeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGameTypeCommand'
+      responses:
+        '202':
+          description: Game type update accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # OPERATIONS - Command tracking
+  # ============================================
+
+  /commands/{commandId}:
+    get:
+      tags:
+        - Operations - Commands
+      summary: Query command status
+      description: |
+        Track the asynchronous processing of a previously accepted command.
+        `commandId` is the value returned in `CommandResponse` and stored as
+        `EventStore.causation_id`.
+      operationId: getCommandStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommandIdPath'
+      responses:
+        '200':
+          description: Command status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandStatusReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # OPERATIONS - Event sourcing
+  # ============================================
+
+  /admin/audit/{aggregateType}/{aggregateId}:
+    get:
+      tags:
+        - Operations - Event Sourcing
+      summary: Query the audit trail of an aggregate
+      description: |
+        Ordered event history from the event store, including `causationId` and
+        `correlationId`, so every state change can be traced back to its command.
+      operationId: getAuditTrail
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AggregateTypePath'
+        - $ref: '#/components/parameters/AggregateIdPath'
+        - name: fromVersion
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: toVersion
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: correlationId
+          in: query
+          description: Filter to a single trace across aggregates
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aggregateType:
+                    type: string
+                  aggregateId:
+                    type: string
+                  currentVersion:
+                    type: integer
+                    format: int64
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEventReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/projections:
+    get:
+      tags:
+        - Operations - Event Sourcing
+      summary: Query projection health
+      description: |
+        Status, last processed position and replication lag of every read model
+        projection. The operational view on `ProjectionState`.
+      operationId: getProjectionStates
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Projection states
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectionStateReadModel'
+                  eventStorePosition:
+                    type: integer
+                    format: int64
+                    description: Latest position in the event store
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/projections/{projectionName}/rebuild:
+    post:
+      tags:
+        - Operations - Event Sourcing
+      summary: Rebuild a projection
+      description: |
+        Replay the event store into a read model, either fully or from a given
+        position (CQRS Command). Used after a projection bug or schema change.
+      operationId: rebuildProjection
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectionNamePath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RebuildProjectionCommand'
+      responses:
+        '202':
+          description: Rebuild initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
 # ============================================
 # COMPONENTS
 # ============================================
@@ -853,6 +2278,76 @@ components:
       description: Prediction identifier
       schema:
         type: integer
+
+    FeeIdPath:
+      name: feeId
+      in: path
+      required: true
+      description: Fee identifier
+      schema:
+        type: integer
+
+    NotificationIdPath:
+      name: notificationId
+      in: path
+      required: true
+      description: Notification identifier
+      schema:
+        type: integer
+
+    GameTypeIdPath:
+      name: gameTypeId
+      in: path
+      required: true
+      description: Game type identifier
+      schema:
+        type: integer
+
+    CommandIdPath:
+      name: commandId
+      in: path
+      required: true
+      description: Command identifier returned by a CommandResponse
+      schema:
+        type: string
+        format: uuid
+
+    AggregateTypePath:
+      name: aggregateType
+      in: path
+      required: true
+      description: Aggregate type of the event stream
+      schema:
+        type: string
+        enum: [Participant, BettingGame, Prediction, Event, Result, Fee]
+
+    AggregateIdPath:
+      name: aggregateId
+      in: path
+      required: true
+      description: Aggregate identifier within the stream
+      schema:
+        type: string
+
+    ProjectionNamePath:
+      name: projectionName
+      in: path
+      required: true
+      description: Name of the read model projection
+      schema:
+        type: string
+
+    IdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Client-generated key that makes a command safe to retry. Replaying a command
+        with the same key returns the original CommandResponse without writing a
+        second event to the event store.
+      schema:
+        type: string
+        format: uuid
 
   schemas:
     # ============================================
@@ -1049,6 +2544,8 @@ components:
           type: integer
         userId:
           type: integer
+          nullable: true
+          description: Null for guest participants without a user account
         displayName:
           type: string
         status:
@@ -1149,8 +2646,19 @@ components:
               format: decimal
             distributionSchema:
               type: string
+            minWinners:
+              type: integer
+            maxWinners:
+              type: integer
             rankPercentages:
-              type: string
+              type: array
+              items:
+                type: object
+                properties:
+                  rank:
+                    type: integer
+                  percentage:
+                    type: number
 
     EndGameCommand:
       type: object
@@ -1177,6 +2685,13 @@ components:
         source:
           type: string
           description: Source of the result data
+        autoCalculateScores:
+          type: boolean
+          default: true
+          description: |
+            Trigger score calculation for all predictions of this event immediately.
+            Set to false to review the result first and call
+            POST /admin/events/{eventId}/scores/calculate manually.
 
     UpdateResultCommand:
       type: object
@@ -1212,11 +2727,14 @@ components:
     CreateParticipantCommand:
       type: object
       required:
-        - userId
         - displayName
       properties:
         userId:
           type: integer
+          nullable: true
+          description: |
+            Optional. Omit to create a guest participant without a user account;
+            an account can be attached later via PUT /admin/participants/{id}/user-link.
         displayName:
           type: string
         autoApprove:
@@ -1235,6 +2753,779 @@ components:
           description: Specific game to approve for (if applicable)
         notes:
           type: string
+
+    # ============================================
+    # READ MODELS - Catalog, events, profile
+    # ============================================
+
+    GameCatalogReadModel:
+      type: object
+      description: Public-facing view of a betting game, projected for discovery
+      properties:
+        bettingGameId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        gameType:
+          $ref: '#/components/schemas/GameTypeReadModel'
+        status:
+          type: string
+          enum: [upcoming, active, ended, cancelled]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        baseFee:
+          type: number
+          format: decimal
+          nullable: true
+        feePeriodDays:
+          type: integer
+          nullable: true
+        participantCount:
+          type: integer
+        eventCount:
+          type: integer
+        requiresApproval:
+          type: boolean
+        joinable:
+          type: boolean
+          description: Whether the calling participant may still join
+        alreadyJoined:
+          type: boolean
+
+    EventReadModel:
+      type: object
+      description: Event as seen by a participant, including own prediction state
+      properties:
+        eventId:
+          type: integer
+        bettingGameId:
+          type: integer
+        eventName:
+          type: string
+        eventDate:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, open, closed, finished, cancelled]
+        eventDetails:
+          type: object
+          description: JSON structure describing the event (teams, draw, ...)
+        openForPrediction:
+          type: boolean
+        ownPrediction:
+          type: object
+          nullable: true
+          properties:
+            predictionId:
+              type: integer
+            predictionData:
+              type: object
+            submittedAt:
+              type: string
+              format: date-time
+        resultAvailable:
+          type: boolean
+
+    EventAdminReadModel:
+      allOf:
+        - $ref: '#/components/schemas/EventReadModel'
+        - type: object
+          properties:
+            externalEventId:
+              type: string
+              nullable: true
+            predictionCount:
+              type: integer
+            scoresCalculated:
+              type: boolean
+            result:
+              type: object
+              nullable: true
+              properties:
+                resultId:
+                  type: integer
+                resultData:
+                  type: object
+                source:
+                  type: string
+                recordedAt:
+                  type: string
+                  format: date-time
+                updatedAt:
+                  type: string
+                  format: date-time
+            version:
+              type: integer
+              description: Optimistic locking version
+
+    ParticipantProfileReadModel:
+      type: object
+      properties:
+        participantId:
+          type: integer
+        userId:
+          type: integer
+          nullable: true
+          description: Null for guest participants without an account
+        displayName:
+          type: string
+        email:
+          type: string
+          nullable: true
+          description: Taken from the linked user account, if any
+        isActive:
+          type: boolean
+        registeredAt:
+          type: string
+          format: date-time
+        notificationPreferences:
+          $ref: '#/components/schemas/NotificationPreferences'
+        gamesParticipated:
+          type: integer
+        totalPoints:
+          type: integer
+        totalPrizes:
+          type: number
+          format: decimal
+        openFeeAmount:
+          type: number
+          format: decimal
+
+    NotificationPreferences:
+      type: object
+      properties:
+        deadlineReminder:
+          type: boolean
+          default: true
+        deadlineReminderHours:
+          type: integer
+          default: 24
+          description: Lead time of the deadline reminder
+        resultRecorded:
+          type: boolean
+          default: true
+        scoreCalculated:
+          type: boolean
+          default: true
+        feeDue:
+          type: boolean
+          default: true
+
+    PeerPredictionReadModel:
+      type: object
+      description: Another participant's prediction, disclosed only after the deadline
+      properties:
+        participantId:
+          type: integer
+        displayName:
+          type: string
+        predictionData:
+          type: object
+        submittedAt:
+          type: string
+          format: date-time
+        pointsEarned:
+          type: integer
+          nullable: true
+
+    LeaderboardHistoryReadModel:
+      type: object
+      properties:
+        bettingGameId:
+          type: integer
+        bettingGameName:
+          type: string
+        granularity:
+          type: string
+          enum: [event, day, week]
+        series:
+          type: array
+          items:
+            type: object
+            properties:
+              participantId:
+                type: integer
+              displayName:
+                type: string
+              points:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    at:
+                      type: string
+                      format: date-time
+                    eventId:
+                      type: integer
+                      nullable: true
+                    cumulativePoints:
+                      type: integer
+                      nullable: true
+                    cumulativePrizeAmount:
+                      type: number
+                      format: decimal
+                      nullable: true
+                    rank:
+                      type: integer
+
+    FeeReadModel:
+      type: object
+      properties:
+        feeId:
+          type: integer
+        participantId:
+          type: integer
+        displayName:
+          type: string
+        bettingGameId:
+          type: integer
+        bettingGameName:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        paymentStatus:
+          type: string
+          enum: [open, pending, paid, overdue, waived]
+        paymentMethod:
+          type: string
+          nullable: true
+        paymentReference:
+          type: string
+          nullable: true
+
+    NotificationReadModel:
+      type: object
+      description: Projection derived from the event store by the event publisher
+      properties:
+        notificationId:
+          type: integer
+        participantId:
+          type: integer
+        type:
+          type: string
+          enum: [deadline_approaching, result_recorded, score_calculated, fee_due, participation_approved, game_ended]
+        title:
+          type: string
+        message:
+          type: string
+        payload:
+          type: object
+          description: Context such as eventId, bettingGameId or feeId
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    GameTypeReadModel:
+      type: object
+      properties:
+        gameTypeId:
+          type: integer
+        typeName:
+          type: string
+        category:
+          type: string
+          enum: [sports, lottery]
+        description:
+          type: string
+        gamesUsingType:
+          type: integer
+          description: Number of betting games referencing this type
+
+    GameExportReadModel:
+      type: object
+      properties:
+        bettingGameId:
+          type: integer
+        bettingGameName:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              participantId:
+                type: integer
+              displayName:
+                type: string
+              totalPoints:
+                type: integer
+                nullable: true
+              totalPrizeAmount:
+                type: number
+                format: decimal
+                nullable: true
+              rank:
+                type: integer
+              feesCharged:
+                type: number
+                format: decimal
+              feesPaid:
+                type: number
+                format: decimal
+              balance:
+                type: number
+                format: decimal
+
+    ParticipantDataExport:
+      type: object
+      description: GDPR data portability export
+      properties:
+        exportedAt:
+          type: string
+          format: date-time
+        profile:
+          $ref: '#/components/schemas/ParticipantProfileReadModel'
+        participations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipationReadModel'
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionReadModel'
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantScoreReadModel'
+        fees:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeReadModel'
+
+    # ============================================
+    # READ MODELS - Operations
+    # ============================================
+
+    CommandStatusReadModel:
+      type: object
+      description: Processing state of an accepted command, keyed by causation id
+      properties:
+        commandId:
+          type: string
+          format: uuid
+        commandType:
+          type: string
+        status:
+          type: string
+          enum: [accepted, processing, completed, failed]
+        aggregateType:
+          type: string
+          nullable: true
+        aggregateId:
+          type: string
+          nullable: true
+        resourceId:
+          type: integer
+          nullable: true
+        eventStorePosition:
+          type: integer
+          format: int64
+          nullable: true
+          description: Position of the resulting event, once written
+        projectionsUpToDate:
+          type: boolean
+          description: True once every projection has processed the resulting event
+        acceptedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+
+    AuditEventReadModel:
+      type: object
+      description: Single entry of the event store
+      properties:
+        eventStoreId:
+          type: integer
+          format: int64
+        aggregateType:
+          type: string
+        aggregateId:
+          type: string
+        version:
+          type: integer
+          format: int64
+        eventType:
+          type: string
+        eventData:
+          type: object
+        metadata:
+          type: object
+          description: Actor, reason and client context
+        occurredAt:
+          type: string
+          format: date-time
+        causationId:
+          type: string
+          description: Command that produced this event
+        correlationId:
+          type: string
+          description: Trace spanning multiple aggregates
+
+    ProjectionStateReadModel:
+      type: object
+      properties:
+        projectionName:
+          type: string
+        status:
+          type: string
+          enum: [running, rebuilding, stopped, failed]
+        lastProcessedPosition:
+          type: integer
+          format: int64
+        lag:
+          type: integer
+          format: int64
+          description: Events behind the head of the event store
+        updatedAt:
+          type: string
+          format: date-time
+        errorMessage:
+          type: string
+          nullable: true
+
+    # ============================================
+    # COMMANDS - Registration and profile
+    # ============================================
+
+    RegisterParticipantCommand:
+      type: object
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+        bettingGameId:
+          type: integer
+          nullable: true
+          description: Optionally request participation in a game right away
+        acceptTerms:
+          type: boolean
+        notificationPreferences:
+          $ref: '#/components/schemas/NotificationPreferences'
+
+    UpdateParticipantProfileCommand:
+      type: object
+      properties:
+        displayName:
+          type: string
+        notificationPreferences:
+          $ref: '#/components/schemas/NotificationPreferences'
+
+    LinkParticipantUserCommand:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: integer
+        reason:
+          type: string
+
+    DeactivateParticipantCommand:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+        endParticipations:
+          type: boolean
+          default: true
+          description: Also end all active participations of this participant
+
+    RemoveParticipantCommand:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+        waiveOpenFees:
+          type: boolean
+          default: false
+
+    # ============================================
+    # COMMANDS - Events
+    # ============================================
+
+    CreateEventCommand:
+      type: object
+      required:
+        - eventName
+        - eventDate
+        - deadline
+      properties:
+        eventName:
+          type: string
+        eventDate:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+          description: Must not be later than eventDate
+        externalEventId:
+          type: string
+          nullable: true
+        eventDetails:
+          type: object
+          description: Structure varies by game type
+          example:
+            homeTeam: FC Example
+            awayTeam: Example United
+
+    UpdateEventCommand:
+      type: object
+      properties:
+        eventName:
+          type: string
+        eventDate:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, open, closed, finished]
+        eventDetails:
+          type: object
+        reason:
+          type: string
+          description: Recorded in the event store metadata
+
+    CancelEventCommand:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+        voidScores:
+          type: boolean
+          default: true
+          description: Revoke points already awarded for this event
+
+    ImportEventsCommand:
+      type: object
+      required:
+        - source
+        - events
+      properties:
+        source:
+          type: string
+          description: Identifier of the external data provider
+        defaultDeadlineOffsetMinutes:
+          type: integer
+          default: 0
+          description: Deadline relative to eventDate when the payload omits one
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateEventCommand'
+
+    # ============================================
+    # COMMANDS - Games
+    # ============================================
+
+    UpdateBettingGameCommand:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        baseFee:
+          type: number
+          format: decimal
+          nullable: true
+        feePeriodDays:
+          type: integer
+          nullable: true
+        pointConfiguration:
+          type: object
+          nullable: true
+          description: Sports games only; rejected once scores exist
+          properties:
+            pointsExactMatch:
+              type: integer
+            pointsCloseMatch:
+              type: integer
+            pointsPartialMatch:
+              type: integer
+            pointsWrong:
+              type: integer
+        prizeDistribution:
+          type: object
+          nullable: true
+          description: Lottery games only; rejected once scores exist
+          properties:
+            totalPrizePool:
+              type: number
+              format: decimal
+            distributionSchema:
+              type: string
+            rankPercentages:
+              type: array
+              items:
+                type: object
+                properties:
+                  rank:
+                    type: integer
+                  percentage:
+                    type: number
+        reason:
+          type: string
+
+    CancelGameCommand:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+        refundFees:
+          type: boolean
+          default: true
+          description: Waive open fees and mark paid fees for refund
+
+    # ============================================
+    # COMMANDS - Fees
+    # ============================================
+
+    PayFeeCommand:
+      type: object
+      required:
+        - paymentReference
+      properties:
+        paymentReference:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [bank_transfer, paypal, cash, other]
+
+    RecordFeePaymentCommand:
+      type: object
+      required:
+        - paymentStatus
+      properties:
+        paymentStatus:
+          type: string
+          enum: [paid, overdue, waived, open]
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        paymentMethod:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          description: Required when waiving a fee
+
+    GenerateFeesCommand:
+      type: object
+      required:
+        - periodStart
+      properties:
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+          nullable: true
+          description: Derived from feePeriodDays when omitted
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        amountOverride:
+          type: number
+          format: decimal
+          nullable: true
+          description: Overrides BettingGame.baseFee for this period
+
+    # ============================================
+    # COMMANDS - Master data and operations
+    # ============================================
+
+    CreateGameTypeCommand:
+      type: object
+      required:
+        - typeName
+        - category
+      properties:
+        typeName:
+          type: string
+        category:
+          type: string
+          enum: [sports, lottery]
+        description:
+          type: string
+
+    UpdateGameTypeCommand:
+      type: object
+      properties:
+        typeName:
+          type: string
+        description:
+          type: string
+
+    RebuildProjectionCommand:
+      type: object
+      properties:
+        fromPosition:
+          type: integer
+          format: int64
+          default: 0
+          description: Event store position to replay from; 0 rebuilds completely
+        truncate:
+          type: boolean
+          default: true
+          description: Clear the read model before replaying
 
     # ============================================
     # COMMON SCHEMAS
@@ -1312,6 +3603,13 @@ components:
     
     BadRequestError:
       description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ConflictError:
+      description: Request conflicts with the current state of the resource
       content:
         application/json:
           schema:
