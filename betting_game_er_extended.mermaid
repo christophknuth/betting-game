@@ -1,7 +1,8 @@
 erDiagram
     %% Core Domain Tables (Projections)
-    User ||--|| Participant : "is assigned to"
-    Participant }o--o{ BettingGame : "participates in"
+    User |o--|| Participant : "is assigned to"
+    Participant ||--o{ GameParticipation : "joins via"
+    BettingGame ||--o{ GameParticipation : "has members via"
     BettingGame ||--o{ Event : "contains"
     Participant ||--o{ Prediction : "makes"
     Event ||--o{ Prediction : "receives"
@@ -11,6 +12,7 @@ erDiagram
     BettingGame ||--o| PrizeDistribution : "uses (lottery)"
     Participant ||--o{ ParticipantScore : "earns"
     BettingGame ||--o{ ParticipantScore : "awards"
+    Event ||--o{ ParticipantScore : "scored for"
     Participant ||--o{ Fee : "pays"
     BettingGame ||--o{ Fee : "requires"
 
@@ -20,7 +22,7 @@ erDiagram
     Participant ||--o{ EventStream : "owns stream"
     BettingGame ||--o{ EventStream : "owns stream"
     Prediction ||--o{ EventStream : "owns stream"
-    EventStore ||--|| EventPublisher : "publishes to"
+    EventStore ||--o{ EventPublisher : "publishes to"
     EventPublisher ||--o{ ProjectionState : "updates"
 
     User {
@@ -35,10 +37,20 @@ erDiagram
 
     Participant {
         int participant_id PK
-        int user_id FK
+        int user_id FK "nullable, UK - optional account link"
         string display_name
         datetime registered_at
         boolean is_active
+        int version "Optimistic locking"
+    }
+
+    GameParticipation {
+        int participation_id PK
+        int participant_id FK "UK(participant_id, betting_game_id)"
+        int betting_game_id FK
+        datetime joined_at
+        datetime left_at "nullable"
+        string status
         int version "Optimistic locking"
     }
 
@@ -71,15 +83,15 @@ erDiagram
         datetime event_date
         string status
         datetime deadline
-        string event_details
+        json event_details "JSONB - queryable/validated"
         int version "Optimistic locking"
     }
 
     Prediction {
         int prediction_id PK
-        int participant_id FK
+        int participant_id FK "UK(participant_id, event_id)"
         int event_id FK
-        string prediction_data
+        json prediction_data "JSONB - queryable/validated"
         datetime submitted_at
         datetime updated_at
         int version "Optimistic locking"
@@ -87,47 +99,50 @@ erDiagram
 
     Result {
         int result_id PK
-        int event_id FK
-        string result_data
+        int event_id FK "UK - max. one result per event"
+        json result_data "JSONB - queryable/validated"
         datetime recorded_at
         datetime updated_at
         string source
+        int version "Optimistic locking"
     }
 
     PointConfiguration {
         int config_id PK
-        int betting_game_id FK
+        int betting_game_id FK "UK - max. one config per game"
         string scoring_rule_name
         int points_exact_match
         int points_close_match
         int points_partial_match
         int points_wrong
-        string configuration_json
+        json configuration_json "JSONB"
     }
 
     PrizeDistribution {
         int distribution_id PK
-        int betting_game_id FK
+        int betting_game_id FK "UK - max. one distribution per game"
         decimal total_prize_pool
         string distribution_schema
-        string rank_percentages
+        json rank_percentages "JSONB"
         int min_winners
         int max_winners
     }
 
     ParticipantScore {
         int score_id PK
-        int participant_id FK
+        int participant_id FK "UK(participant_id, event_id)"
         int betting_game_id FK
         int event_id FK
         int points_earned
         decimal prize_amount
         datetime calculated_at
+        datetime updated_at
+        int version "Optimistic locking"
     }
 
     Fee {
         int fee_id PK
-        int participant_id FK
+        int participant_id FK "UK(participant_id, betting_game_id, period_start)"
         int betting_game_id FK
         decimal amount
         datetime period_start
@@ -135,17 +150,18 @@ erDiagram
         datetime paid_at
         string payment_status
         string payment_method
+        int version "Optimistic locking"
     }
 
     %% Event Sourcing Tables
     EventStore {
         bigint event_store_id PK
-        string aggregate_type
+        string aggregate_type "UK(aggregate_type, aggregate_id, version)"
         string aggregate_id
         bigint version
         string event_type
-        text event_data "JSON"
-        text metadata "JSON"
+        json event_data "JSONB"
+        json metadata "JSONB"
         datetime occurred_at
         string causation_id "Command ID"
         string correlation_id "Trace ID"
@@ -153,7 +169,7 @@ erDiagram
 
     EventStream {
         string stream_id PK
-        string aggregate_type
+        string aggregate_type "UK(aggregate_type, aggregate_id)"
         string aggregate_id
         bigint current_version
         datetime created_at
@@ -162,14 +178,15 @@ erDiagram
 
     Snapshot {
         bigint snapshot_id PK
-        string stream_id FK
+        string stream_id FK "UK(stream_id, version)"
         bigint version
-        text aggregate_state "JSON"
+        json aggregate_state "JSONB"
         datetime created_at
     }
 
     ProjectionState {
         string projection_name PK
+        bigint publisher_id FK
         bigint last_processed_position
         string status
         datetime updated_at
