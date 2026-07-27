@@ -8,6 +8,10 @@ use BettingGame\Application\Command\ApproveParticipantCommand;
 use BettingGame\Application\Command\ApproveParticipantHandler;
 use BettingGame\Application\Command\CreateParticipantCommand;
 use BettingGame\Application\Command\CreateParticipantHandler;
+use BettingGame\Application\Query\GetAllParticipantsHandler;
+use BettingGame\Application\Query\GetAllParticipantsQuery;
+use BettingGame\Application\Query\GetPendingParticipantsHandler;
+use BettingGame\Application\Query\GetPendingParticipantsQuery;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Exception\DomainException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
@@ -20,8 +24,41 @@ final class AdminParticipantController
 {
     public function __construct(
         private CreateParticipantHandler $createParticipantHandler,
-        private ApproveParticipantHandler $approveParticipantHandler
+        private ApproveParticipantHandler $approveParticipantHandler,
+        private GetAllParticipantsHandler $getAllParticipantsHandler,
+        private GetPendingParticipantsHandler $getPendingParticipantsHandler
     ) {
+    }
+
+    /** @param array<string, string> $params */
+    public function getAllParticipants(Request $request, array $params): JsonResponse
+    {
+        $bettingGameId = $request->queryParam('bettingGameId');
+
+        $query = new GetAllParticipantsQuery(
+            status: $request->queryParam('status'),
+            bettingGameId: $bettingGameId !== null ? (int) $bettingGameId : null
+        );
+
+        try {
+            $result = $this->getAllParticipantsHandler->handle($query);
+            return JsonResponse::ok($result->data());
+        } catch (DomainException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
+    }
+
+    /** @param array<string, string> $params */
+    public function getPendingParticipants(Request $request, array $params): JsonResponse
+    {
+        $query = new GetPendingParticipantsQuery((int) $params['bettingGameId']);
+
+        try {
+            $result = $this->getPendingParticipantsHandler->handle($query);
+            return JsonResponse::ok($result->data());
+        } catch (DomainException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
     }
 
     /** @param array<string, string> $params */

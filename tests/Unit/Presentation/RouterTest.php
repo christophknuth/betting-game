@@ -79,6 +79,10 @@ final class RouterTest extends TestCase
                 'POST', '/admin/games',
                 'AdminGameController', 'createGame', [],
             ],
+            'game details' => [
+                'GET', '/admin/games/5',
+                'AdminGameController', 'getGameDetails', ['bettingGameId' => '5'],
+            ],
             'end game' => [
                 'POST', '/admin/games/5/end',
                 'AdminGameController', 'endGame', ['bettingGameId' => '5'],
@@ -99,6 +103,10 @@ final class RouterTest extends TestCase
                 'POST', '/admin/participants/1/scores',
                 'AdminResultController', 'awardScore', ['participantId' => '1'],
             ],
+            'all participants' => [
+                'GET', '/admin/participants',
+                'AdminParticipantController', 'getAllParticipants', [],
+            ],
             'create participant' => [
                 'POST', '/admin/participants',
                 'AdminParticipantController', 'createParticipant', [],
@@ -106,6 +114,10 @@ final class RouterTest extends TestCase
             'approve participant' => [
                 'POST', '/admin/participants/1/approve',
                 'AdminParticipantController', 'approveParticipant', ['participantId' => '1'],
+            ],
+            'pending participants' => [
+                'GET', '/admin/games/5/participants/pending',
+                'AdminParticipantController', 'getPendingParticipants', ['bettingGameId' => '5'],
             ],
 
             'health' => [
@@ -140,13 +152,16 @@ final class RouterTest extends TestCase
             'all predictions' => ['GET', '/admin/predictions'],
             'all games' => ['GET', '/admin/games'],
             'create game' => ['POST', '/admin/games'],
+            'game details' => ['GET', '/admin/games/5'],
             'end game' => ['POST', '/admin/games/5/end'],
             'record result' => ['POST', '/admin/events/42/results'],
             'update result' => ['PUT', '/admin/events/42/results'],
             'calculate scores' => ['POST', '/admin/events/42/scores/calculate'],
             'award score' => ['POST', '/admin/participants/1/scores'],
+            'all participants' => ['GET', '/admin/participants'],
             'create participant' => ['POST', '/admin/participants'],
             'approve participant' => ['POST', '/admin/participants/1/approve'],
+            'pending participants' => ['GET', '/admin/games/5/participants/pending'],
         ];
     }
 
