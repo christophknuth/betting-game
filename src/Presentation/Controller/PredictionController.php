@@ -10,7 +10,10 @@ use BettingGame\Application\Command\UpdatePredictionCommand;
 use BettingGame\Application\Command\UpdatePredictionHandler;
 use BettingGame\Application\Query\GetParticipantPredictionsQuery;
 use BettingGame\Application\Query\GetParticipantPredictionsHandler;
+use BettingGame\Application\Query\GetPredictionHandler;
+use BettingGame\Application\Query\GetPredictionQuery;
 use BettingGame\Domain\Exception\DomainException;
+use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Presentation\Http\Input;
 use BettingGame\Presentation\Http\InvalidInputException;
 use BettingGame\Presentation\Http\JsonResponse;
@@ -21,7 +24,8 @@ final class PredictionController
     public function __construct(
         private SubmitPredictionHandler $submitHandler,
         private UpdatePredictionHandler $updateHandler,
-        private GetParticipantPredictionsHandler $getPredictionsHandler
+        private GetParticipantPredictionsHandler $getPredictionsHandler,
+        private GetPredictionHandler $getPredictionHandler
     ) {
     }
 
@@ -48,6 +52,27 @@ final class PredictionController
         try {
             $result = $this->getPredictionsHandler->handle($query);
             return JsonResponse::ok($result->data());
+        } catch (DomainException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
+    }
+
+    /** @param array<string, string> $params */
+    public function getPrediction(Request $request, array $params): JsonResponse
+    {
+        $participantId = (int) $params['participantId'];
+
+        if (!$this->isAuthorized($request, $participantId)) {
+            return JsonResponse::forbidden('Access denied');
+        }
+
+        $query = new GetPredictionQuery($params['predictionId'], $participantId);
+
+        try {
+            $result = $this->getPredictionHandler->handle($query);
+            return JsonResponse::ok($result->data());
+        } catch (EntityNotFoundException $e) {
+            return JsonResponse::notFound($e->getMessage());
         } catch (DomainException $e) {
             return JsonResponse::badRequest($e->getMessage());
         }
