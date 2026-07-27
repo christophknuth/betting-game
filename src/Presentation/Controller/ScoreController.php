@@ -25,7 +25,7 @@ final class ScoreController
     public function getScores(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
-        
+
         if (!$this->isAuthorized($request, $participantId)) {
             return JsonResponse::forbidden('Access denied');
         }

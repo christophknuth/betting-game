@@ -6,6 +6,7 @@ namespace BettingGame\Presentation\Router;
 
 use FastRoute\RouteCollector;
 use FastRoute\Dispatcher;
+
 use function FastRoute\simpleDispatcher;
 
 final class Router
@@ -20,17 +21,17 @@ final class Router
                 'controller' => 'PredictionController',
                 'method' => 'getPredictions'
             ]);
-            
+
             $r->addRoute('GET', '/participants/{participantId:\d+}/predictions/{predictionId}', [
                 'controller' => 'PredictionController',
                 'method' => 'getPrediction'
             ]);
-            
+
             $r->addRoute('POST', '/participants/{participantId:\d+}/events/{eventId:\d+}/predictions', [
                 'controller' => 'PredictionController',
                 'method' => 'submitPrediction'
             ]);
-            
+
             $r->addRoute('PUT', '/participants/{participantId:\d+}/predictions/{predictionId}', [
                 'controller' => 'PredictionController',
                 'method' => 'updatePrediction'
@@ -52,12 +53,12 @@ final class Router
                 'controller' => 'ParticipationController',
                 'method' => 'getParticipations'
             ]);
-            
+
             $r->addRoute('POST', '/participants/{participantId:\d+}/games/{bettingGameId:\d+}/participation', [
                 'controller' => 'ParticipationController',
                 'method' => 'joinGame'
             ]);
-            
+
             $r->addRoute('DELETE', '/participants/{participantId:\d+}/games/{bettingGameId:\d+}/participation', [
                 'controller' => 'ParticipationController',
                 'method' => 'leaveGame'
@@ -76,13 +77,13 @@ final class Router
                 'method' => 'getAllGames',
                 'role' => 'admin'
             ]);
-            
+
             $r->addRoute('POST', '/admin/games', [
                 'controller' => 'AdminGameController',
                 'method' => 'createGame',
                 'role' => 'admin'
             ]);
-            
+
             $r->addRoute('POST', '/admin/games/{bettingGameId:\d+}/end', [
                 'controller' => 'AdminGameController',
                 'method' => 'endGame',

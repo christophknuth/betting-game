@@ -47,7 +47,7 @@ final class FileCacheTest extends TestCase
     public function testHas(): void
     {
         $this->cache->set('existing_key', 'value');
-        
+
         $this->assertTrue($this->cache->has('existing_key'));
         $this->assertFalse($this->cache->has('nonexistent_key'));
     }
@@ -56,7 +56,7 @@ final class FileCacheTest extends TestCase
     {
         $this->cache->set('test_key', 'test_value');
         $this->assertTrue($this->cache->has('test_key'));
-        
+
         $this->assertTrue($this->cache->delete('test_key'));
         $this->assertFalse($this->cache->has('test_key'));
     }
@@ -65,9 +65,9 @@ final class FileCacheTest extends TestCase
     {
         $this->cache->set('key1', 'value1');
         $this->cache->set('key2', 'value2');
-        
+
         $this->assertTrue($this->cache->clear());
-        
+
         $this->assertFalse($this->cache->has('key1'));
         $this->assertFalse($this->cache->has('key2'));
     }
@@ -81,7 +81,7 @@ final class FileCacheTest extends TestCase
         ];
 
         $this->assertTrue($this->cache->setMultiple($values));
-        
+
         $this->assertEquals('value1', $this->cache->get('key1'));
         $this->assertEquals('value2', $this->cache->get('key2'));
         $this->assertEquals('value3', $this->cache->get('key3'));
@@ -93,7 +93,7 @@ final class FileCacheTest extends TestCase
         $this->cache->set('key2', 'value2');
 
         $result = $this->cache->getMultiple(['key1', 'key2', 'key3'], 'default');
-        
+
         $this->assertEquals([
             'key1' => 'value1',
             'key2' => 'value2',
@@ -107,7 +107,7 @@ final class FileCacheTest extends TestCase
         $this->cache->set('key2', 'value2');
 
         $this->assertTrue($this->cache->deleteMultiple(['key1', 'key2']));
-        
+
         $this->assertFalse($this->cache->has('key1'));
         $this->assertFalse($this->cache->has('key2'));
     }
@@ -116,11 +116,11 @@ final class FileCacheTest extends TestCase
     {
         $cache = new FileCache($this->cacheDir, 1); // 1 second TTL
         $cache->set('expiring_key', 'value', 1);
-        
+
         $this->assertTrue($cache->has('expiring_key'));
-        
+
         sleep(2);
-        
+
         $this->assertFalse($cache->has('expiring_key'));
         $this->assertEquals('default', $cache->get('expiring_key', 'default'));
     }
@@ -141,10 +141,10 @@ final class FileCacheTest extends TestCase
     {
         $arrayValue = ['a' => 1, 'b' => 2, 'c' => [3, 4, 5]];
         $objectValue = (object) ['property' => 'value'];
-        
+
         $this->cache->set('array_key', $arrayValue);
         $this->cache->set('object_key', $objectValue);
-        
+
         $this->assertEquals($arrayValue, $this->cache->get('array_key'));
         $this->assertEquals($objectValue, $this->cache->get('object_key'));
     }

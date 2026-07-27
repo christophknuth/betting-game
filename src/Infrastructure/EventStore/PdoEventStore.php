@@ -108,8 +108,12 @@ final class PdoEventStore implements EventStoreInterface
         return $row !== null ? Row::int($row, 'current_version') : 0;
     }
 
-    private function updateStreamVersion(string $streamId, string $aggregateType, string $aggregateId, int $version): void
-    {
+    private function updateStreamVersion(
+        string $streamId,
+        string $aggregateType,
+        string $aggregateId,
+        int $version
+    ): void {
         $this->db->execute(
             '
             INSERT INTO event_stream (stream_id, aggregate_type, aggregate_id, current_version, created_at, updated_at)

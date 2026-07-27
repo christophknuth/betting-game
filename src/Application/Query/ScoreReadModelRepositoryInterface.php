@@ -7,7 +7,7 @@ namespace BettingGame\Application\Query;
 interface ScoreReadModelRepositoryInterface
 {
     /**
-     * @return ParticipantScoreReadModel[]
+     * @return list<ParticipantScoreReadModel>
      */
     public function findByParticipant(int $participantId, ?int $bettingGameId = null): array;
 

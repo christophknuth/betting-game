@@ -21,7 +21,7 @@ final class UpdatePredictionHandler
     public function handle(UpdatePredictionCommand $command): CommandResult
     {
         $prediction = $this->predictionRepository->findById($command->predictionId);
-        
+
         if ($prediction === null) {
             throw new EntityNotFoundException('Prediction not found');
         }

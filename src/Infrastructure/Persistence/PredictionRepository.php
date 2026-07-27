@@ -108,7 +108,10 @@ final class PredictionRepository implements PredictionRepositoryInterface
     {
         $this->db->execute(
             '
-            INSERT INTO prediction (prediction_id, participant_id, event_id, prediction_data, submitted_at, updated_at, version)
+            INSERT INTO prediction (
+                prediction_id, participant_id, event_id, prediction_data,
+                submitted_at, updated_at, version
+            )
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 prediction_data = VALUES(prediction_data),

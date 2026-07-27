@@ -11,20 +11,20 @@ use BettingGame\Domain\ValueObject\EventId;
 interface PredictionRepositoryInterface
 {
     public function save(Prediction $prediction): void;
-    
+
     public function findById(string $id): ?Prediction;
-    
+
     /**
      * @return Prediction[]
      */
     public function findByParticipant(ParticipantId $participantId): array;
-    
+
     /**
      * @return Prediction[]
      */
     public function findByEvent(EventId $eventId): array;
-    
+
     public function exists(ParticipantId $participantId, EventId $eventId): bool;
-    
+
     public function nextIdentity(): string;
 }

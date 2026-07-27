@@ -9,7 +9,7 @@ use BettingGame\Domain\Exception\InvalidArgumentException;
 final class GameStatus
 {
     private const VALID_STATUSES = ['upcoming', 'active', 'ended', 'cancelled'];
-    
+
     private string $value;
 
     public function __construct(string $value)

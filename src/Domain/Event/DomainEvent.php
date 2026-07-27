@@ -47,7 +47,7 @@ abstract class DomainEvent
     }
 
     abstract public function aggregateId(): string;
-    
+
     abstract public function aggregateType(): string;
 
     abstract public function eventType(): string;
