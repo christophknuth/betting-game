@@ -42,7 +42,7 @@ final class Prediction
         DateTimeImmutable $deadline
     ): self {
         $now = new DateTimeImmutable();
-        
+
         if ($now > $deadline) {
             throw new DeadlinePassedException('Prediction deadline has passed');
         }

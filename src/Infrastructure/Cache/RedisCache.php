@@ -11,7 +11,7 @@ use Redis;
 /**
  * PSR-16 compliant Redis cache implementation
  * Recommended for production use
- * 
+ *
  * Requires: ext-redis
  */
 final class RedisCache implements CacheInterface
@@ -30,11 +30,11 @@ final class RedisCache implements CacheInterface
     ) {
         $this->redis = new Redis();
         $this->redis->connect($host, $port);
-        
+
         if ($password !== null) {
             $this->redis->auth($password);
         }
-        
+
         $this->redis->select($database);
         $this->prefix = $prefix;
         $this->defaultTtl = $defaultTtl;
@@ -87,7 +87,7 @@ final class RedisCache implements CacheInterface
     {
         // Clear only keys with our prefix
         $keys = $this->redis->keys($this->prefix . '*');
-        
+
         if (empty($keys)) {
             return true;
         }
@@ -98,7 +98,7 @@ final class RedisCache implements CacheInterface
     public function getMultiple(iterable $keys, mixed $default = null): iterable
     {
         $result = [];
-        
+
         foreach ($keys as $key) {
             $result[$key] = $this->get($key, $default);
         }
@@ -123,7 +123,7 @@ final class RedisCache implements CacheInterface
     public function deleteMultiple(iterable $keys): bool
     {
         $prefixedKeys = [];
-        
+
         foreach ($keys as $key) {
             $this->validateKey($key);
             $prefixedKeys[] = $this->prefix . $key;
@@ -144,8 +144,9 @@ final class RedisCache implements CacheInterface
 
     /**
      * Get Redis connection info
+     *
+     * @return array<string, mixed>
      */
-    /** @return array<string, mixed> */
     public function getConnectionInfo(): array
     {
         return $this->redis->info('server');
@@ -153,8 +154,9 @@ final class RedisCache implements CacheInterface
 
     /**
      * Get cache statistics
+     *
+     * @return array<string, mixed>
      */
-    /** @return array<string, mixed> */
     public function getStats(): array
     {
         return $this->redis->info('stats');

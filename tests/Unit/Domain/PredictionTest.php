@@ -128,7 +128,7 @@ final class PredictionTest extends TestCase
         );
 
         $prediction->evaluate(10);
-        
+
         $prediction->update(
             new PredictionData(['homeScore' => 3]),
             new DateTimeImmutable('+1 hour')

@@ -28,7 +28,7 @@ final class AuthMiddleware
     {
         // Extract token from Authorization header
         $authHeader = $request->header('Authorization');
-        
+
         if (!$authHeader) {
             $this->logger->info('No Authorization header present');
             return JsonResponse::unauthorized('No authorization token provided');
@@ -46,7 +46,7 @@ final class AuthMiddleware
 
         // Validate token
         $tokenData = $this->keycloakService->validateToken($token);
-        
+
         if (!$tokenData) {
             $this->logger->warning('Invalid or expired token');
             return JsonResponse::unauthorized('Invalid or expired token');
@@ -88,7 +88,7 @@ final class AuthMiddleware
                 'user_roles' => $roles,
                 'username' => $request->attribute('username')
             ]);
-            
+
             return JsonResponse::forbidden('Insufficient permissions');
         }
 
@@ -101,14 +101,14 @@ final class AuthMiddleware
     public function handleOptional(Request $request): void
     {
         $authHeader = $request->header('Authorization');
-        
+
         if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
             return;
         }
 
         $token = substr($authHeader, 7);
         $tokenData = $this->keycloakService->validateToken($token);
-        
+
         if ($tokenData) {
             $participantId = $this->keycloakService->getParticipantId($tokenData);
             $username = $this->keycloakService->getUsername($tokenData);

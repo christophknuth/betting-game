@@ -86,7 +86,7 @@ final class JsonResponse
     public function send(): void
     {
         http_response_code($this->statusCode);
-        
+
         header('Content-Type: application/json');
         foreach ($this->headers as $key => $value) {
             header("$key: $value");

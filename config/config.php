@@ -6,7 +6,7 @@ return [
     'debug' => $_ENV['APP_DEBUG'] ?? true,
     'production' => $_ENV['APP_ENV'] === 'production',
     'environment' => $_ENV['APP_ENV'] ?? 'development',
-    
+
     'db' => [
         'host' => $_ENV['DB_HOST'] ?? 'localhost',
         'port' => $_ENV['DB_PORT'] ?? 3306,

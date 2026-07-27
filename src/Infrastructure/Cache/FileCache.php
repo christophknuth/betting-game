@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace BettingGame\Infrastructure\Cache;
 
 use Psr\SimpleCache\CacheInterface;
-use Psr\SimpleCache\InvalidArgumentException;
 use DateInterval;
 
 /**
@@ -35,7 +34,7 @@ final class FileCache implements CacheInterface
         $this->validateKey($key);
 
         $filename = $this->getFilename($key);
-        
+
         if (!file_exists($filename)) {
             return $default;
         }
@@ -115,7 +114,7 @@ final class FileCache implements CacheInterface
         $this->validateKey($key);
 
         $filename = $this->getFilename($key);
-        
+
         if (!file_exists($filename)) {
             return true;
         }
@@ -129,7 +128,7 @@ final class FileCache implements CacheInterface
     public function clear(): bool
     {
         $files = glob($this->cacheDir . '/*.cache');
-        
+
         if ($files === false) {
             return false;
         }
@@ -149,7 +148,7 @@ final class FileCache implements CacheInterface
     public function getMultiple(iterable $keys, mixed $default = null): iterable
     {
         $result = [];
-        
+
         foreach ($keys as $key) {
             $result[$key] = $this->get($key, $default);
         }
@@ -198,7 +197,7 @@ final class FileCache implements CacheInterface
         $this->validateKey($key);
 
         $filename = $this->getFilename($key);
-        
+
         if (!file_exists($filename)) {
             return false;
         }
@@ -263,11 +262,4 @@ final class FileCache implements CacheInterface
 
         return $ttl;
     }
-}
-
-/**
- * PSR-16 Invalid Argument Exception
- */
-final class CacheInvalidArgumentException extends \InvalidArgumentException implements InvalidArgumentException
-{
 }

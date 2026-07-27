@@ -29,7 +29,7 @@ final class PredictionController
     public function getPredictions(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
-        
+
         // Authorization check (simplified - would use JWT in production)
         if (!$this->isAuthorized($request, $participantId)) {
             return JsonResponse::forbidden('Access denied');

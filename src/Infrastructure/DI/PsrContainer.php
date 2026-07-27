@@ -69,17 +69,3 @@ final class PsrContainer implements PsrContainerInterface
         return $this->container;
     }
 }
-
-/**
- * PSR-11 NotFoundException
- */
-final class ContainerNotFoundException extends Exception implements NotFoundExceptionInterface
-{
-}
-
-/**
- * PSR-11 ContainerException
- */
-final class ContainerException extends Exception implements ContainerExceptionInterface
-{
-}

@@ -66,7 +66,14 @@ final class NewCommandHandlerTest extends TestCase
         );
 
         $participant = Participant::create(1, 100, new DisplayName('Player'), true);
-        $game = BettingGame::create(5, 'Test', 'Desc', 1, new DateTimeImmutable('2024-01-01'), new DateTimeImmutable('2024-12-31'));
+        $game = BettingGame::create(
+            5,
+            'Test',
+            'Desc',
+            1,
+            new DateTimeImmutable('2024-01-01'),
+            new DateTimeImmutable('2024-12-31')
+        );
 
         $this->participantRepo->expects($this->once())
             ->method('exists')
@@ -201,7 +208,14 @@ final class NewCommandHandlerTest extends TestCase
     {
         $command = new EndGameCommand(bettingGameId: 5, reason: 'Season over');
 
-        $game = BettingGame::create(5, 'Test', 'Desc', 1, new DateTimeImmutable('2024-01-01'), new DateTimeImmutable('2024-12-31'));
+        $game = BettingGame::create(
+            5,
+            'Test',
+            'Desc',
+            1,
+            new DateTimeImmutable('2024-01-01'),
+            new DateTimeImmutable('2024-12-31')
+        );
 
         $this->gameRepo->expects($this->once())
             ->method('findById')

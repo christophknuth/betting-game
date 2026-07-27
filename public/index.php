@@ -59,16 +59,16 @@ switch ($routeInfo[0]) {
         try {
             // Get controller from container
             $controller = $container->get('BettingGame\\Presentation\\Controller\\' . $handler['controller']);
-            
+
             // Call controller method
             $method = $handler['method'];
             $response = $controller->$method($request, $vars);
-            
+
             $response->send();
         } catch (\Throwable $e) {
             // Log error in production
             error_log($e->getMessage());
-            
+
             if ($config['debug'] ?? false) {
                 JsonResponse::internalError($e->getMessage())->send();
             } else {

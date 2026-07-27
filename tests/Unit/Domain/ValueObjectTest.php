@@ -55,7 +55,7 @@ final class ValueObjectTest extends TestCase
     {
         $data = new PredictionData(['homeScore' => 2]);
         $json = $data->toJson();
-        
+
         $this->assertJson($json);
         $this->assertEquals('{"homeScore":2}', $json);
     }
@@ -131,7 +131,7 @@ final class ValueObjectTest extends TestCase
     public function testGameStatusAllValidValues(): void
     {
         $validStatuses = ['upcoming', 'active', 'ended', 'cancelled'];
-        
+
         foreach ($validStatuses as $statusValue) {
             $status = new GameStatus($statusValue);
             $this->assertEquals($statusValue, $status->value());
