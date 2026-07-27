@@ -16,6 +16,7 @@ final class BettingGame
     /** @var list<DomainEvent> */
     private array $recordedEvents = [];
     private int $version = 0;
+    private int $originalVersion = 0;
     private DateTimeImmutable $createdAt;
 
     /**
@@ -80,6 +81,48 @@ final class BettingGame
             $startDate->format('c'),
             $endDate->format('c')
         ));
+
+        return $game;
+    }
+
+    /**
+     * Rehydrates a game from the read model without recording events.
+     *
+     * @param array<string, mixed>|null $pointConfiguration
+     * @param array<string, mixed>|null $prizeDistribution
+     */
+    public static function fromProjection(
+        int $id,
+        string $name,
+        string $description,
+        int $gameTypeId,
+        DateTimeImmutable $startDate,
+        DateTimeImmutable $endDate,
+        GameStatus $status,
+        ?float $baseFee,
+        ?int $feePeriodDays,
+        ?array $pointConfiguration,
+        ?array $prizeDistribution,
+        DateTimeImmutable $createdAt,
+        int $version
+    ): self {
+        $game = new self(
+            $id,
+            $name,
+            $description,
+            $gameTypeId,
+            $startDate,
+            $endDate,
+            $status,
+            $baseFee,
+            $feePeriodDays,
+            $pointConfiguration,
+            $prizeDistribution,
+            $createdAt
+        );
+
+        $game->version = $version;
+        $game->originalVersion = $version;
 
         return $game;
     }
@@ -184,5 +227,13 @@ final class BettingGame
     public function version(): int
     {
         return $this->version;
+    }
+
+    /**
+     * Stream version this instance was loaded at - the expected version when appending.
+     */
+    public function originalVersion(): int
+    {
+        return $this->originalVersion;
     }
 }

@@ -304,25 +304,37 @@ wird das gespeicherte `response_body` unverändert zurückgegeben — kein zweit
    Idempotenz läuft, desto teurer wird das Nachrüsten.
 5. **Epic 6 (Gebühren)** — vollständiger Lebenszyklus für eine Tabelle, die es schon gibt.
 
-### Bekannte Baustellen ausserhalb der Story-Liste
+### Persistenz-Schicht
 
-Beim Verdrahten der Routen aufgefallen, jeweils **bereits geroutete** Endpunkte betreffend:
+Alle 13 Repository-Interfaces haben inzwischen eine Implementierung; **alle acht Controller
+lassen sich aus dem DI-Container auflösen**. Sieben Implementierungen sind nachträglich
+entstanden, weil sie schlicht fehlten:
+
+| Interface | Implementierung |
+|---|---|
+| `ParticipantRepositoryInterface` | war unvollständig (2 von 5 Methoden) — ergänzt |
+| `ResultRepositoryInterface` | [ResultRepository.php](src/Infrastructure/Persistence/ResultRepository.php) |
+| `LeaderboardReadModelRepositoryInterface` | [LeaderboardReadModelRepository.php](src/Infrastructure/Persistence/LeaderboardReadModelRepository.php) |
+| `PredictionRepositoryInterface` | [PredictionRepository.php](src/Infrastructure/Persistence/PredictionRepository.php) |
+| `BettingGameRepositoryInterface` | [BettingGameRepository.php](src/Infrastructure/Persistence/BettingGameRepository.php) |
+| `BettingGameReadModelRepositoryInterface` | [BettingGameReadModelRepository.php](src/Infrastructure/Persistence/BettingGameReadModelRepository.php) |
+| `ParticipationReadModelRepositoryInterface` | [ParticipationReadModelRepository.php](src/Infrastructure/Persistence/ParticipationReadModelRepository.php) |
+| `ParticipantReadModelRepositoryInterface` | [ParticipantReadModelRepository.php](src/Infrastructure/Persistence/ParticipantReadModelRepository.php) |
+| `AdminPredictionReadModelRepositoryInterface` | [AdminPredictionReadModelRepository.php](src/Infrastructure/Persistence/AdminPredictionReadModelRepository.php) |
+
+**Projektionslücke geschlossen:** `JoinGameHandler` schrieb bisher nur ein
+`ParticipantJoinedGame`-Event, ohne dass jemand **GameParticipation** befüllte — die Tabelle
+wäre dauerhaft leer geblieben und US-19 hätte immer eine leere Liste geliefert.
+`ParticipantRepository::save()` wendet Join-, Leave- und Approve-Events jetzt auf die
+Projektion an.
+
+### Offene Punkte
 
 | Problem | Auswirkung |
 |---|---|
-| `BettingGameRepositoryInterface` hat keine Implementierung | US-25, US-29 und der Beitritt (US-17) scheitern beim Auflösen im Container |
-| Vier Read-Model-Interfaces ohne Implementierung: `BettingGameReadModel`, `ParticipationReadModel`, `ParticipantReadModel`, `AdminPredictionReadModel` | US-19, US-26, US-63 |
+| `ParticipantReadModelRepositoryInterface` hat noch keinen Aufrufer | Query-Handler, Controller und Routen für US-41 und US-47 fehlen — das Repository ist fertig und getestet, aber über HTTP nicht erreichbar |
+| `BettingGameReadModelRepository::findById()` hat noch keinen Aufrufer | dito für US-27 (`GET /admin/games/{id}`) |
 | `PredictionControllerTest` mockt die `final` Klasse `SubmitPredictionHandler` | 7 Testfehler; entweder `final` entfernen oder gegen ein Interface mocken |
-
-`PredictionRepositoryInterface` fehlte hier ebenfalls und blockierte US-09 bis US-11. Die
-Implementierung ist beim Herstellen von PHPStan Level 10 entstanden
-([PredictionRepository.php](src/Infrastructure/Persistence/PredictionRepository.php)), weil der
-DI-Container sonst eine nicht existierende Klasse referenzierte.
-
-**Verbleibende Controller, die sich nicht instanziieren lassen:** `ParticipationController`,
-`AdminGameController`, `AdminPredictionController` — je wegen der oben genannten fehlenden
-Repositories. `PredictionController`, `ScoreController`, `AdminResultController`,
-`AdminParticipantController` und `HealthController` lösen auf.
 
 ### ER-Erweiterungen aus v1.1
 
