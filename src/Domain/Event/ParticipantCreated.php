@@ -51,6 +51,7 @@ final class ParticipantCreated extends DomainEvent
         return $this->autoApproved;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

@@ -6,6 +6,10 @@ namespace BettingGame\Application\Command;
 
 final class CreateBettingGameCommand
 {
+    /**
+     * @param array<string, mixed>|null $pointConfiguration
+     * @param array<string, mixed>|null $prizeDistribution
+     */
     public function __construct(
         public readonly string $name,
         public readonly string $description,

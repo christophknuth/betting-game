@@ -45,6 +45,7 @@ final class PredictionEvaluated extends DomainEvent
         return $this->prizeAmount;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

@@ -33,6 +33,7 @@ final class ParticipantApproved extends DomainEvent
         return 'participant.approved';
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

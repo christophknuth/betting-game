@@ -45,8 +45,13 @@ final class FileCache implements CacheInterface
             return $default;
         }
 
-        $data = unserialize($content);
-        
+        $data = $this->decodeEntry($content);
+
+        if ($data === null) {
+            unlink($filename);
+            return $default;
+        }
+
         // Check expiration
         if ($data['expires_at'] !== null && $data['expires_at'] < time()) {
             unlink($filename);
@@ -57,6 +62,31 @@ final class FileCache implements CacheInterface
     }
 
     /**
+     * Reads a cache file back into its entry shape.
+     *
+     * A corrupted or foreign file must not take the caller down, so anything
+     * that does not match the expected shape is treated as a cache miss.
+     *
+     * @return array{expires_at: int|null, value: mixed}|null
+     */
+    private function decodeEntry(string $content): ?array
+    {
+        $data = @unserialize($content);
+
+        if (!is_array($data) || !array_key_exists('value', $data) || !array_key_exists('expires_at', $data)) {
+            return null;
+        }
+
+        $expiresAt = $data['expires_at'];
+
+        if ($expiresAt !== null && !is_int($expiresAt)) {
+            return null;
+        }
+
+        return ['expires_at' => $expiresAt, 'value' => $data['value']];
+    }
+
+    /**
      * Persists data in the cache.
      */
     public function set(string $key, mixed $value, null|int|DateInterval $ttl = null): bool
@@ -64,7 +94,8 @@ final class FileCache implements CacheInterface
         $this->validateKey($key);
 
         $ttlSeconds = $this->normalizeTtl($ttl);
-        $expiresAt = $ttlSeconds === null ? null : time() + $ttlSeconds;
+        // A TTL of 0 or less means "no expiry" - store the entry without one.
+        $expiresAt = $ttlSeconds <= 0 ? null : time() + $ttlSeconds;
 
         $data = [
             'value' => $value,
@@ -129,6 +160,7 @@ final class FileCache implements CacheInterface
     /**
      * Persists a set of key => value pairs in the cache.
      */
+    /** @param iterable<string, mixed> $values */
     public function setMultiple(iterable $values, null|int|DateInterval $ttl = null): bool
     {
         $success = true;
@@ -176,7 +208,12 @@ final class FileCache implements CacheInterface
             return false;
         }
 
-        $data = unserialize($content);
+        $data = $this->decodeEntry($content);
+
+        if ($data === null) {
+            unlink($filename);
+            return false;
+        }
 
         // Check expiration
         if ($data['expires_at'] !== null && $data['expires_at'] < time()) {
@@ -212,7 +249,7 @@ final class FileCache implements CacheInterface
     /**
      * Normalize TTL to seconds
      */
-    private function normalizeTtl(null|int|DateInterval $ttl): ?int
+    private function normalizeTtl(null|int|DateInterval $ttl): int
     {
         if ($ttl === null) {
             return $this->defaultTtl;

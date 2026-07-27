@@ -44,6 +44,7 @@ final class ScoresCalculated extends DomainEvent
         return $this->predictionsEvaluated;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

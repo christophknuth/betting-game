@@ -11,5 +11,6 @@ interface ScoreReadModelRepositoryInterface
      */
     public function findByParticipant(int $participantId, ?int $bettingGameId = null): array;
 
+    /** @return array<string, mixed> */
     public function getSummary(int $participantId): array;
 }

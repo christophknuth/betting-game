@@ -8,6 +8,7 @@ use BettingGame\Domain\Model\Participant;
 
 interface ParticipantRepositoryInterface
 {
+    /** @return array<string, mixed>|null */
     public function findById(int $id): ?array;
 
     public function findParticipant(int $id): ?Participant;

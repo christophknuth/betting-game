@@ -5,33 +5,30 @@ declare(strict_types=1);
 namespace BettingGame\Infrastructure\Persistence;
 
 use BettingGame\Domain\Repository\GameEventRepositoryInterface;
-use PDO;
 use DateTimeImmutable;
 
 final class GameEventRepository implements GameEventRepositoryInterface
 {
-    public function __construct(private PDO $pdo)
+    public function __construct(private Db $db)
     {
     }
 
+    /** @return array<string, mixed>|null */
     public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM event WHERE event_id = ?');
-        $stmt->execute([$id]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result ?: null;
+        return $this->db->fetchOne('SELECT * FROM event WHERE event_id = ?', [$id]);
     }
 
     public function getDeadline(int $eventId): ?DateTimeImmutable
     {
-        $stmt = $this->pdo->prepare('SELECT deadline FROM event WHERE event_id = ?');
-        $stmt->execute([$eventId]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$result || !$result['deadline']) {
+        $row = $this->db->fetchOne('SELECT deadline FROM event WHERE event_id = ?', [$eventId]);
+
+        if ($row === null) {
             return null;
         }
 
-        return new DateTimeImmutable($result['deadline']);
+        $deadline = Row::nullableString($row, 'deadline');
+
+        return $deadline !== null ? new DateTimeImmutable($deadline) : null;
     }
 }

@@ -52,8 +52,10 @@ abstract class DomainEvent
 
     abstract public function eventType(): string;
 
+    /** @return array<string, mixed> */
     abstract public function toArray(): array;
 
+    /** @return array<string, mixed> */
     public function metadata(): array
     {
         return [

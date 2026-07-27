@@ -11,6 +11,8 @@ use BettingGame\Application\Command\EndGameHandler;
 use BettingGame\Application\Query\GetAllGamesQuery;
 use BettingGame\Application\Query\GetAllGamesHandler;
 use BettingGame\Domain\Exception\DomainException;
+use BettingGame\Presentation\Http\Input;
+use BettingGame\Presentation\Http\InvalidInputException;
 use BettingGame\Presentation\Http\JsonResponse;
 use BettingGame\Presentation\Http\Request;
 
@@ -23,11 +25,14 @@ final class AdminGameController
     ) {
     }
 
+    /** @param array<string, string> $params */
     public function getAllGames(Request $request, array $params): JsonResponse
     {
+        $gameTypeId = $request->queryParam('gameTypeId');
+
         $query = new GetAllGamesQuery(
             status: $request->queryParam('status'),
-            gameTypeId: $request->queryParam('gameTypeId') ? (int) $request->queryParam('gameTypeId') : null
+            gameTypeId: $gameTypeId !== null ? (int) $gameTypeId : null
         );
 
         try {
@@ -38,26 +43,27 @@ final class AdminGameController
         }
     }
 
+    /** @param array<string, string> $params */
     public function createGame(Request $request, array $params): JsonResponse
     {
         $body = $request->jsonBody();
 
-        if (!isset($body['name'], $body['description'], $body['gameTypeId'], $body['startDate'], $body['endDate'])) {
-            return JsonResponse::badRequest('name, description, gameTypeId, startDate, and endDate are required');
+        try {
+            $command = new CreateBettingGameCommand(
+                name: Input::string($body, 'name'),
+                description: Input::string($body, 'description'),
+                gameTypeId: Input::int($body, 'gameTypeId'),
+                startDate: Input::string($body, 'startDate'),
+                endDate: Input::string($body, 'endDate'),
+                baseFee: Input::optionalFloat($body, 'baseFee'),
+                feePeriodDays: Input::optionalInt($body, 'feePeriodDays'),
+                pointConfiguration: Input::optionalArray($body, 'pointConfiguration'),
+                prizeDistribution: Input::optionalArray($body, 'prizeDistribution'),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
         }
-
-        $command = new CreateBettingGameCommand(
-            name: $body['name'],
-            description: $body['description'],
-            gameTypeId: (int) $body['gameTypeId'],
-            startDate: $body['startDate'],
-            endDate: $body['endDate'],
-            baseFee: isset($body['baseFee']) ? (float) $body['baseFee'] : null,
-            feePeriodDays: isset($body['feePeriodDays']) ? (int) $body['feePeriodDays'] : null,
-            pointConfiguration: $body['pointConfiguration'] ?? null,
-            prizeDistribution: $body['prizeDistribution'] ?? null,
-            correlationId: $request->header('X-Correlation-ID')
-        );
 
         try {
             $result = $this->createGameHandler->handle($command);
@@ -67,21 +73,21 @@ final class AdminGameController
         }
     }
 
+    /** @param array<string, string> $params */
     public function endGame(Request $request, array $params): JsonResponse
     {
-        $bettingGameId = (int) $params['bettingGameId'];
         $body = $request->jsonBody();
 
-        if (!isset($body['reason'])) {
-            return JsonResponse::badRequest('reason is required');
+        try {
+            $command = new EndGameCommand(
+                bettingGameId: (int) $params['bettingGameId'],
+                reason: Input::string($body, 'reason'),
+                finalizeScores: Input::bool($body, 'finalizeScores', true),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
         }
-
-        $command = new EndGameCommand(
-            bettingGameId: $bettingGameId,
-            reason: $body['reason'],
-            finalizeScores: $body['finalizeScores'] ?? true,
-            correlationId: $request->header('X-Correlation-ID')
-        );
 
         try {
             $result = $this->endGameHandler->handle($command);

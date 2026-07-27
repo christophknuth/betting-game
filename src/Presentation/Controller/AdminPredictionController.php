@@ -17,14 +17,21 @@ final class AdminPredictionController
     ) {
     }
 
+    /** @param array<string, string> $params */
     public function getAllPredictions(Request $request, array $params): JsonResponse
     {
+        $bettingGameId = $request->queryParam('bettingGameId');
+        $eventId = $request->queryParam('eventId');
+        $participantId = $request->queryParam('participantId');
+        $page = $request->queryParam('page');
+        $pageSize = $request->queryParam('pageSize');
+
         $query = new GetAllPredictionsQuery(
-            bettingGameId: $request->queryParam('bettingGameId') ? (int) $request->queryParam('bettingGameId') : null,
-            eventId: $request->queryParam('eventId') ? (int) $request->queryParam('eventId') : null,
-            participantId: $request->queryParam('participantId') ? (int) $request->queryParam('participantId') : null,
-            page: $request->queryParam('page') ? (int) $request->queryParam('page') : 1,
-            pageSize: $request->queryParam('pageSize') ? (int) $request->queryParam('pageSize') : 50
+            bettingGameId: $bettingGameId !== null ? (int) $bettingGameId : null,
+            eventId: $eventId !== null ? (int) $eventId : null,
+            participantId: $participantId !== null ? (int) $participantId : null,
+            page: $page !== null ? (int) $page : 1,
+            pageSize: $pageSize !== null ? (int) $pageSize : 50
         );
 
         try {

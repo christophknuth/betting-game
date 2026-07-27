@@ -6,6 +6,10 @@ namespace BettingGame\Application\Query;
 
 final class BettingGameReadModel
 {
+    /**
+     * @param array<string, mixed> $gameType
+     * @param array<string, mixed>|null $configuration
+     */
     public function __construct(
         public readonly int $bettingGameId,
         public readonly string $name,
@@ -23,6 +27,7 @@ final class BettingGameReadModel
     ) {
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

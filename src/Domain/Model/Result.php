@@ -11,8 +11,10 @@ use DateTimeImmutable;
 
 final class Result
 {
+    /** @var list<DomainEvent> */
     private array $recordedEvents = [];
 
+    /** @param array<string, mixed> $resultData */
     private function __construct(
         private int $id,
         private int $eventId,
@@ -23,6 +25,7 @@ final class Result
     ) {
     }
 
+    /** @param array<string, mixed> $resultData */
     public static function record(
         int $id,
         int $eventId,
@@ -49,6 +52,8 @@ final class Result
 
     /**
      * Rehydrates a result from the read model without recording events.
+     *
+     * @param array<string, mixed> $resultData
      */
     public static function reconstitute(
         int $id,
@@ -61,6 +66,7 @@ final class Result
         return new self($id, $eventId, $resultData, $source, $recordedAt, $updatedAt);
     }
 
+    /** @param array<string, mixed> $resultData */
     public function update(array $resultData, ?string $reason = null): void
     {
         $this->resultData = $resultData;
@@ -80,7 +86,7 @@ final class Result
     }
 
     /**
-     * @return DomainEvent[]
+     * @return list<DomainEvent>
      */
     public function releaseEvents(): array
     {
@@ -99,6 +105,7 @@ final class Result
         return $this->eventId;
     }
 
+    /** @return array<string, mixed> */
     public function resultData(): array
     {
         return $this->resultData;

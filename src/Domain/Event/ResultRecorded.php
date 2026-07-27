@@ -8,6 +8,7 @@ use DateTimeImmutable;
 
 final class ResultRecorded extends DomainEvent
 {
+    /** @param array<string, mixed> $resultData */
     public function __construct(
         private string $resultId,
         private int $gameEventId,
@@ -41,6 +42,7 @@ final class ResultRecorded extends DomainEvent
         return $this->gameEventId;
     }
 
+    /** @return array<string, mixed> */
     public function resultData(): array
     {
         return $this->resultData;
@@ -51,6 +53,7 @@ final class ResultRecorded extends DomainEvent
         return $this->source;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

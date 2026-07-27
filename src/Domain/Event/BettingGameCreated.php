@@ -57,6 +57,7 @@ final class BettingGameCreated extends DomainEvent
         return $this->endDate;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

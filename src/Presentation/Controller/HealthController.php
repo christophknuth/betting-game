@@ -9,6 +9,7 @@ use BettingGame\Presentation\Http\Request;
 
 final class HealthController
 {
+    /** @param array<string, string> $params */
     public function check(Request $request, array $params): JsonResponse
     {
         return JsonResponse::ok([

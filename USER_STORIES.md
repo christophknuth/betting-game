@@ -310,10 +310,19 @@ Beim Verdrahten der Routen aufgefallen, jeweils **bereits geroutete** Endpunkte 
 
 | Problem | Auswirkung |
 |---|---|
-| `PredictionRepositoryInterface` hat keine Implementierung | `POST`/`PUT` auf Predictions (US-09, US-10) scheitern beim Auflösen im Container |
-| `BettingGameRepositoryInterface` hat keine Implementierung | US-25, US-29 und der Beitritt (US-17) scheitern ebenso |
-| Vier Read-Model-Interfaces ohne Implementierung: `BettingGameReadModel`, `ParticipationReadModel`, `ParticipantReadModel`, `AdminPredictionReadModel` | US-11 teilweise, US-19, US-26, US-63 |
+| `BettingGameRepositoryInterface` hat keine Implementierung | US-25, US-29 und der Beitritt (US-17) scheitern beim Auflösen im Container |
+| Vier Read-Model-Interfaces ohne Implementierung: `BettingGameReadModel`, `ParticipationReadModel`, `ParticipantReadModel`, `AdminPredictionReadModel` | US-19, US-26, US-63 |
 | `PredictionControllerTest` mockt die `final` Klasse `SubmitPredictionHandler` | 7 Testfehler; entweder `final` entfernen oder gegen ein Interface mocken |
+
+`PredictionRepositoryInterface` fehlte hier ebenfalls und blockierte US-09 bis US-11. Die
+Implementierung ist beim Herstellen von PHPStan Level 10 entstanden
+([PredictionRepository.php](src/Infrastructure/Persistence/PredictionRepository.php)), weil der
+DI-Container sonst eine nicht existierende Klasse referenzierte.
+
+**Verbleibende Controller, die sich nicht instanziieren lassen:** `ParticipationController`,
+`AdminGameController`, `AdminPredictionController` — je wegen der oben genannten fehlenden
+Repositories. `PredictionController`, `ScoreController`, `AdminResultController`,
+`AdminParticipantController` und `HealthController` lösen auf.
 
 ### ER-Erweiterungen aus v1.1
 

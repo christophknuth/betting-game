@@ -6,6 +6,10 @@ namespace BettingGame\Presentation\Http;
 
 final class JsonResponse
 {
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, string> $headers
+     */
     private function __construct(
         private int $statusCode,
         private array $data,
@@ -13,11 +17,13 @@ final class JsonResponse
     ) {
     }
 
+    /** @param array<string, mixed> $data */
     public static function ok(array $data): self
     {
         return new self(200, $data);
     }
 
+    /** @param array<string, mixed> $data */
     public static function accepted(array $data): self
     {
         return new self(202, $data);
@@ -94,6 +100,7 @@ final class JsonResponse
         return $this->statusCode;
     }
 
+    /** @return array<string, mixed> */
     public function data(): array
     {
         return $this->data;
