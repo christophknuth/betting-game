@@ -45,6 +45,7 @@ final class BettingGameEnded extends DomainEvent
         return $this->finalizeScores;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

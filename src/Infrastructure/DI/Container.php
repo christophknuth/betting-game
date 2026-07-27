@@ -26,6 +26,8 @@ use BettingGame\Application\Query\GetParticipantScoresHandler;
 use BettingGame\Infrastructure\EventStore\PdoEventStore;
 use BettingGame\Infrastructure\Persistence\PredictionRepository;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
+use BettingGame\Infrastructure\Config\Config;
+use BettingGame\Infrastructure\Persistence\Db;
 use BettingGame\Infrastructure\Persistence\GameEventRepository;
 use BettingGame\Infrastructure\Persistence\LeaderboardReadModelRepository;
 use BettingGame\Infrastructure\Persistence\PredictionReadModelRepository;
@@ -48,74 +50,80 @@ use Psr\SimpleCache\CacheInterface;
 
 final class Container
 {
+    /**
+     * @param array<string, mixed> $config
+     */
     public static function build(array $config): PsrContainerInterface
     {
+        $settings = new Config($config);
         $builder = new ContainerBuilder();
-        
-        if ($config['production'] ?? false) {
+
+        if ($settings->bool('production')) {
             $builder->enableCompilation(__DIR__ . '/../../../var/cache');
             $builder->enableDefinitionCache();
         }
 
         $builder->addDefinitions([
             // Database
-            PDO::class => function () use ($config) {
+            PDO::class => function () use ($settings) {
                 $dsn = sprintf(
                     'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-                    $config['db']['host'] ?? 'localhost',
-                    $config['db']['port'] ?? 3306,
-                    $config['db']['database'] ?? 'betting_game'
+                    $settings->string('db.host', 'localhost'),
+                    $settings->int('db.port', 3306),
+                    $settings->string('db.database', 'betting_game')
                 );
 
-                $pdo = new PDO(
+                return new PDO(
                     $dsn,
-                    $config['db']['username'] ?? 'root',
-                    $config['db']['password'] ?? '',
+                    $settings->string('db.username', 'root'),
+                    $settings->string('db.password', ''),
                     [
                         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                         PDO::ATTR_EMULATE_PREPARES => false,
                     ]
                 );
-
-                return $pdo;
             },
 
             // PSR-3: Logger Interface
-            LoggerInterface::class => function () use ($config) {
-                $environment = $config['environment'] ?? 'development';
-                return LoggerFactory::createApplicationLogger($environment);
+            LoggerInterface::class => function () use ($settings) {
+                return LoggerFactory::createApplicationLogger(
+                    $settings->string('environment', 'development')
+                );
             },
 
             // PSR-16: Simple Cache Interface
-            CacheInterface::class => function () use ($config) {
+            CacheInterface::class => function () use ($settings) {
                 // Use Redis in production, File cache in development
-                if (($config['cache']['driver'] ?? 'file') === 'redis' && extension_loaded('redis')) {
+                if ($settings->string('cache.driver', 'file') === 'redis' && extension_loaded('redis')) {
                     return new \BettingGame\Infrastructure\Cache\RedisCache(
-                        host: $config['cache']['redis']['host'] ?? '127.0.0.1',
-                        port: $config['cache']['redis']['port'] ?? 6379,
+                        host: $settings->string('cache.redis.host', '127.0.0.1'),
+                        port: $settings->int('cache.redis.port', 6379),
                         prefix: 'betting_game:',
-                        defaultTtl: $config['cache']['ttl'] ?? 3600,
-                        password: $config['cache']['redis']['password'] ?? null
+                        defaultTtl: $settings->int('cache.ttl', 3600),
+                        password: $settings->nullableString('cache.redis.password')
                     );
                 }
 
                 return new FileCache(
-                    cacheDir: $config['cache']['path'] ?? null,
-                    defaultTtl: $config['cache']['ttl'] ?? 3600
+                    cacheDir: $settings->nullableString('cache.path'),
+                    defaultTtl: $settings->int('cache.ttl', 3600)
                 );
             },
 
             // Keycloak Service
-            KeycloakService::class => function () use ($config) {
+            KeycloakService::class => function () use ($settings) {
                 return new KeycloakService(
-                    keycloakUrl: $config['keycloak']['url'] ?? 'http://keycloak:8080',
-                    realm: $config['keycloak']['realm'] ?? 'betting-game'
+                    keycloakUrl: $settings->string('keycloak.url', 'http://keycloak:8080'),
+                    realm: $settings->string('keycloak.realm', 'betting-game')
                 );
             },
 
             // Auth Middleware
             AuthMiddleware::class => \DI\autowire(),
+
+            // Typed PDO wrapper used by every repository
+            Db::class => \DI\autowire(),
 
             // Event Store
             EventStoreInterface::class => \DI\autowire(PdoEventStore::class),

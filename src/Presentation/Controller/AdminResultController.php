@@ -14,6 +14,8 @@ use BettingGame\Application\Command\UpdateResultCommand;
 use BettingGame\Application\Command\UpdateResultHandler;
 use BettingGame\Domain\Exception\DomainException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
+use BettingGame\Presentation\Http\Input;
+use BettingGame\Presentation\Http\InvalidInputException;
 use BettingGame\Presentation\Http\JsonResponse;
 use BettingGame\Presentation\Http\Request;
 
@@ -27,44 +29,47 @@ final class AdminResultController
     ) {
     }
 
+    /** @param array<string, string> $params */
     public function recordResult(Request $request, array $params): JsonResponse
     {
-        $eventId = (int) $params['eventId'];
         $body = $request->jsonBody();
 
-        if (!isset($body['resultData'])) {
-            return JsonResponse::badRequest('resultData is required');
+        try {
+            $command = new RecordResultCommand(
+                eventId: (int) $params['eventId'],
+                resultData: Input::array($body, 'resultData'),
+                source: Input::optionalString($body, 'source'),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
         }
-
-        $command = new RecordResultCommand(
-            eventId: $eventId,
-            resultData: $body['resultData'],
-            source: $body['source'] ?? null,
-            correlationId: $request->header('X-Correlation-ID')
-        );
 
         try {
             $result = $this->recordResultHandler->handle($command);
             return JsonResponse::accepted($result->toArray());
+        } catch (EntityNotFoundException $e) {
+            return JsonResponse::notFound($e->getMessage());
         } catch (DomainException $e) {
             return JsonResponse::badRequest($e->getMessage());
         }
     }
 
+    /** @param array<string, string> $params */
     public function updateResult(Request $request, array $params): JsonResponse
     {
         $body = $request->jsonBody();
 
-        if (!isset($body['resultData'])) {
-            return JsonResponse::badRequest('resultData is required');
+        try {
+            $command = new UpdateResultCommand(
+                eventId: (int) $params['eventId'],
+                resultData: Input::array($body, 'resultData'),
+                reason: Input::optionalString($body, 'reason'),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
         }
-
-        $command = new UpdateResultCommand(
-            eventId: (int) $params['eventId'],
-            resultData: $body['resultData'],
-            reason: $body['reason'] ?? null,
-            correlationId: $request->header('X-Correlation-ID')
-        );
 
         try {
             $result = $this->updateResultHandler->handle($command);
@@ -76,6 +81,7 @@ final class AdminResultController
         }
     }
 
+    /** @param array<string, string> $params */
     public function calculateScores(Request $request, array $params): JsonResponse
     {
         $command = new CalculateScoresCommand(
@@ -93,27 +99,31 @@ final class AdminResultController
         }
     }
 
+    /** @param array<string, string> $params */
     public function awardScore(Request $request, array $params): JsonResponse
     {
         $body = $request->jsonBody();
 
-        if (!isset($body['bettingGameId'], $body['eventId'])) {
-            return JsonResponse::badRequest('bettingGameId and eventId are required');
-        }
+        try {
+            $pointsEarned = Input::optionalInt($body, 'pointsEarned');
+            $prizeAmount = Input::optionalFloat($body, 'prizeAmount');
 
-        if (!isset($body['pointsEarned']) && !isset($body['prizeAmount'])) {
-            return JsonResponse::badRequest('Either pointsEarned or prizeAmount is required');
-        }
+            if ($pointsEarned === null && $prizeAmount === null) {
+                return JsonResponse::badRequest('Either pointsEarned or prizeAmount is required');
+            }
 
-        $command = new AwardScoreCommand(
-            participantId: (int) $params['participantId'],
-            bettingGameId: (int) $body['bettingGameId'],
-            eventId: (int) $body['eventId'],
-            pointsEarned: isset($body['pointsEarned']) ? (int) $body['pointsEarned'] : null,
-            prizeAmount: isset($body['prizeAmount']) ? (float) $body['prizeAmount'] : null,
-            reason: $body['reason'] ?? null,
-            correlationId: $request->header('X-Correlation-ID')
-        );
+            $command = new AwardScoreCommand(
+                participantId: (int) $params['participantId'],
+                bettingGameId: Input::int($body, 'bettingGameId'),
+                eventId: Input::int($body, 'eventId'),
+                pointsEarned: $pointsEarned,
+                prizeAmount: $prizeAmount,
+                reason: Input::optionalString($body, 'reason'),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
 
         try {
             $result = $this->awardScoreHandler->handle($command);

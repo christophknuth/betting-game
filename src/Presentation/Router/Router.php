@@ -135,8 +135,17 @@ final class Router
         });
     }
 
+    /**
+     * FastRoute result: [NOT_FOUND] | [METHOD_NOT_ALLOWED, list<string>]
+     * | [FOUND, array{controller: string, method: string, role?: string}, array<string, string>]
+     *
+     * @return array<int, mixed>
+     */
     public function dispatch(string $httpMethod, string $uri): array
     {
-        return $this->dispatcher->dispatch($httpMethod, $uri);
+        /** @var array<int, mixed> $routeInfo */
+        $routeInfo = $this->dispatcher->dispatch($httpMethod, $uri);
+
+        return $routeInfo;
     }
 }

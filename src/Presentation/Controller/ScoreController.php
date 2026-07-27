@@ -21,6 +21,7 @@ final class ScoreController
     ) {
     }
 
+    /** @param array<string, string> $params */
     public function getScores(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
@@ -29,9 +30,11 @@ final class ScoreController
             return JsonResponse::forbidden('Access denied');
         }
 
+        $bettingGameId = $request->queryParam('bettingGameId');
+
         $query = new GetParticipantScoresQuery(
             participantId: $participantId,
-            bettingGameId: $request->queryParam('bettingGameId') ? (int) $request->queryParam('bettingGameId') : null
+            bettingGameId: $bettingGameId !== null ? (int) $bettingGameId : null
         );
 
         try {
@@ -42,6 +45,7 @@ final class ScoreController
         }
     }
 
+    /** @param array<string, string> $params */
     public function getLeaderboard(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];

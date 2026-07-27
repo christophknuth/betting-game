@@ -8,6 +8,7 @@ use DateTimeImmutable;
 
 final class PredictionUpdated extends DomainEvent
 {
+    /** @param array<string, mixed> $predictionData */
     public function __construct(
         private string $predictionId,
         private array $predictionData,
@@ -35,6 +36,7 @@ final class PredictionUpdated extends DomainEvent
         return 'prediction.updated';
     }
 
+    /** @return array<string, mixed> */
     public function predictionData(): array
     {
         return $this->predictionData;
@@ -45,6 +47,7 @@ final class PredictionUpdated extends DomainEvent
         return $this->version;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

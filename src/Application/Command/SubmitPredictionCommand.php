@@ -6,6 +6,7 @@ namespace BettingGame\Application\Command;
 
 final class SubmitPredictionCommand
 {
+    /** @param array<string, mixed> $predictionData */
     public function __construct(
         public readonly int $participantId,
         public readonly int $eventId,

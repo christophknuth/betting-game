@@ -6,6 +6,7 @@ namespace BettingGame\Application\Command;
 
 final class UpdateResultCommand
 {
+    /** @param array<string, mixed> $resultData */
     public function __construct(
         public readonly int $eventId,
         public readonly array $resultData,

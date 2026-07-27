@@ -8,6 +8,7 @@ use DateTimeImmutable;
 
 final class PredictionSubmitted extends DomainEvent
 {
+    /** @param array<string, mixed> $predictionData */
     public function __construct(
         private string $predictionId,
         private int $participantId,
@@ -50,11 +51,13 @@ final class PredictionSubmitted extends DomainEvent
         return $this->gameEventId;
     }
 
+    /** @return array<string, mixed> */
     public function predictionData(): array
     {
         return $this->predictionData;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

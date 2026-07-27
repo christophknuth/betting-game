@@ -6,6 +6,7 @@ namespace BettingGame\Application\Query;
 
 final class LeaderboardReadModel
 {
+    /** @param list<array<string, mixed>> $rankings */
     public function __construct(
         public readonly int $bettingGameId,
         public readonly string $bettingGameName,
@@ -14,6 +15,7 @@ final class LeaderboardReadModel
     ) {
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

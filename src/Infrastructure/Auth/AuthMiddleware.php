@@ -79,9 +79,10 @@ final class AuthMiddleware
      */
     public function requireRole(Request $request, string $requiredRole): ?JsonResponse
     {
-        $roles = $request->attribute('roles') ?? [];
-        
-        if (!in_array($requiredRole, $roles)) {
+        $roles = $request->attribute('roles');
+        $roles = is_array($roles) ? $roles : [];
+
+        if (!in_array($requiredRole, $roles, true)) {
             $this->logger->warning('Insufficient permissions', [
                 'required_role' => $requiredRole,
                 'user_roles' => $roles,

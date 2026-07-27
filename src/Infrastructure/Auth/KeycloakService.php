@@ -14,6 +14,7 @@ final class KeycloakService
 {
     private string $keycloakUrl;
     private string $realm;
+    /** @var array<string, mixed>|null */
     private ?array $publicKey = null;
 
     public function __construct(
@@ -26,6 +27,8 @@ final class KeycloakService
 
     /**
      * Validate JWT token and return decoded payload
+     *
+     * @return array<string, mixed>|null
      */
     public function validateToken(string $token): ?array
     {
@@ -36,66 +39,75 @@ final class KeycloakService
                 return null;
             }
 
-            [$header, $payload, $signature] = $parts;
+            [$header, $payload] = $parts;
 
             // Decode header and payload
-            $headerData = json_decode($this->base64UrlDecode($header), true);
-            $payloadData = json_decode($this->base64UrlDecode($payload), true);
+            $headerData = $this->decodeJsonObject($this->base64UrlDecode($header));
+            $payloadData = $this->decodeJsonObject($this->base64UrlDecode($payload));
 
-            if (!$headerData || !$payloadData) {
+            if ($headerData === null || $payloadData === null) {
                 return null;
             }
 
             // Check if token is expired
-            if (isset($payloadData['exp']) && $payloadData['exp'] < time()) {
+            $exp = $payloadData['exp'] ?? null;
+            if (is_int($exp) && $exp < time()) {
                 return null;
             }
 
             // Verify realm
-            if (!isset($payloadData['iss']) || 
-                !str_contains($payloadData['iss'], "/realms/{$this->realm}")) {
+            $issuer = $payloadData['iss'] ?? null;
+            if (!is_string($issuer) || !str_contains($issuer, "/realms/{$this->realm}")) {
                 return null;
             }
 
             // In production, verify signature with Keycloak's public key
             // For now, we trust tokens in development
-            
+
             return $payloadData;
-        } catch (Exception $e) {
+        } catch (Exception) {
             return null;
         }
     }
 
     /**
      * Get user info from Keycloak
+     *
+     * @return array<string, mixed>|null
      */
     public function getUserInfo(string $token): ?array
     {
         try {
             $url = "{$this->keycloakUrl}/realms/{$this->realm}/protocol/openid-connect/userinfo";
-            
+
             $ch = curl_init($url);
+            if ($ch === false) {
+                return null;
+            }
+
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 "Authorization: Bearer {$token}"
             ]);
-            
+
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            if ($httpCode !== 200 || !$response) {
+            if ($httpCode !== 200 || !is_string($response)) {
                 return null;
             }
 
-            return json_decode($response, true);
-        } catch (Exception $e) {
+            return $this->decodeJsonObject($response);
+        } catch (Exception) {
             return null;
         }
     }
 
     /**
      * Get Keycloak public key (for signature verification)
+     *
+     * @return array<string, mixed>|null
      */
     public function getPublicKey(): ?array
     {
@@ -105,100 +117,140 @@ final class KeycloakService
 
         try {
             $url = "{$this->keycloakUrl}/realms/{$this->realm}";
-            
+
             $ch = curl_init($url);
+            if ($ch === false) {
+                return null;
+            }
+
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             $response = curl_exec($ch);
             curl_close($ch);
 
-            if (!$response) {
+            if (!is_string($response)) {
                 return null;
             }
 
-            $data = json_decode($response, true);
-            $this->publicKey = $data;
-            
+            $this->publicKey = $this->decodeJsonObject($response);
+
             return $this->publicKey;
-        } catch (Exception $e) {
+        } catch (Exception) {
             return null;
         }
     }
 
     /**
      * Extract participant ID from token
+     *
+     * @param array<string, mixed> $tokenData
      */
     public function getParticipantId(array $tokenData): ?int
     {
         // Try custom claim first
-        if (isset($tokenData['participant_id'])) {
-            return (int) $tokenData['participant_id'];
+        $participantId = $tokenData['participant_id'] ?? null;
+
+        if (is_int($participantId)) {
+            return $participantId;
         }
 
-        // Fallback: use sub (subject) as participant ID
-        if (isset($tokenData['sub'])) {
-            // In production, map Keycloak sub to participant table
-            return null;
+        if (is_string($participantId) && preg_match('/^\d+$/', $participantId) === 1) {
+            return (int) $participantId;
+        }
+
+        // Fallback: in production, map the Keycloak subject to the participant table
+        return null;
+    }
+
+    /**
+     * Extract username from token
+     *
+     * @param array<string, mixed> $tokenData
+     */
+    public function getUsername(array $tokenData): ?string
+    {
+        foreach (['preferred_username', 'name', 'email'] as $claim) {
+            $value = $tokenData[$claim] ?? null;
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
         }
 
         return null;
     }
 
     /**
-     * Extract username from token
-     */
-    public function getUsername(array $tokenData): ?string
-    {
-        return $tokenData['preferred_username'] ?? 
-               $tokenData['name'] ?? 
-               $tokenData['email'] ?? 
-               null;
-    }
-
-    /**
      * Check if user has role
+     *
+     * @param array<string, mixed> $tokenData
      */
     public function hasRole(array $tokenData, string $role): bool
     {
-        // Check realm roles
-        if (isset($tokenData['realm_access']['roles']) && 
-            in_array($role, $tokenData['realm_access']['roles'])) {
-            return true;
-        }
-
-        // Check resource roles
-        if (isset($tokenData['resource_access'])) {
-            foreach ($tokenData['resource_access'] as $resource) {
-                if (isset($resource['roles']) && in_array($role, $resource['roles'])) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return in_array($role, $this->getRoles($tokenData), true);
     }
 
     /**
      * Get all user roles
+     *
+     * @param array<string, mixed> $tokenData
+     *
+     * @return list<string>
      */
     public function getRoles(array $tokenData): array
     {
-        $roles = [];
+        $roles = $this->rolesOf($tokenData['realm_access'] ?? null);
 
-        // Realm roles
-        if (isset($tokenData['realm_access']['roles'])) {
-            $roles = array_merge($roles, $tokenData['realm_access']['roles']);
-        }
-
-        // Resource roles
-        if (isset($tokenData['resource_access'])) {
-            foreach ($tokenData['resource_access'] as $resource) {
-                if (isset($resource['roles'])) {
-                    $roles = array_merge($roles, $resource['roles']);
-                }
+        $resourceAccess = $tokenData['resource_access'] ?? null;
+        if (is_array($resourceAccess)) {
+            foreach ($resourceAccess as $resource) {
+                $roles = array_merge($roles, $this->rolesOf($resource));
             }
         }
 
-        return array_unique($roles);
+        return array_values(array_unique($roles));
+    }
+
+    /**
+     * Reads the `roles` list out of a realm_access / resource_access entry,
+     * discarding anything that is not a string.
+     *
+     * @return list<string>
+     */
+    private function rolesOf(mixed $access): array
+    {
+        if (!is_array($access)) {
+            return [];
+        }
+
+        $roles = $access['roles'] ?? null;
+
+        if (!is_array($roles)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($roles as $role) {
+            if (is_string($role)) {
+                $result[] = $role;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function decodeJsonObject(string $json): ?array
+    {
+        $decoded = json_decode($json, true);
+
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     /**
@@ -207,10 +259,11 @@ final class KeycloakService
     private function base64UrlDecode(string $data): string
     {
         $remainder = strlen($data) % 4;
-        if ($remainder) {
+        if ($remainder !== 0) {
             $padlen = 4 - $remainder;
             $data .= str_repeat('=', $padlen);
         }
-        return base64_decode(strtr($data, '-_', '+/'));
+
+        return base64_decode(strtr($data, '-_', '+/')) ?: '';
     }
 }

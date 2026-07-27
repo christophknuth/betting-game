@@ -15,6 +15,7 @@ use DateTimeImmutable;
 
 final class Participant
 {
+    /** @var list<DomainEvent> */
     private array $recordedEvents = [];
     private int $version = 0;
     private int $originalVersion = 0;
@@ -108,7 +109,7 @@ final class Participant
     }
 
     /**
-     * @return DomainEvent[]
+     * @return list<DomainEvent>
      */
     public function releaseEvents(): array
     {

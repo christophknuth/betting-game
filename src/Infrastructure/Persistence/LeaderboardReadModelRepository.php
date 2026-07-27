@@ -6,17 +6,20 @@ namespace BettingGame\Infrastructure\Persistence;
 
 use BettingGame\Application\Query\LeaderboardReadModel;
 use BettingGame\Application\Query\LeaderboardReadModelRepositoryInterface;
-use PDO;
+use DateTimeImmutable;
 
 final class LeaderboardReadModelRepository implements LeaderboardReadModelRepositoryInterface
 {
-    public function __construct(private PDO $pdo)
+    public function __construct(private Db $db)
     {
     }
 
     public function getLeaderboard(int $bettingGameId, int $limit = 50): ?LeaderboardReadModel
     {
-        $game = $this->findGame($bettingGameId);
+        $game = $this->db->fetchOne(
+            'SELECT name FROM betting_game WHERE betting_game_id = ?',
+            [$bettingGameId]
+        );
 
         if ($game === null) {
             return null;
@@ -24,23 +27,16 @@ final class LeaderboardReadModelRepository implements LeaderboardReadModelReposi
 
         return new LeaderboardReadModel(
             bettingGameId: $bettingGameId,
-            bettingGameName: $game['name'],
+            bettingGameName: Row::string($game, 'name'),
             rankings: $this->rankings($bettingGameId, $limit),
             updatedAt: $this->lastCalculatedAt($bettingGameId)
         );
     }
 
-    private function findGame(int $bettingGameId): ?array
-    {
-        $stmt = $this->pdo->prepare('SELECT name FROM betting_game WHERE betting_game_id = ?');
-        $stmt->execute([$bettingGameId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        return $row ?: null;
-    }
-
     /**
      * Rank is not stored anywhere - it is derived from the ordering of the aggregate.
+     *
+     * @return list<array<string, mixed>>
      */
     private function rankings(int $bettingGameId, int $limit): array
     {
@@ -65,8 +61,7 @@ final class LeaderboardReadModelRepository implements LeaderboardReadModelReposi
             ORDER BY total_points DESC, total_prize_amount DESC, p.display_name ASC
             LIMIT ' . (int) $limit;
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
+        $rows = $this->db->fetchAll($sql, [
             'game_id_predictions' => $bettingGameId,
             'game_id' => $bettingGameId,
         ]);
@@ -74,16 +69,16 @@ final class LeaderboardReadModelRepository implements LeaderboardReadModelReposi
         $rankings = [];
         $rank = 0;
 
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        foreach ($rows as $row) {
             $rank++;
 
             $rankings[] = [
                 'rank' => $rank,
-                'participantId' => (int) $row['participant_id'],
-                'displayName' => $row['display_name'],
-                'totalPoints' => (int) $row['total_points'],
-                'totalPrizeAmount' => (float) $row['total_prize_amount'],
-                'predictionsCount' => (int) $row['predictions_count'],
+                'participantId' => Row::int($row, 'participant_id'),
+                'displayName' => Row::string($row, 'display_name'),
+                'totalPoints' => Row::int($row, 'total_points'),
+                'totalPrizeAmount' => Row::float($row, 'total_prize_amount'),
+                'predictionsCount' => Row::int($row, 'predictions_count'),
             ];
         }
 
@@ -92,18 +87,19 @@ final class LeaderboardReadModelRepository implements LeaderboardReadModelReposi
 
     private function lastCalculatedAt(int $bettingGameId): string
     {
-        $stmt = $this->pdo->prepare('
+        $row = $this->db->fetchOne(
+            '
             SELECT MAX(calculated_at) AS last_calculated_at
             FROM participant_score
             WHERE betting_game_id = ?
-        ');
-        $stmt->execute([$bettingGameId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            ',
+            [$bettingGameId]
+        );
 
-        $lastCalculatedAt = $row['last_calculated_at'] ?? null;
+        $lastCalculatedAt = $row !== null ? Row::nullableString($row, 'last_calculated_at') : null;
 
         return $lastCalculatedAt !== null
-            ? (new \DateTimeImmutable($lastCalculatedAt))->format('c')
-            : (new \DateTimeImmutable())->format('c');
+            ? (new DateTimeImmutable($lastCalculatedAt))->format('c')
+            : (new DateTimeImmutable())->format('c');
     }
 }

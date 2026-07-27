@@ -45,12 +45,21 @@ final class RedisCache implements CacheInterface
         $this->validateKey($key);
 
         $value = $this->redis->get($this->prefix . $key);
-        
-        if ($value === false) {
+
+        // Redis returns false on a miss; anything non-string is unusable here.
+        if (!is_string($value)) {
             return $default;
         }
 
-        return unserialize($value);
+        $unserialized = @unserialize($value);
+
+        // unserialize() returns false both for the value false and on failure -
+        // comparing the payload tells the two apart.
+        if ($unserialized === false && $value !== serialize(false)) {
+            return $default;
+        }
+
+        return $unserialized;
     }
 
     public function set(string $key, mixed $value, null|int|DateInterval $ttl = null): bool
@@ -60,8 +69,9 @@ final class RedisCache implements CacheInterface
         $ttlSeconds = $this->normalizeTtl($ttl);
         $serialized = serialize($value);
 
-        if ($ttlSeconds === null || $ttlSeconds === 0) {
-            return $this->redis->set($this->prefix . $key, $serialized);
+        // A TTL of 0 or less means "no expiry" - SETEX would reject it.
+        if ($ttlSeconds <= 0) {
+            return (bool) $this->redis->set($this->prefix . $key, $serialized);
         }
 
         return $this->redis->setex($this->prefix . $key, $ttlSeconds, $serialized);
@@ -96,6 +106,7 @@ final class RedisCache implements CacheInterface
         return $result;
     }
 
+    /** @param iterable<string, mixed> $values */
     public function setMultiple(iterable $values, null|int|DateInterval $ttl = null): bool
     {
         $success = true;
@@ -134,6 +145,7 @@ final class RedisCache implements CacheInterface
     /**
      * Get Redis connection info
      */
+    /** @return array<string, mixed> */
     public function getConnectionInfo(): array
     {
         return $this->redis->info('server');
@@ -142,6 +154,7 @@ final class RedisCache implements CacheInterface
     /**
      * Get cache statistics
      */
+    /** @return array<string, mixed> */
     public function getStats(): array
     {
         return $this->redis->info('stats');
@@ -158,7 +171,7 @@ final class RedisCache implements CacheInterface
         }
     }
 
-    private function normalizeTtl(null|int|DateInterval $ttl): ?int
+    private function normalizeTtl(null|int|DateInterval $ttl): int
     {
         if ($ttl === null) {
             return $this->defaultTtl;

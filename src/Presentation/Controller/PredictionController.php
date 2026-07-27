@@ -11,6 +11,8 @@ use BettingGame\Application\Command\UpdatePredictionHandler;
 use BettingGame\Application\Query\GetParticipantPredictionsQuery;
 use BettingGame\Application\Query\GetParticipantPredictionsHandler;
 use BettingGame\Domain\Exception\DomainException;
+use BettingGame\Presentation\Http\Input;
+use BettingGame\Presentation\Http\InvalidInputException;
 use BettingGame\Presentation\Http\JsonResponse;
 use BettingGame\Presentation\Http\Request;
 
@@ -23,6 +25,7 @@ final class PredictionController
     ) {
     }
 
+    /** @param array<string, string> $params */
     public function getPredictions(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
@@ -32,10 +35,13 @@ final class PredictionController
             return JsonResponse::forbidden('Access denied');
         }
 
+        $bettingGameId = $request->queryParam('bettingGameId');
+        $eventId = $request->queryParam('eventId');
+
         $query = new GetParticipantPredictionsQuery(
             participantId: $participantId,
-            bettingGameId: $request->queryParam('bettingGameId') ? (int) $request->queryParam('bettingGameId') : null,
-            eventId: $request->queryParam('eventId') ? (int) $request->queryParam('eventId') : null,
+            bettingGameId: $bettingGameId !== null ? (int) $bettingGameId : null,
+            eventId: $eventId !== null ? (int) $eventId : null,
             status: $request->queryParam('status')
         );
 
@@ -47,6 +53,7 @@ final class PredictionController
         }
     }
 
+    /** @param array<string, string> $params */
     public function submitPrediction(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
@@ -57,17 +64,17 @@ final class PredictionController
         }
 
         $body = $request->jsonBody();
-        
-        if (!isset($body['predictionData'])) {
-            return JsonResponse::badRequest('predictionData is required');
-        }
 
-        $command = new SubmitPredictionCommand(
-            participantId: $participantId,
-            eventId: $eventId,
-            predictionData: $body['predictionData'],
-            correlationId: $request->header('X-Correlation-ID')
-        );
+        try {
+            $command = new SubmitPredictionCommand(
+                participantId: $participantId,
+                eventId: $eventId,
+                predictionData: Input::array($body, 'predictionData'),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
 
         try {
             $result = $this->submitHandler->handle($command);
@@ -77,6 +84,7 @@ final class PredictionController
         }
     }
 
+    /** @param array<string, string> $params */
     public function updatePrediction(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
@@ -87,17 +95,17 @@ final class PredictionController
         }
 
         $body = $request->jsonBody();
-        
-        if (!isset($body['predictionData'])) {
-            return JsonResponse::badRequest('predictionData is required');
-        }
 
-        $command = new UpdatePredictionCommand(
-            predictionId: $predictionId,
-            participantId: $participantId,
-            predictionData: $body['predictionData'],
-            correlationId: $request->header('X-Correlation-ID')
-        );
+        try {
+            $command = new UpdatePredictionCommand(
+                predictionId: $predictionId,
+                participantId: $participantId,
+                predictionData: Input::array($body, 'predictionData'),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
 
         try {
             $result = $this->updateHandler->handle($command);

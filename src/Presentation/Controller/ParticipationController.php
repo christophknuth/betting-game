@@ -11,6 +11,8 @@ use BettingGame\Application\Command\LeaveGameHandler;
 use BettingGame\Application\Query\GetParticipationsQuery;
 use BettingGame\Application\Query\GetParticipationsHandler;
 use BettingGame\Domain\Exception\DomainException;
+use BettingGame\Presentation\Http\Input;
+use BettingGame\Presentation\Http\InvalidInputException;
 use BettingGame\Presentation\Http\JsonResponse;
 use BettingGame\Presentation\Http\Request;
 
@@ -23,6 +25,7 @@ final class ParticipationController
     ) {
     }
 
+    /** @param array<string, string> $params */
     public function getParticipations(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
@@ -44,6 +47,7 @@ final class ParticipationController
         }
     }
 
+    /** @param array<string, string> $params */
     public function joinGame(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];
@@ -55,17 +59,21 @@ final class ParticipationController
 
         $body = $request->jsonBody();
 
-        if (!isset($body['acceptTerms'])) {
+        if (!array_key_exists('acceptTerms', $body)) {
             return JsonResponse::badRequest('acceptTerms is required');
         }
 
-        $command = new JoinGameCommand(
-            participantId: $participantId,
-            bettingGameId: $bettingGameId,
-            acceptTerms: (bool) $body['acceptTerms'],
-            paymentReference: $body['paymentReference'] ?? null,
-            correlationId: $request->header('X-Correlation-ID')
-        );
+        try {
+            $command = new JoinGameCommand(
+                participantId: $participantId,
+                bettingGameId: $bettingGameId,
+                acceptTerms: Input::bool($body, 'acceptTerms', false),
+                paymentReference: Input::optionalString($body, 'paymentReference'),
+                correlationId: $request->header('X-Correlation-ID')
+            );
+        } catch (InvalidInputException $e) {
+            return JsonResponse::badRequest($e->getMessage());
+        }
 
         try {
             $result = $this->joinGameHandler->handle($command);
@@ -75,6 +83,7 @@ final class ParticipationController
         }
     }
 
+    /** @param array<string, string> $params */
     public function leaveGame(Request $request, array $params): JsonResponse
     {
         $participantId = (int) $params['participantId'];

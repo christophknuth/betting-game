@@ -16,8 +16,10 @@ use DateTimeImmutable;
 
 final class Prediction
 {
+    /** @var list<DomainEvent> */
     private array $recordedEvents = [];
     private int $version = 0;
+    private int $originalVersion = 0;
 
     private function __construct(
         private string $id,
@@ -63,6 +65,39 @@ final class Prediction
         return $prediction;
     }
 
+    /**
+     * Rehydrates a prediction from the read model without recording events.
+     */
+    public static function fromProjection(
+        string $id,
+        ParticipantId $participantId,
+        EventId $eventId,
+        PredictionData $predictionData,
+        DateTimeImmutable $submittedAt,
+        ?DateTimeImmutable $updatedAt,
+        ?int $pointsEarned,
+        ?float $prizeAmount,
+        bool $evaluated,
+        int $version
+    ): self {
+        $prediction = new self(
+            $id,
+            $participantId,
+            $eventId,
+            $predictionData,
+            $submittedAt,
+            $updatedAt,
+            $pointsEarned,
+            $prizeAmount,
+            $evaluated
+        );
+
+        $prediction->version = $version;
+        $prediction->originalVersion = $version;
+
+        return $prediction;
+    }
+
     public function update(PredictionData $newData, DateTimeImmutable $deadline): void
     {
         if ($this->evaluated) {
@@ -104,7 +139,7 @@ final class Prediction
     }
 
     /**
-     * @return DomainEvent[]
+     * @return list<DomainEvent>
      */
     public function releaseEvents(): array
     {
@@ -149,6 +184,14 @@ final class Prediction
         return $this->version;
     }
 
+    /**
+     * Stream version this instance was loaded at - the expected version when appending.
+     */
+    public function originalVersion(): int
+    {
+        return $this->originalVersion;
+    }
+
     public function pointsEarned(): ?int
     {
         return $this->pointsEarned;
@@ -165,6 +208,7 @@ final class Prediction
     }
 
     // Reconstitution from events
+    /** @param list<DomainEvent> $events */
     public static function reconstitute(array $events): self
     {
         $prediction = null;

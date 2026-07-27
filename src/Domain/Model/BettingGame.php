@@ -13,9 +13,15 @@ use DateTimeImmutable;
 
 final class BettingGame
 {
+    /** @var list<DomainEvent> */
     private array $recordedEvents = [];
     private int $version = 0;
+    private DateTimeImmutable $createdAt;
 
+    /**
+     * @param array<string, mixed>|null $pointConfiguration
+     * @param array<string, mixed>|null $prizeDistribution
+     */
     private function __construct(
         private int $id,
         private string $name,
@@ -28,11 +34,15 @@ final class BettingGame
         private ?int $feePeriodDays = null,
         private ?array $pointConfiguration = null,
         private ?array $prizeDistribution = null,
-        private ?DateTimeImmutable $createdAt = null
+        ?DateTimeImmutable $createdAt = null
     ) {
         $this->createdAt = $createdAt ?? new DateTimeImmutable();
     }
 
+    /**
+     * @param array<string, mixed>|null $pointConfiguration
+     * @param array<string, mixed>|null $prizeDistribution
+     */
     public static function create(
         int $id,
         string $name,
@@ -100,7 +110,7 @@ final class BettingGame
     }
 
     /**
-     * @return DomainEvent[]
+     * @return list<DomainEvent>
      */
     public function releaseEvents(): array
     {
@@ -154,11 +164,13 @@ final class BettingGame
         return $this->feePeriodDays;
     }
 
+    /** @return array<string, mixed>|null */
     public function pointConfiguration(): ?array
     {
         return $this->pointConfiguration;
     }
 
+    /** @return array<string, mixed>|null */
     public function prizeDistribution(): ?array
     {
         return $this->prizeDistribution;

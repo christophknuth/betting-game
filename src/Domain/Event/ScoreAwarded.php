@@ -63,6 +63,7 @@ final class ScoreAwarded extends DomainEvent
         return $this->reason;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

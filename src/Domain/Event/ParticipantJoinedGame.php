@@ -51,6 +51,7 @@ final class ParticipantJoinedGame extends DomainEvent
         return $this->paymentReference;
     }
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

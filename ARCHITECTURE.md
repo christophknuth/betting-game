@@ -113,7 +113,7 @@ interface ParticipationReadModelRepositoryInterface
 - Kein Reflection zur Runtime
 
 ### ✓ Unit Tests & Coverage
-**Test Structure** (12 Testklassen, 109 Testmethoden):
+**Test Structure** (13 Testklassen, 142 Testmethoden):
 ```
 tests/
 ├── Unit/
@@ -311,8 +311,11 @@ DomainException
 ```
 
 ### Static Analysis
+
+Konfiguration: [phpstan.neon](phpstan.neon) — **Level 10** (Maximum), Ziel `src`.
+
 ```bash
-composer phpstan  # PHPStan Level 8
+composer phpstan  # PHPStan Level 10, aktuell fehlerfrei
 ```
 
 **Checks:**
