@@ -47,6 +47,20 @@ final class Result
         return $result;
     }
 
+    /**
+     * Rehydrates a result from the read model without recording events.
+     */
+    public static function reconstitute(
+        int $id,
+        int $eventId,
+        array $resultData,
+        ?string $source,
+        DateTimeImmutable $recordedAt,
+        ?DateTimeImmutable $updatedAt = null
+    ): self {
+        return new self($id, $eventId, $resultData, $source, $recordedAt, $updatedAt);
+    }
+
     public function update(array $resultData, ?string $reason = null): void
     {
         $this->resultData = $resultData;

@@ -42,6 +42,11 @@ final class Router
                 'method' => 'getScores'
             ]);
 
+            $r->addRoute('GET', '/participants/{participantId:\d+}/games/{bettingGameId:\d+}/leaderboard', [
+                'controller' => 'ScoreController',
+                'method' => 'getLeaderboard'
+            ]);
+
             // Participant - Participations
             $r->addRoute('GET', '/participants/{participantId:\d+}/participations', [
                 'controller' => 'ParticipationController',
@@ -88,6 +93,37 @@ final class Router
             $r->addRoute('POST', '/admin/events/{eventId:\d+}/results', [
                 'controller' => 'AdminResultController',
                 'method' => 'recordResult',
+                'role' => 'admin'
+            ]);
+
+            $r->addRoute('PUT', '/admin/events/{eventId:\d+}/results', [
+                'controller' => 'AdminResultController',
+                'method' => 'updateResult',
+                'role' => 'admin'
+            ]);
+
+            $r->addRoute('POST', '/admin/events/{eventId:\d+}/scores/calculate', [
+                'controller' => 'AdminResultController',
+                'method' => 'calculateScores',
+                'role' => 'admin'
+            ]);
+
+            $r->addRoute('POST', '/admin/participants/{participantId:\d+}/scores', [
+                'controller' => 'AdminResultController',
+                'method' => 'awardScore',
+                'role' => 'admin'
+            ]);
+
+            // Admin - Participants
+            $r->addRoute('POST', '/admin/participants', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'createParticipant',
+                'role' => 'admin'
+            ]);
+
+            $r->addRoute('POST', '/admin/participants/{participantId:\d+}/approve', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'approveParticipant',
                 'role' => 'admin'
             ]);
 

@@ -20,13 +20,13 @@ Stand: 2026-07-27.
 
 | Symbol | Bedeutung |
 |---|---|
-| 🟢 | Route + Handler vorhanden — über HTTP erreichbar |
-| 🟡 | Anwendungslogik vorhanden, **HTTP-Route fehlt** in [Router.php](src/Presentation/Router/Router.php) |
+| 🟢 | Route + Handler + Persistenz vorhanden — über HTTP nutzbar |
+| 🟠 | Route erreichbar, **Handler ist noch ein Stub** — validiert und quittiert mit `202`, schreibt aber nichts |
 | 🔵 | In der API spezifiziert, noch nicht implementiert |
 
-Nachtrag zur Statusermittlung: maßgeblich für 🟢 ist der Eintrag in `Router.php`.
-Mehrere Handler unter [src/Application/](src/Application/) existieren ohne Route und sind
-daher 🟡 — das ist die günstigste offene Baustelle.
+Maßgeblich für 🟢 ist der Eintrag in [Router.php](src/Presentation/Router/Router.php)
+zusammen mit einem Handler, der tatsächlich persistiert. Der Routen-Bestand ist durch
+[RouterTest.php](tests/Unit/Presentation/RouterTest.php) abgesichert.
 
 ---
 
@@ -82,14 +82,14 @@ Gebühren bestehen.
 | ID | Story | Endpunkt | ER-Modell | Status |
 |---|---|---|---|---|
 | **US-14** | Als **Teilnehmer** möchte ich meine Punkte und Gewinne inkl. Summe sehen, damit ich meinen Erfolg einschätze. | `GET /participants/{id}/scores` | **ParticipantScore** ⋈ **BettingGame** ⋈ **Event**; Summary = `SUM`/`COUNT DISTINCT` | 🟢 |
-| **US-15** | Als **Teilnehmer** möchte ich die Rangliste eines Spiels sehen, damit ich meine Position kenne. | `GET /participants/{id}/games/{gameId}/leaderboard` | Aggregation **ParticipantScore** ⋈ **Participant** | 🟡 |
+| **US-15** | Als **Teilnehmer** möchte ich die Rangliste eines Spiels sehen, damit ich meine Position kenne. | `GET /participants/{id}/games/{gameId}/leaderboard` | Aggregation **ParticipantScore** ⋈ **Participant** | 🟢 |
 | **US-16** | Als **Teilnehmer** möchte ich den Verlauf meiner Platzierung sehen, damit ich meine Entwicklung erkenne. | `.../leaderboard/history` | Zeitreihe über **ParticipantScore**`.calculated_at` | 🔵 |
 
-**Hinweis:** `rank` existiert in keiner Tabelle — Fensterfunktion (`RANK() OVER`) oder eine
-eigene Leaderboard-Projektion. `pointsEarned` und `prizeAmount` sind beide nullable, weil
-**ParticipantScore** Sport- **und** Lotteriespiele bedient.
-
-`GetLeaderboardHandler` existiert bereits — US-15 braucht nur die Route.
+**Hinweis:** `rank` existiert in keiner Tabelle. Umgesetzt ist es in
+[LeaderboardReadModelRepository.php](src/Infrastructure/Persistence/LeaderboardReadModelRepository.php)
+als laufende Nummer über der sortierten Aggregation (`points DESC, prize DESC, name ASC`) —
+ohne Fensterfunktion, dafür deterministisch bei Punktegleichstand. `pointsEarned` und
+`prizeAmount` sind beide nullable, weil **ParticipantScore** Sport- **und** Lotteriespiele bedient.
 
 ---
 
@@ -174,13 +174,19 @@ zugehörigen Prozess.
 | ID | Story | Endpunkt | ER-Modell | Status |
 |---|---|---|---|---|
 | **US-37** | Als **Administrator** möchte ich das Ergebnis eines Ereignisses mit Quellenangabe erfassen. | `POST /admin/events/{eventId}/results` | **Result** (UK auf `event_id`) | 🟢 |
-| **US-38** | Als **Administrator** möchte ich ein falsches Ergebnis mit Begründung korrigieren. | `PUT /admin/events/{eventId}/results` | **Result**`.updated_at`, `.version`; Grund → `EventStore.metadata` | 🟡 |
-| **US-39** | Als **Administrator** möchte ich die Punkteberechnung für ein Ereignis auslösen. | `POST /admin/events/{eventId}/scores/calculate` | **Prediction** × **Result** × **PointConfiguration** → **ParticipantScore** | 🟡 |
-| **US-40** | Als **Administrator** möchte ich Punkte oder Gewinne manuell zuweisen, damit Sonderfälle lösbar sind. | `POST /admin/participants/{id}/scores` | **ParticipantScore** (Upsert wegen UK) | 🟡 |
+| **US-38** | Als **Administrator** möchte ich ein falsches Ergebnis mit Begründung korrigieren. | `PUT /admin/events/{eventId}/results` | **Result**`.updated_at`; Grund → `EventStore.metadata` | 🟢 |
+| **US-39** | Als **Administrator** möchte ich die Punkteberechnung für ein Ereignis auslösen. | `POST /admin/events/{eventId}/scores/calculate` | **Prediction** × **Result** × **PointConfiguration** → **ParticipantScore** | 🟠 |
+| **US-40** | Als **Administrator** möchte ich Punkte oder Gewinne manuell zuweisen, damit Sonderfälle lösbar sind. | `POST /admin/participants/{id}/scores` | **ParticipantScore** (Upsert wegen UK) | 🟠 |
 
 **Neu in v1.1:** `RecordResultCommand.autoCalculateScores` (Default `true`) — die Berechnung
 läuft direkt bei Ergebniserfassung. US-39 bleibt als manueller Nachlauf bestehen, etwa nach
 einer Ergebniskorrektur (US-38).
+
+**⚠️ US-39 und US-40 sind Stubs.** `CalculateScoresHandler` und `AwardScoreHandler` prüfen die
+Existenz von Ereignis bzw. Teilnehmer, werfen sauber `404` und quittieren mit `202` — schreiben
+aber **keinen ParticipantScore**. Die Endpunkte sind erreichbar und vertragskonform, fachlich
+passiert noch nichts. Solange das so ist, entstehen Punktestände ausschließlich über
+Testdaten oder direkte DB-Inserts.
 
 **Akzeptanzkriterium US-40:** Kollidiert mit UK `(participant_id, event_id)` — muss als Upsert
 implementiert sein, nicht als Insert.
@@ -192,11 +198,11 @@ implementiert sein, nicht als Insert.
 | ID | Story | Endpunkt | ER-Modell | Status |
 |---|---|---|---|---|
 | **US-41** | Als **Administrator** möchte ich alle Teilnehmer mit Status und Statistiken sehen. | `GET /admin/participants` | **Participant** + Aggregate | 🔵 |
-| **US-42** | Als **Administrator** möchte ich einen Teilnehmer anlegen, optional mit Sofortfreigabe. | `POST /admin/participants` | **Participant** + **EventStream** | 🟡 |
+| **US-42** | Als **Administrator** möchte ich einen Teilnehmer anlegen, optional mit Sofortfreigabe. | `POST /admin/participants` | **Participant** + **EventStream** | 🟢 |
 | **US-43** | Als **Administrator** möchte ich einen Teilnehmer ohne Benutzerkonto anlegen (Gastspieler). | `POST /admin/participants` mit `userId: null` | `Participant.user_id` nullable | 🔵 |
 | **US-44** | Als **Administrator** möchte ich einem Gastspieler später ein Konto zuordnen. | `PUT /admin/participants/{id}/user-link` | `Participant.user_id` setzen (UK) | 🔵 |
 | **US-45** | Als **Administrator** möchte ich eine Kontoverknüpfung wieder lösen. | `DELETE /admin/participants/{id}/user-link` | `Participant.user_id = NULL` | 🔵 |
-| **US-46** | Als **Administrator** möchte ich Registrierungen freigeben oder ablehnen. | `POST /admin/participants/{id}/approve` | `Participant.is_active` bzw. `GameParticipation.status` | 🟡 |
+| **US-46** | Als **Administrator** möchte ich Registrierungen freigeben oder ablehnen. | `POST /admin/participants/{id}/approve` | `Participant.is_active` bzw. `GameParticipation.status` | 🟢 |
 | **US-47** | Als **Administrator** möchte ich offene Freigaben für ein Spiel sehen. | `GET /admin/games/{gameId}/participants/pending` | **GameParticipation** `status='pending_approval'` | 🔵 |
 | **US-48** | Als **Administrator** möchte ich einen Teilnehmer sperren. | `POST /admin/participants/{id}/deactivate` | `Participant.is_active=false` | 🔵 |
 | **US-49** | Als **Administrator** möchte ich einen Teilnehmer aus einem Spiel entfernen. | `DELETE /admin/games/{gameId}/participants/{id}` | `GameParticipation.left_at`, `status='removed'` | 🔵 |
@@ -204,6 +210,10 @@ implementiert sein, nicht als Insert.
 **ER-Bezug US-43 bis US-45:** Die Beziehung ist `User |o--|| Participant` — ein Teilnehmer
 **kann** ein Konto haben, muss aber nicht. `CreateParticipantCommand.userId` wurde in v1.1
 entsprechend von `required` auf optional geändert.
+
+**Offene Abweichung:** Der PHP-seitige `CreateParticipantCommand` verlangt weiterhin ein
+`int $userId`. `POST /admin/participants` lehnt eine Anlage ohne `userId` deshalb mit `400` ab —
+US-43 bleibt offen, bis Command und `Participant::create()` einen nullbaren Wert annehmen.
 
 ---
 
@@ -277,22 +287,33 @@ wird das gespeicherte `response_body` unverändert zurückgegeben — kein zweit
 
 | Status | Anzahl | Anteil |
 |---|---|---|
-| 🟢 implementiert | 16 | 25 % |
-| 🟡 Handler vorhanden, Route fehlt | 6 | 10 % |
+| 🟢 implementiert | 20 | 32 % |
+| 🟠 Route vorhanden, Handler ist Stub | 2 | 3 % |
 | 🔵 nur spezifiziert | 41 | 65 % |
 | **Summe** | **63** | |
 
 ### Nächste sinnvolle Schritte
 
-1. **Die sechs 🟡-Stories** (US-15, US-38, US-39, US-40, US-42, US-46) — Anwendungslogik liegt
-   fertig unter [src/Application/](src/Application/), es fehlen nur Routen in
-   [Router.php](src/Presentation/Router/Router.php). Günstigster Zugewinn.
+1. **US-39 und US-40 ausimplementieren** — die Routen stehen, es fehlt die Persistenz in
+   **ParticipantScore**. Ohne Punkteberechnung bleibt die Rangliste (US-15) leer, obwohl sie
+   technisch funktioniert.
 2. **Epic 8 (Ereignisverwaltung)** — ohne diese Stories ist das System fachlich nicht
    betreibbar, weil kein Spiel befüllt werden kann.
 3. **Epic 2 (Katalog)** — macht Epic 3 für Teilnehmer erst nutzbar.
 4. **Epic 13, US-55/56** — je länger die asynchrone Schreibseite ohne Statusabfrage und
    Idempotenz läuft, desto teurer wird das Nachrüsten.
 5. **Epic 6 (Gebühren)** — vollständiger Lebenszyklus für eine Tabelle, die es schon gibt.
+
+### Bekannte Baustellen ausserhalb der Story-Liste
+
+Beim Verdrahten der Routen aufgefallen, jeweils **bereits geroutete** Endpunkte betreffend:
+
+| Problem | Auswirkung |
+|---|---|
+| `PredictionRepositoryInterface` hat keine Implementierung | `POST`/`PUT` auf Predictions (US-09, US-10) scheitern beim Auflösen im Container |
+| `BettingGameRepositoryInterface` hat keine Implementierung | US-25, US-29 und der Beitritt (US-17) scheitern ebenso |
+| Vier Read-Model-Interfaces ohne Implementierung: `BettingGameReadModel`, `ParticipationReadModel`, `ParticipantReadModel`, `AdminPredictionReadModel` | US-11 teilweise, US-19, US-26, US-63 |
+| `PredictionControllerTest` mockt die `final` Klasse `SubmitPredictionHandler` | 7 Testfehler; entweder `final` entfernen oder gegen ein Interface mocken |
 
 ### ER-Erweiterungen aus v1.1
 

@@ -174,7 +174,7 @@ final class Prediction
                 $prediction = new self(
                     $event->aggregateId(),
                     new ParticipantId($event->participantId()),
-                    new EventId($event->eventId()),
+                    new EventId($event->gameEventId()),
                     new PredictionData($event->predictionData()),
                     $event->occurredAt()
                 );
