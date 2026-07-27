@@ -22,7 +22,6 @@ Stand: 2026-07-27.
 |---|---|
 | 🟢 | Route + Handler + Persistenz vorhanden — über HTTP nutzbar |
 | 🟠 | Route erreichbar, **Handler ist noch ein Stub** — validiert und quittiert mit `202`, schreibt aber nichts |
-| 🔴 | Route vorhanden, aber **defekt** — läuft in einen `500` |
 | 🔵 | In der API spezifiziert, noch nicht implementiert |
 
 Maßgeblich für 🟢 ist der Eintrag in [Router.php](src/Presentation/Router/Router.php)
@@ -66,7 +65,7 @@ Gebühren bestehen.
 | **US-09** | Als **Teilnehmer** möchte ich für ein Ereignis einen Tipp abgeben, damit ich am Spiel teilnehme. | `POST /participants/{id}/events/{eventId}/predictions` | **Prediction** + **EventStream** (`aggregate_type='Prediction'`) | 🟢 |
 | **US-10** | Als **Teilnehmer** möchte ich meinen Tipp bis zum Tippschluss ändern, damit ich auf neue Infos reagieren kann. | `PUT /participants/{id}/predictions/{predictionId}` | **Prediction**`.prediction_data`, `.updated_at`, `.version` | 🟢 |
 | **US-11** | Als **Teilnehmer** möchte ich alle meine Tipps gefiltert einsehen, damit ich den Überblick behalte. | `GET /participants/{id}/predictions` | **Prediction** ⋈ **Event** ⋈ **Result** | 🟢 |
-| **US-12** | Als **Teilnehmer** möchte ich zu einem Tipp Ergebnis und Punkte sehen, damit ich die Bewertung nachvollziehe. | `GET /participants/{id}/predictions/{predictionId}` | + **Result**, **ParticipantScore** | 🔴 |
+| **US-12** | Als **Teilnehmer** möchte ich zu einem Tipp Ergebnis und Punkte sehen, damit ich die Bewertung nachvollziehe. | `GET /participants/{id}/predictions/{predictionId}` | + **Result**, **ParticipantScore** | 🟢 |
 | **US-13** | Als **Teilnehmer** möchte ich nach Tippschluss die Tipps der anderen sehen, damit das Mitfiebern funktioniert. | `GET /participants/{id}/events/{eventId}/predictions/peers` | **Prediction** aller Teilnehmer des Spiels ⋈ **Participant** | 🔵 |
 | **US-63** | Als **Administrator** möchte ich alle Tipps über alle Teilnehmer hinweg einsehen, damit ich Auffälligkeiten prüfen kann. | `GET /admin/predictions` | **Prediction** ohne Teilnehmerfilter, mit Pagination | 🟢 |
 
@@ -288,9 +287,8 @@ wird das gespeicherte `response_body` unverändert zurückgegeben — kein zweit
 
 | Status | Anzahl | Anteil |
 |---|---|---|
-| 🟢 implementiert | 22 | 35 % |
+| 🟢 implementiert | 23 | 37 % |
 | 🟠 Route vorhanden, Handler ist Stub | 2 | 3 % |
-| 🔴 Route defekt | 1 | 2 % |
 | 🔵 nur spezifiziert | 38 | 60 % |
 | **Summe** | **63** | |
 
@@ -337,28 +335,38 @@ nachträglich über Query-Handler, Controller-Methoden und Routen angeschlossen.
 
 | Problem | Auswirkung |
 |---|---|
-| `PredictionController::getPrediction()` existiert nicht, ist aber geroutet | US-12 läuft in `Call to undefined method` → `500`. Aufgefallen erst bei der Coverage-Messung, weil die Controller-Schicht zu 0 % abgedeckt ist |
-| `PredictionControllerTest` mockt die `final` Klasse `SubmitPredictionHandler` | 7 Testfehler; entweder `final` entfernen oder gegen ein Interface mocken |
 | `CalculateScoresHandler` und `AwardScoreHandler` sind Stubs | US-39 und US-40 quittieren mit `202`, ohne einen **ParticipantScore** zu schreiben |
+| `Infrastructure/Auth` und `Infrastructure/Logging` sind ungetestet | JWT-Auswertung und Rollenprüfung sind zu 0 % abgedeckt — sicherheitsrelevant |
 
 ### Testabdeckung
 
-Gemessen mit pcov über die Unit-Suite (`composer test-coverage`): **29 % Zeilenabdeckung
-gesamt**, über von Routen erreichbaren Code **32 %**. Die Verteilung ist stark ungleich:
+Gemessen mit pcov (`composer test-coverage`): **76 % Zeilenabdeckung** über 262 Tests.
 
 | Schicht | Abdeckung |
 |---|---|
 | Router | 100 % |
-| Command-Handler | 95–100 % |
-| Domain-Modelle | 79 % |
-| Query-Handler | 53 % |
-| **Controller** | **0 %** |
-| **Infrastructure/Persistence** | **0 %** |
-| **EventStore** | **0 %** |
+| Command-Handler | 99 % |
+| Query-Handler | 99 % |
+| Domain-Modelle | 98 % |
+| Infrastructure/Persistence | 89 % |
+| Controller | 82 % |
+| Value Objects | 78 % |
+| Presentation/Http | 75 % |
+| Domain-Events | 72 % |
+| DI / Config | 65–69 % |
+| Cache | 49 % |
+| EventStore | 41 % |
+| **Auth / Logging** | **0 %** |
 
-Die Verifikation der Repositories und Controller lief bisher über Wegwerf-Skripte gegen eine
-MariaDB im Container — die sind nicht Teil der Suite und zählen nicht. Kein einziger Endpunkt
-ist über die volle Kette Controller → Handler → Repository getestet.
+Zwei Suites:
+
+- **Unit** (210 Tests) — Domain, Handler und Controller mit gemockten Repository-Interfaces.
+  Die Handler sind `final`, deshalb werden sie echt gebaut und nur die Interfaces darunter
+  gedoppelt; das testet Controller und Handler in einem Zug.
+- **Integration** (52 Tests) — die volle Kette Controller → Handler → Repository gegen eine
+  echte MariaDB. Ohne erreichbare Datenbank überspringt sich die Suite selbst, statt zu
+  scheitern. Verbindung über `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`;
+  die Werte in [phpunit.xml](phpunit.xml) sind Vorgaben, echte Umgebungsvariablen haben Vorrang.
 
 ### ER-Erweiterungen aus v1.1
 

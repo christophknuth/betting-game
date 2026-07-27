@@ -35,6 +35,7 @@ use BettingGame\Application\Query\GetAllPredictionsHandler;
 use BettingGame\Application\Query\GetGameDetailsHandler;
 use BettingGame\Application\Query\GetLeaderboardHandler;
 use BettingGame\Application\Query\GetPendingParticipantsHandler;
+use BettingGame\Application\Query\GetPredictionHandler;
 use BettingGame\Application\Query\GetParticipantPredictionsHandler;
 use BettingGame\Application\Query\GetParticipantScoresHandler;
 use BettingGame\Application\Query\GetParticipationsHandler;
@@ -186,6 +187,7 @@ final class Container
             GetParticipantPredictionsHandler::class => \DI\autowire(),
             GetParticipantScoresHandler::class => \DI\autowire(),
             GetLeaderboardHandler::class => \DI\autowire(),
+            GetPredictionHandler::class => \DI\autowire(),
             GetAllGamesHandler::class => \DI\autowire(),
             GetAllPredictionsHandler::class => \DI\autowire(),
             GetParticipationsHandler::class => \DI\autowire(),

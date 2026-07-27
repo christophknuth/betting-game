@@ -113,34 +113,53 @@ interface ParticipationReadModelRepositoryInterface
 - Kein Reflection zur Runtime
 
 ### ✓ Unit Tests & Coverage
-**Test Structure** (13 Testklassen, 142 Testmethoden):
+**Test Structure** (22 Testklassen, 262 Testmethoden):
 ```
 tests/
-├── Unit/
+├── Unit/                     (210 Tests, keine Datenbank nötig)
 │   ├── Domain/
-│   │   ├── BettingGameTest.php (7 Tests)
-│   │   ├── ParticipantTest.php (7 Tests)
-│   │   ├── PredictionTest.php (7 Tests)
-│   │   ├── ResultTest.php (5 Tests)
-│   │   └── ValueObjectTest.php (19 Tests)
+│   │   ├── BettingGameTest.php
+│   │   ├── ParticipantTest.php
+│   │   ├── PredictionTest.php
+│   │   ├── ResultTest.php
+│   │   └── ValueObjectTest.php
 │   ├── Application/
-│   │   ├── CommandHandlerTest.php (6 Tests)
-│   │   ├── NewCommandHandlerTest.php (21 Tests)
-│   │   ├── NewQueryHandlerTest.php (8 Tests)
-│   │   └── QueryHandlerTest.php (2 Tests)
+│   │   ├── CommandHandlerTest.php
+│   │   ├── NewCommandHandlerTest.php
+│   │   ├── NewQueryHandlerTest.php
+│   │   └── QueryHandlerTest.php
 │   ├── Infrastructure/
-│   │   └── FileCacheTest.php (12 Tests)
+│   │   └── FileCacheTest.php
 │   └── Presentation/
-│       ├── JsonResponseTest.php (8 Tests)
-│       └── PredictionControllerTest.php (7 Tests)
+│       ├── AdminGameControllerTest.php
+│       ├── AdminParticipantControllerTest.php
+│       ├── AdminResultControllerTest.php
+│       ├── JsonResponseTest.php
+│       ├── ParticipationControllerTest.php
+│       ├── PredictionControllerTest.php
+│       ├── RouterTest.php
+│       └── ScoreControllerTest.php
+└── Integration/              (52 Tests, braucht MariaDB)
+    ├── IntegrationTestCase.php
+    ├── AdminEndpointTest.php
+    ├── BettingGameFlowTest.php
+    ├── ParticipantFlowTest.php
+    ├── PredictionFlowTest.php
+    └── ResultAndScoreFlowTest.php
 ```
 
-**Coverage:**
-Ein Coverage-Report ist nicht im Repository hinterlegt. Aktuellen Stand ermitteln mit:
+Controller-Tests bauen die (finalen) Handler echt und doppeln nur die
+Repository-Interfaces darunter — dadurch stehen Controller und Handler gemeinsam unter Test.
+Die Integrationstests fahren die volle Kette Controller → Handler → Repository gegen eine
+echte Datenbank und **überspringen sich selbst**, wenn keine erreichbar ist.
+
+**Coverage:** aktuell **76 %** Zeilenabdeckung. Bericht erzeugen mit:
 
 ```bash
 composer test-coverage
 ```
+
+Nicht abgedeckt sind `Infrastructure/Auth` und `Infrastructure/Logging` (je 0 %).
 
 **Test Features:**
 - Mocking mit PHPUnit

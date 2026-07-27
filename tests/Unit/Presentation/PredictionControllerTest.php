@@ -4,180 +4,324 @@ declare(strict_types=1);
 
 namespace BettingGame\Tests\Unit\Presentation;
 
-use BettingGame\Presentation\Controller\PredictionController;
 use BettingGame\Application\Command\SubmitPredictionHandler;
 use BettingGame\Application\Command\UpdatePredictionHandler;
-use BettingGame\Application\Command\CommandResult;
 use BettingGame\Application\Query\GetParticipantPredictionsHandler;
-use BettingGame\Application\Query\QueryResult;
+use BettingGame\Application\Query\GetPredictionHandler;
+use BettingGame\Application\Query\PredictionReadModel;
+use BettingGame\Application\Query\PredictionReadModelRepositoryInterface;
+use BettingGame\Domain\Model\Prediction;
+use BettingGame\Domain\Repository\GameEventRepositoryInterface;
+use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
+use BettingGame\Domain\Repository\PredictionRepositoryInterface;
+use BettingGame\Domain\ValueObject\EventId;
+use BettingGame\Domain\ValueObject\ParticipantId;
+use BettingGame\Domain\ValueObject\PredictionData;
+use BettingGame\Presentation\Controller\PredictionController;
 use BettingGame\Presentation\Http\Request;
-use BettingGame\Domain\Exception\EntityNotFoundException;
-use PHPUnit\Framework\TestCase;
+use DateTimeImmutable;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
 
+/**
+ * The handlers are final by design, so they are built for real here and only
+ * the repository interfaces are doubled. That keeps the controller and its
+ * handler under test together, which is where the interesting wiring sits.
+ */
 final class PredictionControllerTest extends TestCase
 {
-    private SubmitPredictionHandler&MockObject $submitHandler;
-    private UpdatePredictionHandler&MockObject $updateHandler;
-    private GetParticipantPredictionsHandler&MockObject $getHandler;
+    private PredictionRepositoryInterface&MockObject $predictionRepo;
+    private ParticipantRepositoryInterface&MockObject $participantRepo;
+    private GameEventRepositoryInterface&MockObject $eventRepo;
+    private PredictionReadModelRepositoryInterface&MockObject $readModelRepo;
     private PredictionController $controller;
 
     protected function setUp(): void
     {
-        $this->submitHandler = $this->createMock(SubmitPredictionHandler::class);
-        $this->updateHandler = $this->createMock(UpdatePredictionHandler::class);
-        $this->getHandler = $this->createMock(GetParticipantPredictionsHandler::class);
+        $this->predictionRepo = $this->createMock(PredictionRepositoryInterface::class);
+        $this->participantRepo = $this->createMock(ParticipantRepositoryInterface::class);
+        $this->eventRepo = $this->createMock(GameEventRepositoryInterface::class);
+        $this->readModelRepo = $this->createMock(PredictionReadModelRepositoryInterface::class);
 
         $this->controller = new PredictionController(
-            $this->submitHandler,
-            $this->updateHandler,
-            $this->getHandler
+            new SubmitPredictionHandler($this->predictionRepo, $this->participantRepo, $this->eventRepo),
+            new UpdatePredictionHandler($this->predictionRepo, $this->eventRepo),
+            new GetParticipantPredictionsHandler($this->readModelRepo),
+            new GetPredictionHandler($this->readModelRepo)
         );
     }
 
-    public function testGetPredictionsSuccess(): void
+    // ---------------------------------------------------------------- listing
+
+    public function testListingOwnPredictionsReturns200(): void
     {
-        $request = $this->createRequest('GET', '/participants/1/predictions');
-        $request->setAttribute('participant_id', 1);
+        $this->readModelRepo->method('findByParticipant')->willReturn([$this->readModel()]);
 
-        $this->getHandler->expects($this->once())
-            ->method('handle')
-            ->willReturn(new QueryResult([
-                'predictions' => [],
-                'totalCount' => 0,
-            ]));
+        $response = $this->controller->getPredictions($this->request(), ['participantId' => '1']);
 
-        $response = $this->controller->getPredictions($request, ['participantId' => '1']);
-
-        $this->assertEquals(200, $response->statusCode());
+        self::assertSame(200, $response->statusCode());
+        self::assertCount(1, $response->data()['predictions']);
+        self::assertSame(1, $response->data()['totalCount']);
     }
 
-    public function testGetPredictionsUnauthorized(): void
+    public function testListingSomebodyElsesPredictionsIsForbidden(): void
     {
-        $request = $this->createRequest('GET', '/participants/1/predictions');
-        $request->setAttribute('participant_id', 2); // Different participant
-
-        $response = $this->controller->getPredictions($request, ['participantId' => '1']);
-
-        $this->assertEquals(403, $response->statusCode());
-    }
-
-    public function testSubmitPredictionSuccess(): void
-    {
-        $request = $this->createRequest(
-            'POST',
-            '/participants/1/events/100/predictions',
-            ['predictionData' => ['homeScore' => 2, 'awayScore' => 1]]
+        $response = $this->controller->getPredictions(
+            $this->request(authenticatedAs: 2),
+            ['participantId' => '1']
         );
-        $request->setAttribute('participant_id', 1);
 
-        $this->submitHandler->expects($this->once())
-            ->method('handle')
-            ->willReturn(new CommandResult(
-                commandId: 'cmd-123',
-                status: 'accepted',
-                resourceId: 'pred-123'
-            ));
+        self::assertSame(403, $response->statusCode());
+    }
+
+    // ------------------------------------------------------------ single read
+
+    public function testReadingASinglePredictionReturns200(): void
+    {
+        $this->readModelRepo->method('findById')->willReturn($this->readModel());
+
+        $response = $this->controller->getPrediction(
+            $this->request(),
+            ['participantId' => '1', 'predictionId' => 'pred-1']
+        );
+
+        self::assertSame(200, $response->statusCode());
+        self::assertSame('pred-1', $response->data()['predictionId']);
+    }
+
+    public function testReadingAnUnknownPredictionReturns404(): void
+    {
+        $this->readModelRepo->method('findById')->willReturn(null);
+
+        $response = $this->controller->getPrediction(
+            $this->request(),
+            ['participantId' => '1', 'predictionId' => 'nope']
+        );
+
+        self::assertSame(404, $response->statusCode());
+    }
+
+    public function testReadingAForeignPredictionReturns404NotForbidden(): void
+    {
+        // Belongs to participant 2 while participant 1 is asking
+        $this->readModelRepo->method('findById')->willReturn($this->readModel(participantId: 2));
+
+        $response = $this->controller->getPrediction(
+            $this->request(),
+            ['participantId' => '1', 'predictionId' => 'pred-1']
+        );
+
+        self::assertSame(404, $response->statusCode(), 'a 403 would confirm the prediction exists');
+    }
+
+    public function testReadingSomebodyElsesPredictionIsForbidden(): void
+    {
+        $response = $this->controller->getPrediction(
+            $this->request(authenticatedAs: 2),
+            ['participantId' => '1', 'predictionId' => 'pred-1']
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    // ------------------------------------------------------------- submitting
+
+    public function testSubmittingReturns202WithTheCommandResult(): void
+    {
+        $this->participantRepo->method('exists')->willReturn(true);
+        $this->predictionRepo->method('exists')->willReturn(false);
+        $this->predictionRepo->method('nextIdentity')->willReturn('pred-new');
+        $this->eventRepo->method('getDeadline')->willReturn(new DateTimeImmutable('+1 day'));
+        $this->predictionRepo->expects(self::once())->method('save');
 
         $response = $this->controller->submitPrediction(
-            $request,
-            ['participantId' => '1', 'eventId' => '100']
+            $this->request(body: ['predictionData' => ['homeScore' => 2, 'awayScore' => 1]]),
+            ['participantId' => '1', 'eventId' => '42']
         );
 
-        $this->assertEquals(202, $response->statusCode());
-        $data = $response->data();
-        $this->assertEquals('accepted', $data['status']);
-        $this->assertEquals('pred-123', $data['resourceId']);
+        self::assertSame(202, $response->statusCode());
+        self::assertSame('accepted', $response->data()['status']);
+        self::assertSame('pred-new', $response->data()['resourceId']);
     }
 
-    public function testSubmitPredictionMissingData(): void
+    public function testSubmittingWithoutPredictionDataReturns400(): void
     {
-        $request = $this->createRequest(
-            'POST',
-            '/participants/1/events/100/predictions',
-            [] // Missing predictionData
-        );
-        $request->setAttribute('participant_id', 1);
+        $this->predictionRepo->expects(self::never())->method('save');
 
         $response = $this->controller->submitPrediction(
-            $request,
-            ['participantId' => '1', 'eventId' => '100']
+            $this->request(body: []),
+            ['participantId' => '1', 'eventId' => '42']
         );
 
-        $this->assertEquals(400, $response->statusCode());
+        self::assertSame(400, $response->statusCode());
     }
 
-    public function testSubmitPredictionUnauthorized(): void
+    public function testSubmittingNonObjectPredictionDataReturns400(): void
     {
-        $request = $this->createRequest(
-            'POST',
-            '/participants/1/events/100/predictions',
-            ['predictionData' => ['homeScore' => 2]]
-        );
-        $request->setAttribute('participant_id', 2); // Different participant
-
         $response = $this->controller->submitPrediction(
-            $request,
-            ['participantId' => '1', 'eventId' => '100']
+            $this->request(body: ['predictionData' => 'not-an-object']),
+            ['participantId' => '1', 'eventId' => '42']
         );
 
-        $this->assertEquals(403, $response->statusCode());
+        self::assertSame(400, $response->statusCode());
     }
 
-    public function testSubmitPredictionEntityNotFound(): void
+    public function testSubmittingForSomebodyElseIsForbidden(): void
     {
-        $request = $this->createRequest(
-            'POST',
-            '/participants/1/events/999/predictions',
-            ['predictionData' => ['homeScore' => 2]]
+        $response = $this->controller->submitPrediction(
+            $this->request(authenticatedAs: 2, body: ['predictionData' => ['homeScore' => 2]]),
+            ['participantId' => '1', 'eventId' => '42']
         );
-        $request->setAttribute('participant_id', 1);
 
-        $this->submitHandler->expects($this->once())
-            ->method('handle')
-            ->willThrowException(new EntityNotFoundException('Event not found'));
+        self::assertSame(403, $response->statusCode());
+    }
+
+    public function testSubmittingForAnUnknownEventReturns400(): void
+    {
+        $this->participantRepo->method('exists')->willReturn(true);
+        $this->predictionRepo->method('exists')->willReturn(false);
+        $this->eventRepo->method('getDeadline')->willReturn(null);
 
         $response = $this->controller->submitPrediction(
-            $request,
+            $this->request(body: ['predictionData' => ['homeScore' => 2]]),
             ['participantId' => '1', 'eventId' => '999']
         );
 
-        $this->assertEquals(400, $response->statusCode());
+        self::assertSame(400, $response->statusCode());
     }
 
-    public function testUpdatePredictionSuccess(): void
+    public function testSubmittingTwiceReturns400(): void
     {
-        $request = $this->createRequest(
-            'PUT',
-            '/participants/1/predictions/pred-123',
-            ['predictionData' => ['homeScore' => 3]]
-        );
-        $request->setAttribute('participant_id', 1);
+        $this->participantRepo->method('exists')->willReturn(true);
+        $this->predictionRepo->method('exists')->willReturn(true);
 
-        $this->updateHandler->expects($this->once())
-            ->method('handle')
-            ->willReturn(new CommandResult(
-                commandId: 'cmd-456',
-                status: 'accepted',
-                resourceId: 'pred-123'
-            ));
+        $response = $this->controller->submitPrediction(
+            $this->request(body: ['predictionData' => ['homeScore' => 2]]),
+            ['participantId' => '1', 'eventId' => '42']
+        );
+
+        self::assertSame(400, $response->statusCode());
+    }
+
+    public function testSubmittingAfterTheDeadlineReturns400(): void
+    {
+        $this->participantRepo->method('exists')->willReturn(true);
+        $this->predictionRepo->method('exists')->willReturn(false);
+        $this->predictionRepo->method('nextIdentity')->willReturn('pred-new');
+        $this->eventRepo->method('getDeadline')->willReturn(new DateTimeImmutable('-1 day'));
+
+        $response = $this->controller->submitPrediction(
+            $this->request(body: ['predictionData' => ['homeScore' => 2]]),
+            ['participantId' => '1', 'eventId' => '42']
+        );
+
+        self::assertSame(400, $response->statusCode());
+    }
+
+    // --------------------------------------------------------------- updating
+
+    public function testUpdatingReturns202(): void
+    {
+        $this->predictionRepo->method('findById')->willReturn($this->prediction());
+        $this->eventRepo->method('getDeadline')->willReturn(new DateTimeImmutable('+1 day'));
+        $this->predictionRepo->expects(self::once())->method('save');
 
         $response = $this->controller->updatePrediction(
-            $request,
-            ['participantId' => '1', 'predictionId' => 'pred-123']
+            $this->request(body: ['predictionData' => ['homeScore' => 3]]),
+            ['participantId' => '1', 'predictionId' => 'pred-1']
         );
 
-        $this->assertEquals(202, $response->statusCode());
+        self::assertSame(202, $response->statusCode());
     }
 
-    private function createRequest(string $method, string $uri, array $body = []): Request
+    public function testUpdatingAnUnknownPredictionReturns400(): void
     {
-        return new Request(
-            $method,
-            $uri,
+        $this->predictionRepo->method('findById')->willReturn(null);
+
+        $response = $this->controller->updatePrediction(
+            $this->request(body: ['predictionData' => ['homeScore' => 3]]),
+            ['participantId' => '1', 'predictionId' => 'nope']
+        );
+
+        self::assertSame(400, $response->statusCode());
+    }
+
+    public function testUpdatingAForeignPredictionReturns400(): void
+    {
+        $this->predictionRepo->method('findById')->willReturn($this->prediction(participantId: 2));
+
+        $response = $this->controller->updatePrediction(
+            $this->request(body: ['predictionData' => ['homeScore' => 3]]),
+            ['participantId' => '1', 'predictionId' => 'pred-1']
+        );
+
+        self::assertSame(400, $response->statusCode());
+    }
+
+    public function testUpdatingWithoutPredictionDataReturns400(): void
+    {
+        $this->predictionRepo->expects(self::never())->method('save');
+
+        $response = $this->controller->updatePrediction(
+            $this->request(body: []),
+            ['participantId' => '1', 'predictionId' => 'pred-1']
+        );
+
+        self::assertSame(400, $response->statusCode());
+    }
+
+    public function testUpdatingForSomebodyElseIsForbidden(): void
+    {
+        $response = $this->controller->updatePrediction(
+            $this->request(authenticatedAs: 2, body: ['predictionData' => ['homeScore' => 3]]),
+            ['participantId' => '1', 'predictionId' => 'pred-1']
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    /** @param array<string, mixed> $body */
+    private function request(int $authenticatedAs = 1, array $body = []): Request
+    {
+        $request = new Request(
+            'GET',
+            '/',
             [],
             [],
-            !empty($body) ? json_encode($body) : null
+            $body === [] ? null : json_encode($body, JSON_THROW_ON_ERROR)
+        );
+
+        $request->setAttribute('participant_id', $authenticatedAs);
+
+        return $request;
+    }
+
+    private function readModel(int $participantId = 1): PredictionReadModel
+    {
+        return new PredictionReadModel(
+            predictionId: 'pred-1',
+            participantId: $participantId,
+            eventId: 42,
+            eventName: 'Final',
+            predictionData: ['homeScore' => 2, 'awayScore' => 1],
+            submittedAt: '2026-06-01 10:00:00',
+            updatedAt: null,
+            deadline: '2099-06-01 19:00:00',
+            status: 'submitted',
+            isEditable: true
+        );
+    }
+
+    private function prediction(int $participantId = 1): Prediction
+    {
+        return Prediction::submit(
+            'pred-1',
+            new ParticipantId($participantId),
+            new EventId(42),
+            new PredictionData(['homeScore' => 2]),
+            new DateTimeImmutable('+1 day')
         );
     }
 }
