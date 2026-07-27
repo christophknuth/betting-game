@@ -17,6 +17,7 @@ final class Participant
 {
     private array $recordedEvents = [];
     private int $version = 0;
+    private int $originalVersion = 0;
 
     private function __construct(
         private int $id,
@@ -47,6 +48,24 @@ final class Participant
             $displayName->value(),
             $autoApprove
         ));
+
+        return $participant;
+    }
+
+    /**
+     * Rehydrates a participant from the read model without recording events.
+     */
+    public static function reconstitute(
+        int $id,
+        int $userId,
+        DisplayName $displayName,
+        bool $isActive,
+        DateTimeImmutable $registeredAt,
+        int $version
+    ): self {
+        $participant = new self($id, $userId, $displayName, $isActive, $registeredAt);
+        $participant->version = $version;
+        $participant->originalVersion = $version;
 
         return $participant;
     }
@@ -126,5 +145,13 @@ final class Participant
     public function version(): int
     {
         return $this->version;
+    }
+
+    /**
+     * Stream version this instance was loaded at - the expected version when appending.
+     */
+    public function originalVersion(): int
+    {
+        return $this->originalVersion;
     }
 }

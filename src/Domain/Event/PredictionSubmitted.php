@@ -11,7 +11,7 @@ final class PredictionSubmitted extends DomainEvent
     public function __construct(
         private string $predictionId,
         private int $participantId,
-        private int $eventId,
+        private int $gameEventId,
         private array $predictionData,
         ?string $eventId = null,
         ?DateTimeImmutable $occurredAt = null,
@@ -41,9 +41,13 @@ final class PredictionSubmitted extends DomainEvent
         return $this->participantId;
     }
 
-    public function eventId(): int
+    /**
+     * The game event being predicted - not to be confused with DomainEvent::eventId(),
+     * which identifies this event store entry.
+     */
+    public function gameEventId(): int
     {
-        return $this->eventId;
+        return $this->gameEventId;
     }
 
     public function predictionData(): array
@@ -56,7 +60,7 @@ final class PredictionSubmitted extends DomainEvent
         return [
             'prediction_id' => $this->predictionId,
             'participant_id' => $this->participantId,
-            'event_id' => $this->eventId,
+            'event_id' => $this->gameEventId,
             'prediction_data' => $this->predictionData,
         ];
     }
