@@ -25,6 +25,15 @@ erDiagram
     EventStore ||--o{ EventPublisher : "publishes to"
     EventPublisher ||--o{ ProjectionState : "updates"
 
+    %% Command Tracking (idempotency + async status)
+    CommandLog ||--o{ EventStore : "causes (causation_id)"
+    Participant ||--o{ CommandLog : "issues"
+
+    %% Notifications (projection of the event store)
+    Participant ||--o{ Notification : "receives"
+    Participant ||--o| NotificationPreference : "configures"
+    EventStore ||--o{ Notification : "triggers"
+
     User {
         int user_id PK
         string username UK
@@ -198,4 +207,47 @@ erDiagram
         string event_type
         bigint last_published_position
         datetime last_published_at
+    }
+
+    %% Command Tracking Table
+    CommandLog {
+        string command_id PK "UUID - returned as CommandResponse.commandId"
+        string idempotency_key UK "nullable - client supplied, dedupes retries"
+        string command_type
+        int issued_by_participant_id FK "nullable - null for system/admin commands"
+        string aggregate_type "nullable until resolved"
+        string aggregate_id "nullable until resolved"
+        string status "accepted / processing / completed / failed"
+        bigint event_store_position "nullable - denormalised position of first resulting event"
+        int resource_id "nullable - created/updated resource"
+        json response_body "JSONB - replayed on idempotent retry"
+        text error_message "nullable"
+        string correlation_id "Trace ID - propagated to EventStore"
+        datetime accepted_at
+        datetime completed_at "nullable"
+    }
+
+    %% Notification Tables (read-side projection)
+    Notification {
+        bigint notification_id PK
+        int participant_id FK
+        string type "deadline_approaching / result_recorded / score_calculated / fee_due / participation_approved / game_ended"
+        string title
+        text message
+        json payload "JSONB - betting_game_id, event_id, fee_id, ..."
+        bigint source_event_id FK "nullable - EventStore entry that triggered it"
+        datetime created_at
+        datetime read_at "nullable"
+    }
+
+    NotificationPreference {
+        int preference_id PK
+        int participant_id FK "UK - max. one preference set per participant"
+        boolean deadline_reminder
+        int deadline_reminder_hours "lead time in hours"
+        boolean result_recorded
+        boolean score_calculated
+        boolean fee_due
+        datetime updated_at
+        int version "Optimistic locking"
     }
