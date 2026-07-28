@@ -5,20 +5,13 @@ declare(strict_types=1);
 namespace BettingGame\Infrastructure\Persistence;
 
 use BettingGame\Domain\Model\Participant;
-use BettingGame\Domain\Repository\EventStoreInterface;
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
 use BettingGame\Domain\ValueObject\DisplayName;
 use DateTimeImmutable;
 
-final class ParticipantRepository implements ParticipantRepositoryInterface
+final class ParticipantRepository extends EventSourcedRepository implements ParticipantRepositoryInterface
 {
     private const STREAM_PREFIX = 'participant-';
-
-    public function __construct(
-        private Db $db,
-        private EventStoreInterface $eventStore
-    ) {
-    }
 
     /** @return array<string, mixed>|null */
     public function findById(int $id): ?array
@@ -56,39 +49,53 @@ final class ParticipantRepository implements ParticipantRepositoryInterface
 
     public function save(Participant $participant): void
     {
-        $events = $participant->releaseEvents();
-        $expectedVersion = $participant->originalVersion();
+        $exists = $participant->isPersisted();
 
-        if ($events !== []) {
-            $this->eventStore->append(
+        $version = $this->transactionally(function () use ($participant, $exists): int {
+            $version = $this->append(
                 self::STREAM_PREFIX . $participant->id(),
-                $events,
-                $expectedVersion
+                $participant->releaseEvents(),
+                $participant->originalVersion()
             );
-        }
 
-        // The projection version mirrors the stream version, so the next load
-        // knows which version to expect when appending.
-        $this->updateProjection($participant, $expectedVersion + count($events));
+            $this->writeProjection($participant, $version, $exists);
+
+            return $version;
+        });
+
+        $participant->markCommitted($version);
     }
 
     public function nextIdentity(): int
     {
-        $row = $this->db->fetchOne('SELECT COALESCE(MAX(participant_id), 0) + 1 AS next_id FROM participant');
-
-        return $row !== null ? Row::int($row, 'next_id') : 1;
+        return $this->nextId('participant', 'participant_id');
     }
 
-    private function updateProjection(Participant $participant, int $version): void
+    private function writeProjection(Participant $participant, int $version, bool $exists): void
     {
+        if ($exists) {
+            $this->db->execute(
+                '
+                UPDATE participant
+                SET display_name = ?, is_active = ?, version = ?
+                WHERE participant_id = ?
+                ',
+                [
+                    $participant->displayName()->value(),
+                    $participant->isActive() ? 1 : 0,
+                    $version,
+                    $participant->id(),
+                ]
+            );
+
+            return;
+        }
+
+        // uk_user must reject a second participant for the same account
         $this->db->execute(
             '
             INSERT INTO participant (participant_id, user_id, display_name, registered_at, is_active, version)
             VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                display_name = VALUES(display_name),
-                is_active = VALUES(is_active),
-                version = VALUES(version)
             ',
             [
                 $participant->id(),

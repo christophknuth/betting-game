@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BettingGame\Domain\Model;
 
-use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Event\TicketSubmitted;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\ValueObject\LottoNumbers;
@@ -20,14 +19,11 @@ use DateTimeImmutable;
  */
 final class Ticket
 {
+    use RecordsEvents;
+
     public const DRAFT = 'draft';
     public const SUBMITTED = 'submitted';
     public const SETTLED = 'settled';
-
-    /** @var list<DomainEvent> */
-    private array $recordedEvents = [];
-    private int $version = 0;
-    private int $originalVersion = 0;
 
     /**
      * @param list<array{betRowId: int, participantId: int, numbers: LottoNumbers}> $rows
@@ -143,9 +139,7 @@ final class Ticket
             $status,
             $submittedAt
         );
-
-        $ticket->version = $version;
-        $ticket->originalVersion = $version;
+        $ticket->markCommitted($version);
 
         return $ticket;
     }
@@ -174,22 +168,6 @@ final class Ticket
         return array_values(array_unique(
             array_map(static fn (array $row): int => $row['participantId'], $this->rows)
         ));
-    }
-
-    private function recordEvent(DomainEvent $event): void
-    {
-        $this->recordedEvents[] = $event;
-    }
-
-    /**
-     * @return list<DomainEvent>
-     */
-    public function releaseEvents(): array
-    {
-        $events = $this->recordedEvents;
-        $this->recordedEvents = [];
-
-        return $events;
     }
 
     public function id(): int
@@ -248,18 +226,5 @@ final class Ticket
     public function submittedAt(): ?DateTimeImmutable
     {
         return $this->submittedAt;
-    }
-
-    public function version(): int
-    {
-        return $this->version;
-    }
-
-    /**
-     * Stream version this instance was loaded at - the expected version when appending.
-     */
-    public function originalVersion(): int
-    {
-        return $this->originalVersion;
     }
 }

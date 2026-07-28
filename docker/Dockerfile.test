@@ -1,0 +1,14 @@
+# Test runner: PHP CLI with the extensions the suite needs.
+#
+# pdo_mysql for the integration tests, pcov for coverage. Separate from
+# Dockerfile.php because that one builds a php-fpm image for serving, and the
+# test image must not ship into production.
+FROM php:8.3-cli-alpine
+
+RUN apk add --no-cache $PHPIZE_DEPS \
+    && docker-php-ext-install pdo pdo_mysql \
+    && pecl install pcov \
+    && docker-php-ext-enable pcov \
+    && apk del $PHPIZE_DEPS
+
+WORKDIR /app

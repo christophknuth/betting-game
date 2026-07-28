@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BettingGame\Domain\Model;
 
-use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Event\ParticipantCreated;
 use BettingGame\Domain\Event\ParticipantApproved;
 use BettingGame\Domain\ValueObject\DisplayName;
@@ -13,10 +12,7 @@ use DateTimeImmutable;
 
 final class Participant
 {
-    /** @var list<DomainEvent> */
-    private array $recordedEvents = [];
-    private int $version = 0;
-    private int $originalVersion = 0;
+    use RecordsEvents;
 
     private function __construct(
         private int $id,
@@ -63,8 +59,7 @@ final class Participant
         int $version
     ): self {
         $participant = new self($id, $userId, $displayName, $isActive, $registeredAt);
-        $participant->version = $version;
-        $participant->originalVersion = $version;
+        $participant->markCommitted($version);
 
         return $participant;
     }
@@ -83,21 +78,6 @@ final class Participant
         ));
     }
 
-
-    private function recordEvent(DomainEvent $event): void
-    {
-        $this->recordedEvents[] = $event;
-    }
-
-    /**
-     * @return list<DomainEvent>
-     */
-    public function releaseEvents(): array
-    {
-        $events = $this->recordedEvents;
-        $this->recordedEvents = [];
-        return $events;
-    }
 
     public function id(): int
     {
@@ -122,18 +102,5 @@ final class Participant
     public function registeredAt(): DateTimeImmutable
     {
         return $this->registeredAt;
-    }
-
-    public function version(): int
-    {
-        return $this->version;
-    }
-
-    /**
-     * Stream version this instance was loaded at - the expected version when appending.
-     */
-    public function originalVersion(): int
-    {
-        return $this->originalVersion;
     }
 }

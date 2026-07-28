@@ -10,9 +10,13 @@ use BettingGame\Domain\Event\BetRowAssigned;
 use BettingGame\Domain\Event\BetRowReplaced;
 use BettingGame\Domain\Event\DrawRecorded;
 use BettingGame\Domain\Event\DrawWinningsRecorded;
+use BettingGame\Domain\Event\FeeCharged;
+use BettingGame\Domain\Event\FeePaymentRecorded;
 use BettingGame\Domain\Event\MemberAdded;
 use BettingGame\Domain\Event\ParticipantApproved;
 use BettingGame\Domain\Event\ParticipantCreated;
+use BettingGame\Domain\Event\PayoutDistributed;
+use BettingGame\Domain\Event\TicketSubmitted;
 use BettingGame\Domain\Event\TippYearCreated;
 use BettingGame\Domain\Event\TippYearStatusChanged;
 use BettingGame\Domain\Repository\EventStoreInterface;
@@ -37,7 +41,16 @@ final class PdoEventStore implements EventStoreInterface
         }
 
         $pdo = $this->db->pdo();
-        $pdo->beginTransaction();
+
+        // A repository wraps the append and its projection write in one
+        // transaction, so by the time we get here one is usually already open.
+        // Committing it from in here would publish the events while the
+        // projection is still unwritten - only manage a transaction we started.
+        $ownsTransaction = !$pdo->inTransaction();
+
+        if ($ownsTransaction) {
+            $pdo->beginTransaction();
+        }
 
         try {
             // Check stream version for optimistic locking
@@ -77,9 +90,14 @@ final class PdoEventStore implements EventStoreInterface
             // Update or create stream record
             $this->updateStreamVersion($streamId, $events[0]->aggregateType(), $events[0]->aggregateId(), $version);
 
-            $pdo->commit();
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
         } catch (\Exception $e) {
-            $pdo->rollBack();
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
             throw $e;
         }
     }
@@ -87,12 +105,19 @@ final class PdoEventStore implements EventStoreInterface
     /** @return list<DomainEvent> */
     public function getStream(string $streamId): array
     {
+        // event_store keys on (aggregate_type, aggregate_id); the stream id is a
+        // separate identifier that only event_stream knows, so the lookup has to
+        // go through it. Matching on aggregate_id alone would both miss the
+        // prefix and collide across types - bet_row 1 and draw 1 share an id.
         $rows = $this->db->fetchAll(
             '
-            SELECT event_type, event_data, metadata, occurred_at
-            FROM event_store
-            WHERE aggregate_id = ?
-            ORDER BY version ASC
+            SELECT e.event_type, e.event_data, e.metadata, e.occurred_at
+            FROM event_store e
+            JOIN event_stream s
+                ON s.aggregate_type = e.aggregate_type
+               AND s.aggregate_id = e.aggregate_id
+            WHERE s.stream_id = ?
+            ORDER BY e.version ASC
             ',
             [$streamId]
         );
@@ -221,6 +246,57 @@ final class PdoEventStore implements EventStoreInterface
                 $causationId,
                 $correlationId
             ),
+            'tipp_year.payout_distributed' => new PayoutDistributed(
+                Row::string($eventData, 'tipp_year_id'),
+                Row::float($eventData, 'total_winnings'),
+                Row::int($eventData, 'participant_count'),
+                Row::float($eventData, 'share_per_participant'),
+                self::objectList($eventData, 'shares'),
+                Row::nullableString($eventData, 'booked_by'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'ticket.submitted' => new TicketSubmitted(
+                Row::string($eventData, 'ticket_id'),
+                Row::int($eventData, 'tipp_year_id'),
+                Row::string($eventData, 'period_start'),
+                Row::string($eventData, 'period_end'),
+                Row::int($eventData, 'draw_count'),
+                Row::float($eventData, 'total_cost'),
+                self::objectList($eventData, 'rows'),
+                Row::nullableInt($eventData, 'superzahl'),
+                Row::nullableString($eventData, 'lottery_reference'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'fee.charged' => new FeeCharged(
+                Row::string($eventData, 'fee_id'),
+                Row::int($eventData, 'participant_id'),
+                Row::int($eventData, 'ticket_id'),
+                Row::float($eventData, 'amount'),
+                Row::string($eventData, 'due_date'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'fee.payment_recorded' => new FeePaymentRecorded(
+                Row::string($eventData, 'fee_id'),
+                Row::int($eventData, 'participant_id'),
+                Row::string($eventData, 'payment_status'),
+                Row::nullableString($eventData, 'paid_at'),
+                Row::nullableString($eventData, 'payment_method'),
+                Row::nullableString($eventData, 'booked_by'),
+                Row::nullableString($eventData, 'note'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
             'tipp_year.member_added' => new MemberAdded(
                 Row::string($eventData, 'tipp_year_id'),
                 Row::int($eventData, 'participant_id'),
@@ -274,5 +350,33 @@ final class PdoEventStore implements EventStoreInterface
         }
 
         return $numbers;
+    }
+
+    /**
+     * A JSON array of objects - the ticket's rows, the payout's shares.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function objectList(array $data, string $key): array
+    {
+        $value = $data[$key] ?? null;
+
+        if (!is_array($value)) {
+            throw new \RuntimeException("Field $key is not a list of objects");
+        }
+
+        $items = [];
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                throw new \RuntimeException("Field $key contains a non-object");
+            }
+
+            /** @var array<string, mixed> $item */
+            $items[] = $item;
+        }
+
+        return $items;
     }
 }
