@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace BettingGame\Infrastructure\EventStore;
 
 use BettingGame\Domain\Event\DomainEvent;
-use BettingGame\Domain\Event\PredictionSubmitted;
-use BettingGame\Domain\Event\PredictionUpdated;
-use BettingGame\Domain\Event\PredictionEvaluated;
+use BettingGame\Domain\Event\BetRowAssigned;
+use BettingGame\Domain\Event\BetRowReplaced;
+use BettingGame\Domain\Event\DrawRecorded;
+use BettingGame\Domain\Event\DrawWinningsRecorded;
+use BettingGame\Domain\Event\MemberAdded;
+use BettingGame\Domain\Event\ParticipantApproved;
+use BettingGame\Domain\Event\ParticipantCreated;
+use BettingGame\Domain\Event\TippYearCreated;
+use BettingGame\Domain\Event\TippYearStatusChanged;
 use BettingGame\Domain\Repository\EventStoreInterface;
 use BettingGame\Domain\Exception\ConcurrencyException;
 use BettingGame\Infrastructure\Persistence\Db;
@@ -137,36 +143,124 @@ final class PdoEventStore implements EventStoreInterface
 
         $eventType = Row::string($row, 'event_type');
 
+        $domainEventId = Row::nullableString($metadata, 'event_id');
+        $causationId = Row::nullableString($metadata, 'causation_id');
+        $correlationId = Row::nullableString($metadata, 'correlation_id');
+
         return match ($eventType) {
-            'prediction.submitted' => new PredictionSubmitted(
-                Row::string($eventData, 'prediction_id'),
+            'bet_row.assigned' => new BetRowAssigned(
+                Row::string($eventData, 'bet_row_id'),
                 Row::int($eventData, 'participant_id'),
-                Row::int($eventData, 'event_id'),
-                Row::json($eventData, 'prediction_data'),
-                Row::nullableString($metadata, 'event_id'),
+                Row::int($eventData, 'tipp_year_id'),
+                self::intList($eventData, 'numbers'),
+                $domainEventId,
                 $occurredAt,
-                Row::nullableString($metadata, 'causation_id'),
-                Row::nullableString($metadata, 'correlation_id')
+                $causationId,
+                $correlationId
             ),
-            'prediction.updated' => new PredictionUpdated(
-                Row::string($eventData, 'prediction_id'),
-                Row::json($eventData, 'prediction_data'),
-                Row::int($eventData, 'version'),
-                Row::nullableString($metadata, 'event_id'),
+            'bet_row.replaced' => new BetRowReplaced(
+                Row::string($eventData, 'bet_row_id'),
+                self::intList($eventData, 'previous_numbers'),
+                self::intList($eventData, 'numbers'),
+                Row::string($eventData, 'reason'),
+                $domainEventId,
                 $occurredAt,
-                Row::nullableString($metadata, 'causation_id'),
-                Row::nullableString($metadata, 'correlation_id')
+                $causationId,
+                $correlationId
             ),
-            'prediction.evaluated' => new PredictionEvaluated(
-                Row::string($eventData, 'prediction_id'),
-                Row::int($eventData, 'points_earned'),
-                Row::nullableFloat($eventData, 'prize_amount'),
-                Row::nullableString($metadata, 'event_id'),
+            'draw.recorded' => new DrawRecorded(
+                Row::string($eventData, 'draw_id'),
+                Row::int($eventData, 'tipp_year_id'),
+                Row::string($eventData, 'draw_date'),
+                self::intList($eventData, 'numbers'),
+                Row::int($eventData, 'superzahl'),
+                $domainEventId,
                 $occurredAt,
-                Row::nullableString($metadata, 'causation_id'),
-                Row::nullableString($metadata, 'correlation_id')
+                $causationId,
+                $correlationId
+            ),
+            'draw.winnings_recorded' => new DrawWinningsRecorded(
+                Row::string($eventData, 'draw_id'),
+                Row::int($eventData, 'ticket_id'),
+                Row::float($eventData, 'total_amount'),
+                Row::json($eventData, 'winning_classes'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'tipp_year.created' => new TippYearCreated(
+                Row::string($eventData, 'tipp_year_id'),
+                Row::string($eventData, 'name'),
+                Row::string($eventData, 'start_date'),
+                Row::string($eventData, 'end_date'),
+                Row::float($eventData, 'ticket_cost_per_row'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'tipp_year.status_changed' => new TippYearStatusChanged(
+                Row::string($eventData, 'tipp_year_id'),
+                Row::string($eventData, 'from_status'),
+                Row::string($eventData, 'to_status'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'tipp_year.member_added' => new MemberAdded(
+                Row::string($eventData, 'tipp_year_id'),
+                Row::int($eventData, 'participant_id'),
+                Row::string($eventData, 'joined_at'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'participant.created' => new ParticipantCreated(
+                Row::string($eventData, 'participant_id'),
+                Row::int($eventData, 'user_id'),
+                Row::string($eventData, 'display_name'),
+                Row::bool($eventData, 'auto_approved'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'participant.approved' => new ParticipantApproved(
+                Row::string($eventData, 'participant_id'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
             ),
             default => throw new \RuntimeException('Unknown event type: ' . $eventType)
         };
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return list<int>
+     */
+    private static function intList(array $data, string $key): array
+    {
+        $value = $data[$key] ?? null;
+
+        if (!is_array($value)) {
+            throw new \RuntimeException("Field $key is not a list of integers");
+        }
+
+        $numbers = [];
+        foreach ($value as $item) {
+            if (!is_int($item)) {
+                throw new \RuntimeException("Field $key contains a non-integer");
+            }
+
+            $numbers[] = $item;
+        }
+
+        return $numbers;
     }
 }

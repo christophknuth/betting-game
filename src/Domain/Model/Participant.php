@@ -7,8 +7,6 @@ namespace BettingGame\Domain\Model;
 use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Event\ParticipantCreated;
 use BettingGame\Domain\Event\ParticipantApproved;
-use BettingGame\Domain\Event\ParticipantJoinedGame;
-use BettingGame\Domain\Event\ParticipantLeftGame;
 use BettingGame\Domain\ValueObject\DisplayName;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use DateTimeImmutable;
@@ -85,23 +83,6 @@ final class Participant
         ));
     }
 
-    public function joinGame(int $bettingGameId, bool $acceptTerms, ?string $paymentReference = null): void
-    {
-        $this->recordEvent(new ParticipantJoinedGame(
-            (string) $this->id,
-            $bettingGameId,
-            $acceptTerms,
-            $paymentReference
-        ));
-    }
-
-    public function leaveGame(int $bettingGameId): void
-    {
-        $this->recordEvent(new ParticipantLeftGame(
-            (string) $this->id,
-            $bettingGameId
-        ));
-    }
 
     private function recordEvent(DomainEvent $event): void
     {
