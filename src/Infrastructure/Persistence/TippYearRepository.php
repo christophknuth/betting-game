@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Event\MemberAdded;
 use BettingGame\Domain\Event\PayoutDistributed;
 use BettingGame\Domain\Model\TippYear;
 use BettingGame\Domain\Repository\TippYearRepositoryInterface;
+use BettingGame\Domain\ValueObject\DateRange;
 use BettingGame\Domain\ValueObject\TippYearStatus;
 use DateTimeImmutable;
 
@@ -83,10 +85,51 @@ final class TippYearRepository extends EventSourcedRepository implements TippYea
         return $row === null ? null : $this->toAggregate($row);
     }
 
-    /** @return list<array<string, mixed>> */
-    public function findAll(): array
+    /** @return list<DateRange> */
+    public function existingRanges(?int $excludeId = null): array
     {
-        return $this->db->fetchAll('SELECT * FROM tipp_year ORDER BY start_date DESC');
+        $rows = $this->db->fetchAll(
+            'SELECT start_date, end_date FROM tipp_year WHERE (? IS NULL OR tipp_year_id <> ?) ORDER BY start_date',
+            [$excludeId, $excludeId]
+        );
+
+        return array_map(
+            static fn (array $row): DateRange => DateRange::fromStrings(
+                Row::string($row, 'start_date'),
+                Row::string($row, 'end_date')
+            ),
+            $rows
+        );
+    }
+
+    /**
+     * Correlated subqueries rather than joins: joining membership, ticket and
+     * draw at once would multiply the rows and make every count wrong.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findAll(?string $status = null): array
+    {
+        return $this->db->fetchAll(
+            "
+            SELECT
+                y.*,
+                (SELECT COUNT(*) FROM membership m
+                  WHERE m.tipp_year_id = y.tipp_year_id AND m.status = 'active') AS member_count,
+                (SELECT COUNT(*) FROM ticket t
+                  WHERE t.tipp_year_id = y.tipp_year_id) AS ticket_count,
+                (SELECT COUNT(*) FROM draw d
+                  WHERE d.tipp_year_id = y.tipp_year_id) AS draw_count,
+                (SELECT COALESCE(SUM(r.total_amount), 0)
+                   FROM ticket_draw_result r
+                   JOIN draw d2 ON d2.draw_id = r.draw_id
+                  WHERE d2.tipp_year_id = y.tipp_year_id) AS total_winnings
+            FROM tipp_year y
+            WHERE (? IS NULL OR y.status = ?)
+            ORDER BY y.start_date DESC
+            ",
+            [$status, $status]
+        );
     }
 
     /** @return list<int> */

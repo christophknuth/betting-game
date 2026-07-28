@@ -87,7 +87,7 @@ final class Draw
     /**
      * Records what the ticket won in this draw.
      *
-     * @param array<string, mixed> $winningClasses
+     * @param list<array<string, mixed>> $winningClasses optional breakdown per winning class
      */
     public function recordWinnings(int $ticketId, float $totalAmount, array $winningClasses = []): void
     {

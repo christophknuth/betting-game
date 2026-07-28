@@ -9,6 +9,7 @@ use BettingGame\Domain\Event\PayoutDistributed;
 use BettingGame\Domain\Event\TippYearCreated;
 use BettingGame\Domain\Event\TippYearStatusChanged;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
+use BettingGame\Domain\ValueObject\DateRange;
 use BettingGame\Domain\ValueObject\TippYearStatus;
 use DateTimeImmutable;
 
@@ -87,6 +88,29 @@ final class TippYear
         $year->markCommitted($version);
 
         return $year;
+    }
+
+    /**
+     * Tipp years must not overlap, for the same reason bet periods must not:
+     * a draw on a given day has to belong to exactly one year, otherwise it
+     * would count towards two distributions.
+     *
+     * @param list<DateRange> $existing
+     */
+    public static function assertNoOverlap(DateRange $range, array $existing): void
+    {
+        foreach ($existing as $other) {
+            if ($range->overlaps($other)) {
+                throw new BusinessRuleViolationException(
+                    sprintf('The tipp year %s overlaps the existing tipp year %s', $range, $other)
+                );
+            }
+        }
+    }
+
+    public function range(): DateRange
+    {
+        return new DateRange($this->startDate, $this->endDate);
     }
 
     public function start(): void

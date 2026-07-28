@@ -36,4 +36,17 @@ interface BetPeriodRepositoryInterface
     public function existingRanges(int $tippYearId, ?int $excludeId = null): array;
 
     public function nextSequence(int $tippYearId): int;
+
+    /**
+     * The period starting after the given day - when a standing row becomes
+     * changeable again. Null while none is planned.
+     */
+    public function findNextAfter(int $tippYearId, DateTimeImmutable $date): ?BetPeriod;
+
+    /**
+     * How many participants have a row per period.
+     *
+     * @return array<int, int> bet period id => row count
+     */
+    public function betRowCounts(int $tippYearId): array;
 }

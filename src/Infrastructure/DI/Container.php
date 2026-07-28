@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\DI;
 
+use BettingGame\Application\Command;
+use BettingGame\Application\Query;
 use BettingGame\Domain\Repository\BetPeriodRepositoryInterface;
 use BettingGame\Domain\Repository\BetRowRepositoryInterface;
 use BettingGame\Domain\Repository\DrawRepositoryInterface;
@@ -120,6 +122,27 @@ final class Container
             TicketRepositoryInterface::class => \DI\autowire(TicketRepository::class),
             DrawRepositoryInterface::class => \DI\autowire(DrawRepository::class),
             FeeRepositoryInterface::class => \DI\autowire(FeeRepository::class),
+
+            // Command handlers - autowired from the repository interfaces above
+            Command\AddMemberHandler::class => \DI\autowire(),
+            Command\AssignBetRowHandler::class => \DI\autowire(),
+            Command\CreateBetPeriodHandler::class => \DI\autowire(),
+            Command\CreateTippYearHandler::class => \DI\autowire(),
+            Command\DistributePayoutHandler::class => \DI\autowire(),
+            Command\RecordDrawHandler::class => \DI\autowire(),
+            Command\RecordDrawWinningsHandler::class => \DI\autowire(),
+            Command\RecordFeePaymentHandler::class => \DI\autowire(),
+            Command\SubmitTicketHandler::class => \DI\autowire(),
+
+            // Query handlers
+            Query\GetBetPeriodsHandler::class => \DI\autowire(),
+            Query\GetBetRowHandler::class => \DI\autowire(),
+            Query\GetDrawsHandler::class => \DI\autowire(),
+            Query\GetFeesHandler::class => \DI\autowire(),
+            Query\GetMembershipsHandler::class => \DI\autowire(),
+            Query\GetParticipantFeesHandler::class => \DI\autowire(),
+            Query\GetPayoutShareHandler::class => \DI\autowire(),
+            Query\GetTippYearsHandler::class => \DI\autowire(),
 
             // Controllers
             HealthController::class => \DI\autowire(),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Model\BetPeriod;
 use BettingGame\Domain\Repository\BetPeriodRepositoryInterface;
 use BettingGame\Domain\ValueObject\DateRange;
@@ -125,6 +126,43 @@ final class BetPeriodRepository extends EventSourcedRepository implements BetPer
         );
 
         return $row !== null ? Row::int($row, 'next_sequence') : 1;
+    }
+
+    public function findNextAfter(int $tippYearId, DateTimeImmutable $date): ?BetPeriod
+    {
+        $row = $this->db->fetchOne(
+            '
+            SELECT * FROM bet_period
+            WHERE tipp_year_id = ? AND start_date > ?
+            ORDER BY start_date
+            LIMIT 1
+            ',
+            [$tippYearId, $date->format('Y-m-d')]
+        );
+
+        return $row === null ? null : $this->toAggregate($row);
+    }
+
+    /** @return array<int, int> */
+    public function betRowCounts(int $tippYearId): array
+    {
+        $rows = $this->db->fetchAll(
+            '
+            SELECT bp.bet_period_id, COUNT(br.bet_row_id) AS row_count
+            FROM bet_period bp
+            LEFT JOIN bet_row br ON br.bet_period_id = bp.bet_period_id
+            WHERE bp.tipp_year_id = ?
+            GROUP BY bp.bet_period_id
+            ',
+            [$tippYearId]
+        );
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[Row::int($row, 'bet_period_id')] = Row::int($row, 'row_count');
+        }
+
+        return $counts;
     }
 
     /** @param array<string, mixed> $row */

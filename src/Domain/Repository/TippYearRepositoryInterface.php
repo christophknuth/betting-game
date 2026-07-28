@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BettingGame\Domain\Repository;
 
 use BettingGame\Domain\Model\TippYear;
+use BettingGame\Domain\ValueObject\DateRange;
 use DateTimeImmutable;
 
 /**
@@ -27,8 +28,21 @@ interface TippYearRepositoryInterface
 
     public function findRunning(): ?TippYear;
 
-    /** @return list<array<string, mixed>> */
-    public function findAll(): array;
+    /**
+     * The ranges a new tipp year has to be checked against.
+     *
+     * @return list<DateRange>
+     */
+    public function existingRanges(?int $excludeId = null): array;
+
+    /**
+     * Tipp years with their member, ticket and draw counts and the winnings so
+     * far - the counts come from the same query to keep a list from turning
+     * into one round trip per year.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findAll(?string $status = null): array;
 
     /** @return list<int> */
     public function memberIds(int $tippYearId): array;

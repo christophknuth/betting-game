@@ -39,4 +39,18 @@ interface DrawRepositoryInterface
      *     winningClass: int|null, amount: float}> $matches
      */
     public function saveRowMatches(int $drawId, array $matches): void;
+
+    /**
+     * The best result any row achieved in a draw, for the summary in B-05.
+     *
+     * @return array{matchedNumbers: int, superzahlMatched: bool}|null
+     */
+    public function bestMatchOf(int $drawId): ?array;
+
+    /**
+     * The winning classes a draw produced, aggregated over the ticket's rows.
+     *
+     * @return list<array{winningClass: int, rowCount: int, amount: float}>
+     */
+    public function winningClassesOf(int $drawId): array;
 }

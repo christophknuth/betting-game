@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Model\BetRow;
 use BettingGame\Domain\Repository\BetRowRepositoryInterface;
 use BettingGame\Domain\ValueObject\LottoNumbers;
@@ -140,6 +141,16 @@ final class BetRowRepository extends EventSourcedRepository implements BetRowRep
         );
 
         return array_map(fn (array $row): BetRow => $this->toAggregate($row), $rows);
+    }
+
+    public function ticketCountOf(int $betRowId): int
+    {
+        $row = $this->db->fetchOne(
+            'SELECT COUNT(*) AS cnt FROM ticket_row WHERE bet_row_id = ?',
+            [$betRowId]
+        );
+
+        return $row === null ? 0 : Row::int($row, 'cnt');
     }
 
     /** @param array<string, mixed> $row */

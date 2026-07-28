@@ -32,4 +32,9 @@ interface BetRowRepositoryInterface
      * @return list<BetRow>
      */
     public function findRowsForTicket(int $tippYearId, DateTimeImmutable $periodStart): array;
+
+    /**
+     * On how many tickets this row has been printed so far.
+     */
+    public function ticketCountOf(int $betRowId): int;
 }

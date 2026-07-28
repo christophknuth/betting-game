@@ -28,4 +28,16 @@ interface FeeRepositoryInterface
     public function findByParticipant(int $participantId): array;
 
     public function openTotalOf(int $participantId): float;
+
+    /**
+     * The whole fee ledger for the administrator's overview, filtered on
+     * whatever the caller supplied.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findFiltered(
+        ?int $tippYearId = null,
+        ?int $participantId = null,
+        ?string $paymentStatus = null
+    ): array;
 }

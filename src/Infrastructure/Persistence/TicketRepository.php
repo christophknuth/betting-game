@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Model\Ticket;
 use BettingGame\Domain\Repository\TicketRepositoryInterface;
 use BettingGame\Domain\ValueObject\LottoNumbers;
@@ -171,6 +172,22 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
             ',
             [$participantId, $tippYearId]
         );
+    }
+
+    /** @return array<int, int> */
+    public function rowIdsOf(int $ticketId): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT bet_row_id, ticket_row_id FROM ticket_row WHERE ticket_id = ?',
+            [$ticketId]
+        );
+
+        $ids = [];
+        foreach ($rows as $row) {
+            $ids[Row::int($row, 'bet_row_id')] = Row::int($row, 'ticket_row_id');
+        }
+
+        return $ids;
     }
 
     /**

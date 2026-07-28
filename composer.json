@@ -24,7 +24,8 @@
             "BettingGame\\Domain\\": "src/Domain/",
             "BettingGame\\Application\\": "src/Application/",
             "BettingGame\\Infrastructure\\": "src/Infrastructure/",
-            "BettingGame\\Presentation\\": "src/Presentation/"
+            "BettingGame\\Presentation\\": "src/Presentation/",
+            "BettingGame\\Support\\": "src/Support/"
         }
     },
     "autoload-dev": {

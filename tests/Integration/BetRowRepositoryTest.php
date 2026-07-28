@@ -6,9 +6,9 @@ namespace BettingGame\Tests\Integration;
 
 use BettingGame\Domain\Model\BetRow;
 use BettingGame\Domain\ValueObject\LottoNumbers;
+use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Infrastructure\Persistence\BetRowRepository;
 use DateTimeImmutable;
-use PDOException;
 
 final class BetRowRepositoryTest extends IntegrationTestCase
 {
@@ -71,7 +71,7 @@ final class BetRowRepositoryTest extends IntegrationTestCase
         self::assertNotNull($this->repository->find(2));
 
         // A second row in the same period is not
-        $this->expectException(PDOException::class);
+        $this->expectException(DuplicateEntryException::class);
         $this->expectExceptionMessageMatches('/uk_participant_period/');
         $this->givenRow(3, 7, 1, $this->numbers(7, 8, 9, 10, 11, 12));
     }
@@ -84,7 +84,7 @@ final class BetRowRepositoryTest extends IntegrationTestCase
         try {
             $this->givenRow(2, 7, 1, $this->numbers(7, 8, 9, 10, 11, 12));
             self::fail('the unique key should have rejected the second row');
-        } catch (PDOException) {
+        } catch (DuplicateEntryException) {
             // expected
         }
 

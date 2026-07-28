@@ -9,7 +9,9 @@ use DateTimeImmutable;
 final class DrawWinningsRecorded extends DomainEvent
 {
     /**
-     * @param array<string, mixed> $winningClasses
+     * @param list<array<string, mixed>> $winningClasses a list, not a map keyed
+     *     by class: PHP turns a numeric string key into an int, so `'5' => ...`
+     *     would not survive the declared round trip through JSON
      */
     public function __construct(
         private string $drawId,

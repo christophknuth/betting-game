@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Event\DrawWinningsRecorded;
 use BettingGame\Domain\Model\Draw;
 use BettingGame\Domain\Repository\DrawRepositoryInterface;
@@ -187,6 +188,54 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
         }
     }
 
+    /** @return array{matchedNumbers: int, superzahlMatched: bool}|null */
+    public function bestMatchOf(int $drawId): ?array
+    {
+        $row = $this->db->fetchOne(
+            '
+            SELECT matched_numbers, superzahl_matched
+            FROM ticket_row_match
+            WHERE draw_id = ?
+            ORDER BY matched_numbers DESC, superzahl_matched DESC
+            LIMIT 1
+            ',
+            [$drawId]
+        );
+
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'matchedNumbers' => Row::int($row, 'matched_numbers'),
+            'superzahlMatched' => Row::bool($row, 'superzahl_matched'),
+        ];
+    }
+
+    /** @return list<array{winningClass: int, rowCount: int, amount: float}> */
+    public function winningClassesOf(int $drawId): array
+    {
+        $rows = $this->db->fetchAll(
+            '
+            SELECT winning_class, COUNT(*) AS row_count, COALESCE(SUM(amount), 0) AS amount
+            FROM ticket_row_match
+            WHERE draw_id = ? AND winning_class IS NOT NULL
+            GROUP BY winning_class
+            ORDER BY winning_class
+            ',
+            [$drawId]
+        );
+
+        return array_map(
+            static fn (array $row): array => [
+                'winningClass' => Row::int($row, 'winning_class'),
+                'rowCount' => Row::int($row, 'row_count'),
+                'amount' => Row::float($row, 'amount'),
+            ],
+            $rows
+        );
+    }
+
     private function projectWinnings(DrawWinningsRecorded $event): void
     {
         $payload = $event->toArray();
@@ -204,7 +253,7 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
                 Row::int($payload, 'ticket_id'),
                 Row::string($payload, 'draw_id'),
                 Row::float($payload, 'total_amount'),
-                json_encode(Row::json($payload, 'winning_classes'), JSON_THROW_ON_ERROR),
+                json_encode($payload['winning_classes'] ?? [], JSON_THROW_ON_ERROR),
                 $event->occurredAt()->format('Y-m-d H:i:s'),
             ]
         );

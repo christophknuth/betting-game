@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BettingGame\Infrastructure\Persistence;
+namespace BettingGame\Support;
 
 use RuntimeException;
 

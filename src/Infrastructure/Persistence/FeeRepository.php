@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Model\Fee;
 use BettingGame\Domain\Repository\FeeRepositoryInterface;
 use DateTimeImmutable;
@@ -142,6 +143,35 @@ final class FeeRepository extends EventSourcedRepository implements FeeRepositor
         );
 
         return $row === null ? 0.0 : Row::float($row, 'total');
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function findFiltered(
+        ?int $tippYearId = null,
+        ?int $participantId = null,
+        ?string $paymentStatus = null
+    ): array {
+        return $this->db->fetchAll(
+            '
+            SELECT
+                f.fee_id, f.participant_id, f.ticket_id, f.amount, f.due_date,
+                f.payment_status, f.paid_at, f.payment_method, f.booked_by, f.note,
+                p.display_name,
+                t.period_start, t.period_end, t.tipp_year_id
+            FROM fee f
+            JOIN ticket t ON t.ticket_id = f.ticket_id
+            JOIN participant p ON p.participant_id = f.participant_id
+            WHERE (? IS NULL OR t.tipp_year_id = ?)
+              AND (? IS NULL OR f.participant_id = ?)
+              AND (? IS NULL OR f.payment_status = ?)
+            ORDER BY t.period_start DESC, p.display_name
+            ',
+            [
+                $tippYearId, $tippYearId,
+                $participantId, $participantId,
+                $paymentStatus, $paymentStatus,
+            ]
+        );
     }
 
     /** @param array<string, mixed> $row */
