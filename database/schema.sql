@@ -2,10 +2,14 @@
 -- Version: 2.0 - Basisversion
 -- Engine: InnoDB for ACID compliance and foreign keys
 --
--- Kernidee: Jeder Teilnehmer hat pro Tippjahr GENAU EINE Tippreihe. Der Unique Key
--- auf bet_row(participant_id, tipp_year_id) ist die Durchsetzung der Regel, dass
--- eine Reihe nur zum Jahreswechsel geaendert werden darf - strukturell, nicht als
+-- Kernidee: Jeder Teilnehmer hat pro TIPPPERIODE genau eine Tippreihe. Der Unique Key
+-- auf bet_row(participant_id, bet_period_id) setzt das strukturell durch, nicht als
 -- Pruefung im Code.
+--
+-- Wie lang eine Periode ist, legt der Administrator fest: eine Periode ueber das
+-- ganze Tippjahr ergibt "eine Reihe pro Jahr", zwoelf Monatsperioden erlauben einen
+-- monatlichen Wechsel. Perioden eines Tippjahres duerfen sich nicht ueberlappen -
+-- sonst waeren zwei Reihen desselben Teilnehmers am selben Tag gueltig.
 --
 -- Das Schema der Sportwetten-Erweiterung liegt in schema-e2-sports.sql.
 
@@ -25,6 +29,7 @@ DROP TABLE IF EXISTS draw;
 DROP TABLE IF EXISTS ticket_row;
 DROP TABLE IF EXISTS ticket;
 DROP TABLE IF EXISTS bet_row;
+DROP TABLE IF EXISTS bet_period;
 DROP TABLE IF EXISTS membership;
 DROP TABLE IF EXISTS tipp_year;
 DROP TABLE IF EXISTS participant;
@@ -91,21 +96,39 @@ CREATE TABLE membership (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- Tippreihe: eine je Teilnehmer und Tippjahr
+-- Tippperiode: der frei waehlbare Gueltigkeitszeitraum einer Tippreihe
+-- ============================================================
+
+CREATE TABLE bet_period (
+    bet_period_id INT AUTO_INCREMENT PRIMARY KEY,
+    tipp_year_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL COMMENT 'e.g. "2026 gesamt", "Q1 2026", "Maerz 2026"',
+    start_date DATE NOT NULL COMMENT 'Freely chosen by the administrator',
+    end_date DATE NOT NULL,
+    sequence INT NOT NULL DEFAULT 1 COMMENT 'Order within the tipp year',
+    version INT DEFAULT 0 COMMENT 'Optimistic locking',
+    FOREIGN KEY (tipp_year_id) REFERENCES tipp_year(tipp_year_id) ON DELETE CASCADE,
+    UNIQUE KEY uk_year_start (tipp_year_id, start_date),
+    INDEX idx_tipp_year (tipp_year_id),
+    INDEX idx_range (start_date, end_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Tippreihe: eine je Teilnehmer und Tippperiode
 -- ============================================================
 
 CREATE TABLE bet_row (
     bet_row_id INT AUTO_INCREMENT PRIMARY KEY,
     participant_id INT NOT NULL,
-    tipp_year_id INT NOT NULL,
+    bet_period_id INT NOT NULL,
     numbers JSON NOT NULL COMMENT 'Six distinct numbers 1-49, sorted ascending',
     assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INT DEFAULT 0 COMMENT 'Optimistic locking',
     FOREIGN KEY (participant_id) REFERENCES participant(participant_id) ON DELETE CASCADE,
-    FOREIGN KEY (tipp_year_id) REFERENCES tipp_year(tipp_year_id) ON DELETE CASCADE,
-    UNIQUE KEY uk_participant_year (participant_id, tipp_year_id)
-        COMMENT 'Enforces: one row per participant per year, changeable only at year turn',
-    INDEX idx_tipp_year (tipp_year_id)
+    FOREIGN KEY (bet_period_id) REFERENCES bet_period(bet_period_id) ON DELETE CASCADE,
+    UNIQUE KEY uk_participant_period (participant_id, bet_period_id)
+        COMMENT 'Enforces: one row per participant per period',
+    INDEX idx_bet_period (bet_period_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -251,7 +274,7 @@ CREATE TABLE payout_share (
 
 CREATE TABLE event_store (
     event_store_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    aggregate_type VARCHAR(50) NOT NULL COMMENT 'tipp_year, bet_row, ticket, draw, participant',
+    aggregate_type VARCHAR(50) NOT NULL COMMENT 'tipp_year, bet_period, bet_row, ticket, draw, participant',
     aggregate_id VARCHAR(100) NOT NULL,
     version BIGINT NOT NULL,
     event_type VARCHAR(100) NOT NULL COMMENT 'bet_row.assigned, draw.recorded, etc.',

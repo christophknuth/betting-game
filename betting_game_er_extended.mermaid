@@ -2,8 +2,12 @@ erDiagram
     %% =====================================================================
     %% BASISVERSION - Lotterie-Tippgemeinschaft (Lotto 6 aus 49)
     %%
-    %% Kernidee: Jeder Teilnehmer hat pro Tippjahr GENAU EINE Tippreihe.
-    %% Diese wird monatlich auf einem gemeinsamen Tippschein eingereicht und
+    %% Kernidee: Jeder Teilnehmer hat pro TIPPPERIODE genau eine Tippreihe.
+    %% Wie lang eine Periode ist, legt der Administrator fest - eine Periode
+    %% ueber das ganze Tippjahr ergibt "eine Reihe pro Jahr", zwoelf
+    %% Monatsperioden erlauben einen monatlichen Wechsel.
+    %%
+    %% Die Reihe wird monatlich auf einem gemeinsamen Tippschein eingereicht und
     %% nimmt automatisch an allen Ziehungen des Monats teil. Gewinne werden
     %% ueber das Tippjahr gesammelt und am Ende gleichmaessig ausgeschuettet.
     %% =====================================================================
@@ -15,8 +19,11 @@ erDiagram
     TippYear ||--o{ Membership : "has members"
     Participant ||--o{ Membership : "participates in"
 
-    %% --- Tippreihe: eine je Teilnehmer und Tippjahr ---
-    TippYear ||--o{ BetRow : "scopes"
+    %% --- Tippperiode: frei waehlbarer Gueltigkeitszeitraum ---
+    TippYear ||--o{ BetPeriod : "is divided into"
+
+    %% --- Tippreihe: eine je Teilnehmer und Tippperiode ---
+    BetPeriod ||--o{ BetRow : "scopes"
     Participant ||--o{ BetRow : "owns"
 
     %% --- Monatlicher Tippschein ---
@@ -45,6 +52,7 @@ erDiagram
     EventStream ||--o{ Snapshot : "has"
     Participant ||--o{ EventStream : "owns stream"
     TippYear ||--o{ EventStream : "owns stream"
+    BetPeriod ||--o{ EventStream : "owns stream"
     BetRow ||--o{ EventStream : "owns stream"
     Ticket ||--o{ EventStream : "owns stream"
     Draw ||--o{ EventStream : "owns stream"
@@ -93,10 +101,20 @@ erDiagram
         int version "Optimistic locking"
     }
 
+    BetPeriod {
+        int bet_period_id PK
+        int tipp_year_id FK "UK(tipp_year_id, start_date)"
+        string name "e.g. 2026 gesamt / Q1 2026 / Maerz 2026"
+        date start_date "freely chosen by the administrator"
+        date end_date
+        int sequence "order within the tipp year"
+        int version "Optimistic locking"
+    }
+
     BetRow {
         int bet_row_id PK
-        int participant_id FK "UK(participant_id, tipp_year_id) - exactly one row per year"
-        int tipp_year_id FK
+        int participant_id FK "UK(participant_id, bet_period_id) - exactly one row per period"
+        int bet_period_id FK
         json numbers "JSONB - the six numbers, sorted ascending"
         datetime assigned_at
         int version "Optimistic locking"

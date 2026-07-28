@@ -21,7 +21,7 @@ final class BetRowTest extends TestCase
 
     public function testAssigningRecordsAnEvent(): void
     {
-        $row = BetRow::assign(1, 7, 5, $this->numbers());
+        $row = BetRow::assign(1, 7, 12, $this->numbers());
 
         $events = $row->releaseEvents();
 
@@ -34,7 +34,7 @@ final class BetRowTest extends TestCase
 
     public function testAFreshRowStartsAtVersionZero(): void
     {
-        $row = BetRow::assign(1, 7, 5, $this->numbers());
+        $row = BetRow::assign(1, 7, 12, $this->numbers());
 
         self::assertSame(0, $row->version());
         self::assertSame(0, $row->originalVersion());
@@ -42,7 +42,7 @@ final class BetRowTest extends TestCase
 
     public function testReplacingRequiresAReason(): void
     {
-        $row = BetRow::assign(1, 7, 5, $this->numbers());
+        $row = BetRow::assign(1, 7, 12, $this->numbers());
 
         $this->expectException(BusinessRuleViolationException::class);
         $row->replace($this->numbers(1, 2, 3, 4, 5, 6), '   ');
@@ -50,7 +50,7 @@ final class BetRowTest extends TestCase
 
     public function testReplacingWithTheSameNumbersIsRejected(): void
     {
-        $row = BetRow::assign(1, 7, 5, $this->numbers());
+        $row = BetRow::assign(1, 7, 12, $this->numbers());
 
         $this->expectException(BusinessRuleViolationException::class);
         // Same numbers in a different order are the same row
@@ -59,7 +59,7 @@ final class BetRowTest extends TestCase
 
     public function testReplacingRecordsPreviousAndNewNumbers(): void
     {
-        $row = BetRow::assign(1, 7, 5, $this->numbers());
+        $row = BetRow::assign(1, 7, 12, $this->numbers());
         $row->releaseEvents();
 
         $row->replace($this->numbers(1, 2, 3, 4, 5, 6), 'wrong slip transcribed');
@@ -79,7 +79,7 @@ final class BetRowTest extends TestCase
         $row = BetRow::fromProjection(
             1,
             7,
-            5,
+            12,
             $this->numbers(),
             new DateTimeImmutable('2026-01-05'),
             1
@@ -95,7 +95,7 @@ final class BetRowTest extends TestCase
 
     public function testReleasingEventsClearsThem(): void
     {
-        $row = BetRow::assign(1, 7, 5, $this->numbers());
+        $row = BetRow::assign(1, 7, 12, $this->numbers());
 
         self::assertCount(1, $row->releaseEvents());
         self::assertCount(0, $row->releaseEvents());
