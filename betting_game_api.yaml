@@ -6,9 +6,13 @@ info:
 
     ## Fachliches Modell
 
-    Jeder Teilnehmer hat pro Tippjahr **genau eine Tippreihe** aus sechs Zahlen. Sie gilt bis
-    auf Widerruf und wandert automatisch auf jeden Tippschein - getippt wird einmal pro Jahr,
-    nicht pro Ziehung.
+    Jeder Teilnehmer hat pro **Tippperiode** genau eine Tippreihe aus sechs Zahlen. Sie gilt
+    bis auf Widerruf und wandert automatisch auf jeden Tippschein - getippt wird einmal pro
+    Periode, nicht pro Ziehung.
+
+    Wie lang eine Periode ist, legt der Administrator fest: eine Periode über das ganze
+    Tippjahr ergibt "eine Reihe pro Jahr", zwölf Monatsperioden erlauben einen monatlichen
+    Wechsel. Perioden eines Tippjahres dürfen sich nicht überlappen.
 
     Zum Monatsanfang wird ein gemeinsamer **Tippschein** mit allen aktiven Reihen eingereicht.
     Seine Kosten werden auf die Teilnehmer aufgeteilt und sind im Laufe des Monats zu zahlen.
@@ -73,16 +77,16 @@ paths:
         - Teilnehmer
       summary: Eigene Tippreihe abrufen (B-01)
       description: |
-        Die Tippreihe des Teilnehmers für ein Tippjahr. Ohne `tippYearId` wird das laufende
-        Tippjahr verwendet.
+        Die Tippreihe des Teilnehmers für eine Tippperiode. Ohne `betPeriodId` wird die
+        heute laufende Periode verwendet.
       operationId: getBetRow
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/ParticipantIdPath'
-        - name: tippYearId
+        - name: betPeriodId
           in: query
-          description: Standardmäßig das laufende Tippjahr
+          description: Standardmäßig die heute laufende Periode
           schema:
             type: integer
       responses:
@@ -97,7 +101,7 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '404':
-          description: Für dieses Tippjahr ist keine Reihe zugeordnet
+          description: Für diese Periode ist keine Reihe zugeordnet
           content:
             application/json:
               schema:
@@ -277,11 +281,15 @@ paths:
         - Admin - Tippreihen
       summary: Tippreihe zuordnen (B-06)
       description: |
-        Ordnet einem Teilnehmer die Tippreihe für ein Tippjahr zu (CQRS Command).
+        Ordnet einem Teilnehmer die Tippreihe für eine Tippperiode zu (CQRS Command).
 
-        Pro Teilnehmer und Tippjahr ist genau eine Reihe zulässig - das ist die Durchsetzung
-        der Regel, dass eine Reihe nur zum Jahreswechsel geändert werden darf. Eine bereits
-        zugeordnete Reihe wird mit `409` abgelehnt; eine Korrektur verlangt `replaceReason`.
+        Pro Teilnehmer und Periode ist genau eine Reihe zulässig - durchgesetzt über den
+        Unique Key, nicht über eine Prüfung im Code. Eine bereits zugeordnete Reihe wird mit
+        `409` abgelehnt; eine Korrektur innerhalb der laufenden Periode verlangt
+        `replaceReason`.
+
+        Wie oft eine Reihe wechseln darf, ergibt sich damit aus dem Zuschnitt der Perioden
+        und ist eine Konfiguration des Tippjahres.
       operationId: assignBetRow
       security:
         - bearerAuth: []
@@ -536,6 +544,77 @@ paths:
         '409':
           $ref: '#/components/responses/ConflictError'
 
+  /admin/tipp-years/{tippYearId}/bet-periods:
+    get:
+      tags:
+        - Admin - Tippjahr
+      summary: Tippperioden abrufen
+      operationId: getBetPeriods
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TippYearIdPath'
+      responses:
+        '200':
+          description: Perioden des Tippjahres
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  betPeriods:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BetPeriodReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    post:
+      tags:
+        - Admin - Tippjahr
+      summary: Tippperiode anlegen (B-14)
+      description: |
+        Legt einen Gültigkeitszeitraum für Tippreihen fest (CQRS Command).
+
+        Die Grenzen wählt der Administrator frei. Eine einzige Periode über das ganze
+        Tippjahr ergibt "eine Reihe pro Jahr", zwölf Monatsperioden erlauben einen
+        monatlichen Wechsel.
+
+        Die Periode muss innerhalb des Tippjahres liegen und darf keine bestehende Periode
+        desselben Jahres überlappen - sonst wären zwei Reihen desselben Teilnehmers am
+        selben Tag gültig. Beides wird mit `409` abgelehnt.
+      operationId: createBetPeriod
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TippYearIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBetPeriodCommand'
+      responses:
+        '202':
+          description: Anlage akzeptiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
   /admin/tipp-years/{tippYearId}/members:
     post:
       tags:
@@ -772,10 +851,8 @@ components:
           type: integer
         participantId:
           type: integer
-        tippYearId:
-          type: integer
-        tippYearName:
-          type: string
+        betPeriod:
+          $ref: '#/components/schemas/BetPeriodReadModel'
         numbers:
           $ref: '#/components/schemas/LottoNumbers'
         assignedAt:
@@ -784,10 +861,35 @@ components:
         changeableFrom:
           type: string
           format: date
-          description: Erst zum nächsten Jahreswechsel wieder änderbar
+          description: Beginn der nächsten Periode - erst dann ist die Reihe wieder änderbar
         ticketCount:
           type: integer
           description: Auf so vielen Tippscheinen stand diese Reihe bisher
+
+    BetPeriodReadModel:
+      type: object
+      properties:
+        betPeriodId:
+          type: integer
+        tippYearId:
+          type: integer
+        tippYearName:
+          type: string
+        name:
+          type: string
+          example: Q1 2026
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        sequence:
+          type: integer
+          description: Reihenfolge innerhalb des Tippjahres
+        betRowCount:
+          type: integer
+          description: Wie viele Teilnehmer für diese Periode eine Reihe hinterlegt haben
 
     MembershipReadModel:
       type: object
@@ -1028,10 +1130,10 @@ components:
     AssignBetRowCommand:
       type: object
       required:
-        - tippYearId
+        - betPeriodId
         - numbers
       properties:
-        tippYearId:
+        betPeriodId:
           type: integer
         numbers:
           $ref: '#/components/schemas/LottoNumbers'
@@ -1039,8 +1141,28 @@ components:
           type: string
           description: |
             Erforderlich, um eine bereits zugeordnete Reihe zu ersetzen. Ohne diesen Wert
-            antwortet der Endpunkt mit 409 - die Reihe ist regulär nur zum Jahreswechsel
-            änderbar.
+            antwortet der Endpunkt mit 409 - regulär wechselt die Reihe erst mit der
+            nächsten Periode.
+
+    CreateBetPeriodCommand:
+      type: object
+      required:
+        - name
+        - startDate
+        - endDate
+      properties:
+        name:
+          type: string
+          example: Q1 2026
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        sequence:
+          type: integer
+          default: 1
 
     RecordFeePaymentCommand:
       type: object

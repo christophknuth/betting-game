@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BettingGame\Infrastructure\EventStore;
 
 use BettingGame\Domain\Event\DomainEvent;
+use BettingGame\Domain\Event\BetPeriodCreated;
 use BettingGame\Domain\Event\BetRowAssigned;
 use BettingGame\Domain\Event\BetRowReplaced;
 use BettingGame\Domain\Event\DrawRecorded;
@@ -148,10 +149,21 @@ final class PdoEventStore implements EventStoreInterface
         $correlationId = Row::nullableString($metadata, 'correlation_id');
 
         return match ($eventType) {
+            'bet_period.created' => new BetPeriodCreated(
+                Row::string($eventData, 'bet_period_id'),
+                Row::int($eventData, 'tipp_year_id'),
+                Row::string($eventData, 'name'),
+                Row::string($eventData, 'start_date'),
+                Row::string($eventData, 'end_date'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
             'bet_row.assigned' => new BetRowAssigned(
                 Row::string($eventData, 'bet_row_id'),
                 Row::int($eventData, 'participant_id'),
-                Row::int($eventData, 'tipp_year_id'),
+                Row::int($eventData, 'bet_period_id'),
                 self::intList($eventData, 'numbers'),
                 $domainEventId,
                 $occurredAt,

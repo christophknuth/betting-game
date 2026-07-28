@@ -12,13 +12,16 @@ use BettingGame\Domain\ValueObject\LottoNumbers;
 use DateTimeImmutable;
 
 /**
- * The standing bet row of one participant for one tipp year.
+ * The standing bet row of one participant for one bet period.
  *
- * It takes part in every draw of the year automatically - the participant tips
- * once a year, not once per draw. That a row exists only once per participant
- * and year is enforced by a unique key in the schema, not by this class; what
- * lives here is the rule that changing it inside a running year is an
- * exception which needs a reason.
+ * It takes part in every draw of its period automatically - the participant
+ * tips once per period, not once per draw. How long a period lasts is up to the
+ * administrator: one period spanning the tipp year means one row per year,
+ * twelve monthly periods mean a row can be changed every month.
+ *
+ * That a row exists only once per participant and period is enforced by a
+ * unique key in the schema, not by this class; what lives here is the rule that
+ * changing it inside a running period is an exception which needs a reason.
  */
 final class BetRow
 {
@@ -30,7 +33,7 @@ final class BetRow
     private function __construct(
         private int $id,
         private int $participantId,
-        private int $tippYearId,
+        private int $betPeriodId,
         private LottoNumbers $numbers,
         private DateTimeImmutable $assignedAt
     ) {
@@ -39,15 +42,15 @@ final class BetRow
     public static function assign(
         int $id,
         int $participantId,
-        int $tippYearId,
+        int $betPeriodId,
         LottoNumbers $numbers
     ): self {
-        $row = new self($id, $participantId, $tippYearId, $numbers, new DateTimeImmutable());
+        $row = new self($id, $participantId, $betPeriodId, $numbers, new DateTimeImmutable());
 
         $row->recordEvent(new BetRowAssigned(
             (string) $id,
             $participantId,
-            $tippYearId,
+            $betPeriodId,
             $numbers->toArray()
         ));
 
@@ -60,12 +63,12 @@ final class BetRow
     public static function fromProjection(
         int $id,
         int $participantId,
-        int $tippYearId,
+        int $betPeriodId,
         LottoNumbers $numbers,
         DateTimeImmutable $assignedAt,
         int $version
     ): self {
-        $row = new self($id, $participantId, $tippYearId, $numbers, $assignedAt);
+        $row = new self($id, $participantId, $betPeriodId, $numbers, $assignedAt);
         $row->version = $version;
         $row->originalVersion = $version;
 
@@ -73,9 +76,9 @@ final class BetRow
     }
 
     /**
-     * Corrects the row inside a running tipp year.
+     * Corrects the row inside a running bet period.
      *
-     * Regularly a row changes only at the turn of the year, so a reason is
+     * Regularly a row changes only when the next period starts, so a reason is
      * mandatory - the event records an exception, not routine behaviour.
      * Tickets already submitted keep their snapshot and are unaffected.
      */
@@ -83,7 +86,7 @@ final class BetRow
     {
         if (trim($reason) === '') {
             throw new BusinessRuleViolationException(
-                'Replacing a bet row within a running tipp year requires a reason'
+                'Replacing a bet row within a running bet period requires a reason'
             );
         }
 
@@ -129,9 +132,9 @@ final class BetRow
         return $this->participantId;
     }
 
-    public function tippYearId(): int
+    public function betPeriodId(): int
     {
-        return $this->tippYearId;
+        return $this->betPeriodId;
     }
 
     public function numbers(): LottoNumbers

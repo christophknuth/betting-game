@@ -6,16 +6,14 @@ namespace BettingGame\Domain\Event;
 
 use DateTimeImmutable;
 
-final class BetRowAssigned extends DomainEvent
+final class BetPeriodCreated extends DomainEvent
 {
-    /**
-     * @param list<int> $numbers
-     */
     public function __construct(
-        private string $betRowId,
-        private int $participantId,
-        private int $betPeriodId,
-        private array $numbers,
+        private string $betPeriodId,
+        private int $tippYearId,
+        private string $name,
+        private string $startDate,
+        private string $endDate,
         ?string $eventId = null,
         ?DateTimeImmutable $occurredAt = null,
         ?string $causationId = null,
@@ -26,27 +24,28 @@ final class BetRowAssigned extends DomainEvent
 
     public function aggregateId(): string
     {
-        return $this->betRowId;
+        return $this->betPeriodId;
     }
 
     public function aggregateType(): string
     {
-        return 'bet_row';
+        return 'bet_period';
     }
 
     public function eventType(): string
     {
-        return 'bet_row.assigned';
+        return 'bet_period.created';
     }
 
     /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [
-            'bet_row_id' => $this->betRowId,
-            'participant_id' => $this->participantId,
             'bet_period_id' => $this->betPeriodId,
-            'numbers' => $this->numbers,
+            'tipp_year_id' => $this->tippYearId,
+            'name' => $this->name,
+            'start_date' => $this->startDate,
+            'end_date' => $this->endDate,
         ];
     }
 }
