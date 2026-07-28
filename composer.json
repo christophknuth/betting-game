@@ -36,8 +36,8 @@
         "test": "phpunit --testdox",
         "test-coverage": "phpunit --coverage-html coverage --coverage-text",
         "phpstan": "phpstan analyse",
-        "cs-check": "phpcs --standard=PSR12 src tests public config demo",
-        "cs-fix": "phpcbf --standard=PSR12 src tests public config demo"
+        "cs-check": "phpcs --standard=PSR12 src tests public config",
+        "cs-fix": "phpcbf --standard=PSR12 src tests public config"
     },
     "config": {
         "optimize-autoloader": true,

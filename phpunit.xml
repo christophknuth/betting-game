@@ -9,9 +9,10 @@
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
-        <testsuite name="Integration">
-            <directory>tests/Integration</directory>
-        </testsuite>
+        <!--
+            The Integration suite returns with the Lotto persistence layer; the
+            sports one was removed together with its schema.
+        -->
     </testsuites>
 
     <source>

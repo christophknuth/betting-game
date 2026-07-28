@@ -7,8 +7,6 @@ namespace BettingGame\Tests\Unit\Domain;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\Event\ParticipantCreated;
 use BettingGame\Domain\Event\ParticipantApproved;
-use BettingGame\Domain\Event\ParticipantJoinedGame;
-use BettingGame\Domain\Event\ParticipantLeftGame;
 use BettingGame\Domain\ValueObject\DisplayName;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use PHPUnit\Framework\TestCase;
@@ -83,44 +81,6 @@ final class ParticipantTest extends TestCase
         );
 
         $participant->approve();
-    }
-
-    public function testJoinGame(): void
-    {
-        $participant = Participant::create(
-            1,
-            100,
-            new DisplayName('Player'),
-            true
-        );
-
-        $participant->releaseEvents();
-        $participant->joinGame(5, true, 'PAY-123');
-
-        $events = $participant->releaseEvents();
-        $this->assertCount(1, $events);
-        $this->assertInstanceOf(ParticipantJoinedGame::class, $events[0]);
-        $this->assertEquals(5, $events[0]->bettingGameId());
-        $this->assertTrue($events[0]->acceptedTerms());
-        $this->assertEquals('PAY-123', $events[0]->paymentReference());
-    }
-
-    public function testLeaveGame(): void
-    {
-        $participant = Participant::create(
-            1,
-            100,
-            new DisplayName('Player'),
-            true
-        );
-
-        $participant->releaseEvents();
-        $participant->leaveGame(5);
-
-        $events = $participant->releaseEvents();
-        $this->assertCount(1, $events);
-        $this->assertInstanceOf(ParticipantLeftGame::class, $events[0]);
-        $this->assertEquals(5, $events[0]->bettingGameId());
     }
 
     public function testReleaseEventsClears(): void

@@ -14,6 +14,7 @@ final class HealthController
     {
         return JsonResponse::ok([
             'status' => 'healthy',
+            'domain' => 'lotto-syndicate',
             'timestamp' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
         ]);
     }
