@@ -65,6 +65,24 @@ final class JsonResponse
         ]);
     }
 
+    /**
+     * 405, with the Allow header RFC 9110 requires on this status.
+     *
+     * @param list<string> $allowedMethods
+     */
+    public static function methodNotAllowed(array $allowedMethods): self
+    {
+        return new self(
+            405,
+            [
+                'error' => 'Method Not Allowed',
+                'message' => 'Allowed: ' . implode(', ', $allowedMethods),
+                'timestamp' => (new \DateTimeImmutable())->format('c'),
+            ],
+            ['Allow' => implode(', ', $allowedMethods)]
+        );
+    }
+
     public static function conflict(string $message): self
     {
         return new self(409, [

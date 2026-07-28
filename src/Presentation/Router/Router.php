@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace BettingGame\Presentation\Router;
 
-use FastRoute\RouteCollector;
 use FastRoute\Dispatcher;
+use FastRoute\RouteCollector;
 
 use function FastRoute\simpleDispatcher;
 
 /**
- * Routing table.
+ * Routing table for the base version.
  *
- * The sports routes were removed with the move to the Lotto syndicate domain.
- * The Lotto routes (B-01 to B-13) arrive with the application layer; until then
- * only the health check is served.
+ * `role => admin` marks the routes the front controller gates on the admin
+ * role. The participant routes carry no marker because their check is not a
+ * role but an identity: the controller compares the path against the token.
+ *
+ * `{id:\d+}` keeps a non-numeric id from ever reaching a controller, so a
+ * mistyped URL is a 404 rather than a 400 from deep inside a handler.
  */
 final class Router
 {
@@ -22,10 +25,111 @@ final class Router
 
     public function __construct()
     {
-        $this->dispatcher = simpleDispatcher(function (RouteCollector $r) {
+        $this->dispatcher = simpleDispatcher(function (RouteCollector $r): void {
+            // The only route without authentication - a health check behind a
+            // token cannot tell a load balancer whether the service is up.
             $r->addRoute('GET', '/health', [
                 'controller' => 'HealthController',
-                'method' => 'check'
+                'method' => 'check',
+                'public' => true,
+            ]);
+
+            // --- Participant, read only (B-01 to B-04) ---
+
+            $r->addRoute('GET', '/participants/{participantId:\d+}/bet-row', [
+                'controller' => 'ParticipantController',
+                'method' => 'betRow',
+            ]);
+            $r->addRoute('GET', '/participants/{participantId:\d+}/memberships', [
+                'controller' => 'ParticipantController',
+                'method' => 'memberships',
+            ]);
+            $r->addRoute('GET', '/participants/{participantId:\d+}/fees', [
+                'controller' => 'ParticipantController',
+                'method' => 'fees',
+            ]);
+            $r->addRoute('GET', '/participants/{participantId:\d+}/payout-share', [
+                'controller' => 'ParticipantController',
+                'method' => 'payoutShare',
+            ]);
+
+            // --- Tipp year, shared result (B-05) ---
+
+            $r->addRoute('GET', '/tipp-years/{tippYearId:\d+}/draws', [
+                'controller' => 'TippYearController',
+                'method' => 'draws',
+            ]);
+
+            // --- Admin: bet rows (B-06) ---
+
+            $r->addRoute('PUT', '/admin/participants/{participantId:\d+}/bet-row', [
+                'controller' => 'AdminBetRowController',
+                'method' => 'assign',
+                'role' => 'admin',
+            ]);
+
+            // --- Admin: fees (B-07) ---
+
+            $r->addRoute('GET', '/admin/fees', [
+                'controller' => 'AdminFeeController',
+                'method' => 'list',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('PUT', '/admin/fees/{feeId:\d+}/payment', [
+                'controller' => 'AdminFeeController',
+                'method' => 'recordPayment',
+                'role' => 'admin',
+            ]);
+
+            // --- Admin: draws (B-08, B-09) ---
+
+            $r->addRoute('POST', '/admin/draws', [
+                'controller' => 'AdminDrawController',
+                'method' => 'record',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('PUT', '/admin/draws/{drawId:\d+}/winnings', [
+                'controller' => 'AdminDrawController',
+                'method' => 'recordWinnings',
+                'role' => 'admin',
+            ]);
+
+            // --- Admin: tipp year (B-10 to B-14) ---
+
+            $r->addRoute('GET', '/admin/tipp-years', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'list',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('POST', '/admin/tipp-years', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'create',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('GET', '/admin/tipp-years/{tippYearId:\d+}/bet-periods', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'listBetPeriods',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('POST', '/admin/tipp-years/{tippYearId:\d+}/bet-periods', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'createBetPeriod',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('POST', '/admin/tipp-years/{tippYearId:\d+}/members', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'addMember',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('POST', '/admin/tipp-years/{tippYearId:\d+}/tickets', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'submitTicket',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('POST', '/admin/tipp-years/{tippYearId:\d+}/payout', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'distributePayout',
+                'role' => 'admin',
             ]);
         });
     }

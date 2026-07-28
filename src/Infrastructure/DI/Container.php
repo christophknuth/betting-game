@@ -28,7 +28,10 @@ use BettingGame\Infrastructure\Persistence\FeeRepository;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
 use BettingGame\Infrastructure\Persistence\TicketRepository;
 use BettingGame\Infrastructure\Persistence\TippYearRepository;
+use BettingGame\Presentation\Controller;
 use BettingGame\Presentation\Controller\HealthController;
+use BettingGame\Presentation\Http\ErrorMapper;
+use BettingGame\Presentation\Http\Kernel;
 use BettingGame\Presentation\Router\Router;
 use DI\ContainerBuilder;
 use PDO;
@@ -146,9 +149,20 @@ final class Container
 
             // Controllers
             HealthController::class => \DI\autowire(),
+            Controller\ParticipantController::class => \DI\autowire(),
+            Controller\TippYearController::class => \DI\autowire(),
+            Controller\AdminBetRowController::class => \DI\autowire(),
+            Controller\AdminDrawController::class => \DI\autowire(),
+            Controller\AdminFeeController::class => \DI\autowire(),
+            Controller\AdminTippYearController::class => \DI\autowire(),
 
-            // Router
+            // HTTP
             Router::class => \DI\autowire(),
+
+            // Only debug builds put an exception message in a 500 response
+            ErrorMapper::class => fn (): ErrorMapper => new ErrorMapper($settings->bool('debug')),
+
+            Kernel::class => \DI\autowire(),
         ]);
 
         return new PsrContainer($builder->build());
