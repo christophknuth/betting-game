@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Event\DomainEvent;
+use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Repository\EventStoreInterface;
+use PDOException;
 
 /**
  * What every aggregate repository here does the same way.
@@ -73,8 +76,30 @@ abstract class EventSourcedRepository
                 $pdo->rollBack();
             }
 
-            throw $e;
+            throw $e instanceof PDOException ? self::translate($e) : $e;
         }
+    }
+
+    /**
+     * Turns a rejected unique key into a domain exception.
+     *
+     * Rules like "one bet row per participant and period" live in the schema,
+     * so the database is where they fire. Translating here keeps PDO out of the
+     * application layer - a handler should not have to read SQLSTATE to find
+     * out that a business rule said no.
+     */
+    private static function translate(PDOException $e): \Throwable
+    {
+        if ($e->getCode() !== '23000') {
+            return $e;
+        }
+
+        $constraint = '';
+        if (preg_match("/for key '(?:.*\.)?([^']+)'/", $e->getMessage(), $matches) === 1) {
+            $constraint = $matches[1];
+        }
+
+        return new DuplicateEntryException($e->getMessage(), $constraint, $e);
     }
 
     /**

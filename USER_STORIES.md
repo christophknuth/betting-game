@@ -67,7 +67,7 @@ Periode = das ganze Tippjahr" reproduziert exakt das ursprünglich beschriebene 
 | 🟢 | Route + Handler + Persistenz vorhanden |
 | 🟠 | Route erreichbar, Handler noch ein Stub |
 | 🔵 | Spezifiziert, noch nicht implementiert |
-| 💾 | Persistenzschicht vorhanden (Aggregat + Repository + Integrationstest), Route und Handler fehlen |
+| ⚙️ | Fachlogik vorhanden (Aggregat, Repository, Command/Query-Handler, Tests) — nur Route und Controller fehlen |
 | ♻️ | Bestehender Code direkt weiterverwendbar (siehe Migrationstabelle) |
 
 ---
@@ -78,11 +78,11 @@ Periode = das ganze Tippjahr" reproduziert exakt das ursprünglich beschriebene 
 
 | ID | Story | Endpunkt | Datenmodell | Status |
 |---|---|---|---|---|
-| **B-01** | Als **Teilnehmer** möchte ich meine Tippreihe sehen, damit ich weiß, mit welchen Zahlen ich in der laufenden Periode spiele. | `GET /participants/{id}/bet-row` | **BetRow** ⋈ **BetPeriod** ⋈ **TippYear** | 💾 ♻️ |
-| **B-02** | Als **Teilnehmer** möchte ich meine Teilnahmen im laufenden Tippjahr sehen, damit ich weiß, auf welchen Tippscheinen meine Reihe stand. | `GET /participants/{id}/memberships` | **Membership** ⋈ **TippYear**, **TicketRow** ⋈ **Ticket** | 💾 ♻️ |
-| **B-03** | Als **Teilnehmer** möchte ich meine Zahlungen sehen, damit ich weiß, welche Gebühren offen sind. | `GET /participants/{id}/fees` | **Fee** ⋈ **Ticket** | 💾 ♻️ |
-| **B-04** | Als **Teilnehmer** möchte ich meinen anteiligen Gewinn des Tippjahres sehen, damit ich weiß, was ausgeschüttet wird. | `GET /participants/{id}/payout-share` | **PayoutShare** ⋈ **Payout** ⋈ **TippYear** | 💾 |
-| **B-05** | Als **Teilnehmer** möchte ich den Gewinn des Tippscheins je Ziehung sehen, damit ich den Verlauf des Tippjahres nachvollziehen kann. | `GET /tipp-years/{id}/draws` | **Draw** ⋈ **TicketDrawResult** | 💾 |
+| **B-01** | Als **Teilnehmer** möchte ich meine Tippreihe sehen, damit ich weiß, mit welchen Zahlen ich in der laufenden Periode spiele. | `GET /participants/{id}/bet-row` | **BetRow** ⋈ **BetPeriod** ⋈ **TippYear** | ⚙️ ♻️ |
+| **B-02** | Als **Teilnehmer** möchte ich meine Teilnahmen im laufenden Tippjahr sehen, damit ich weiß, auf welchen Tippscheinen meine Reihe stand. | `GET /participants/{id}/memberships` | **Membership** ⋈ **TippYear**, **TicketRow** ⋈ **Ticket** | ⚙️ ♻️ |
+| **B-03** | Als **Teilnehmer** möchte ich meine Zahlungen sehen, damit ich weiß, welche Gebühren offen sind. | `GET /participants/{id}/fees` | **Fee** ⋈ **Ticket** | ⚙️ ♻️ |
+| **B-04** | Als **Teilnehmer** möchte ich meinen anteiligen Gewinn des Tippjahres sehen, damit ich weiß, was ausgeschüttet wird. | `GET /participants/{id}/payout-share` | **PayoutShare** ⋈ **Payout** ⋈ **TippYear** | ⚙️ |
+| **B-05** | Als **Teilnehmer** möchte ich den Gewinn des Tippscheins je Ziehung sehen, damit ich den Verlauf des Tippjahres nachvollziehen kann. | `GET /tipp-years/{id}/draws` | **Draw** ⋈ **TicketDrawResult** | ⚙️ |
 
 **Akzeptanzkriterien:**
 
@@ -95,10 +95,10 @@ Periode = das ganze Tippjahr" reproduziert exakt das ursprünglich beschriebene 
 
 | ID | Story | Endpunkt | Datenmodell | Status |
 |---|---|---|---|---|
-| **B-06** | Als **Administrator** möchte ich einem Teilnehmer eine Tippreihe für eine Periode zuordnen. | `PUT /admin/participants/{id}/bet-row` | **BetRow** | 💾 |
-| **B-07** | Als **Administrator** möchte ich den Zahlungsstatus eines Teilnehmers für eine Periode setzen, damit die Gebührenlage stimmt. | `PUT /admin/fees/{feeId}/payment` | `Fee.payment_status`, `.paid_at`, `.booked_by` | 💾 ♻️ |
-| **B-08** | Als **Administrator** möchte ich eine Ziehung mit Zahlen und Superzahl eintragen. | `POST /admin/draws` | **Draw** | 💾 |
-| **B-09** | Als **Administrator** möchte ich die Gewinne einer Ziehung eintragen, damit sie in die Jahressumme eingehen. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 💾 |
+| **B-06** | Als **Administrator** möchte ich einem Teilnehmer eine Tippreihe für eine Periode zuordnen. | `PUT /admin/participants/{id}/bet-row` | **BetRow** | ⚙️ |
+| **B-07** | Als **Administrator** möchte ich den Zahlungsstatus eines Teilnehmers für eine Periode setzen, damit die Gebührenlage stimmt. | `PUT /admin/fees/{feeId}/payment` | `Fee.payment_status`, `.paid_at`, `.booked_by` | ⚙️ ♻️ |
+| **B-08** | Als **Administrator** möchte ich eine Ziehung mit Zahlen und Superzahl eintragen. | `POST /admin/draws` | **Draw** | ⚙️ |
+| **B-09** | Als **Administrator** möchte ich die Gewinne einer Ziehung eintragen, damit sie in die Jahressumme eingehen. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | ⚙️ |
 
 **Akzeptanzkriterien:**
 
@@ -115,11 +115,11 @@ abzuarbeiten.
 
 | ID | Story | Endpunkt | Datenmodell | Status |
 |---|---|---|---|---|
-| **B-10** | Als **Administrator** möchte ich ein Tippjahr mit Zeitraum und Reihenpreis anlegen. | `POST /admin/tipp-years` | **TippYear** | 💾 ♻️ |
-| **B-14** | Als **Administrator** möchte ich die Tippperioden eines Tippjahres frei festlegen, damit ich bestimme, wie oft eine Reihe wechseln darf. | `POST /admin/tipp-years/{id}/bet-periods` | **BetPeriod** | 💾 |
-| **B-11** | Als **Administrator** möchte ich einen Teilnehmer in ein Tippjahr aufnehmen. | `POST /admin/tipp-years/{id}/members` | **Membership** | 💾 ♻️ |
-| **B-12** | Als **Administrator** möchte ich den monatlichen Tippschein erfassen, damit Gebühren entstehen und Ziehungen zugeordnet werden können. | `POST /admin/tipp-years/{id}/tickets` | **Ticket**, **TicketRow**, **Fee** je Teilnehmer | 💾 |
-| **B-13** | Als **Administrator** möchte ich die Jahresausschüttung buchen, damit jeder Teilnehmer seinen Anteil erhält. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | 💾 |
+| **B-10** | Als **Administrator** möchte ich ein Tippjahr mit Zeitraum und Reihenpreis anlegen. | `POST /admin/tipp-years` | **TippYear** | ⚙️ ♻️ |
+| **B-14** | Als **Administrator** möchte ich die Tippperioden eines Tippjahres frei festlegen, damit ich bestimme, wie oft eine Reihe wechseln darf. | `POST /admin/tipp-years/{id}/bet-periods` | **BetPeriod** | ⚙️ |
+| **B-11** | Als **Administrator** möchte ich einen Teilnehmer in ein Tippjahr aufnehmen. | `POST /admin/tipp-years/{id}/members` | **Membership** | ⚙️ ♻️ |
+| **B-12** | Als **Administrator** möchte ich den monatlichen Tippschein erfassen, damit Gebühren entstehen und Ziehungen zugeordnet werden können. | `POST /admin/tipp-years/{id}/tickets` | **Ticket**, **TicketRow**, **Fee** je Teilnehmer | ⚙️ |
+| **B-13** | Als **Administrator** möchte ich die Jahresausschüttung buchen, damit jeder Teilnehmer seinen Anteil erhält. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | ⚙️ |
 
 **Akzeptanzkriterien:**
 
@@ -235,7 +235,7 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 
 | Bereich | Auswirkung |
 |---|---|
-| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 181 (135 Unit, 46 Integration) |
+| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 245 (136 Unit, 109 Integration) |
 | [demo/](demo/) | Zeigt Prediction/Result — wird auf Tippreihe/Ziehung umgestellt |
 | [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.0, 16 Operationen). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
 | PHPStan Level 10, PSR-12 | Unverändert gültig |
@@ -244,7 +244,7 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 
 # Umsetzungsstand
 
-| Stufe | Stories | Fertig | Persistenz steht |
+| Stufe | Stories | Fertig | Fachlogik steht |
 |---|---|---|---|
 | Basis | 17 | 3 (Querschnitt B-15 bis B-17) | 14 (B-01 bis B-14) |
 | E1 | 9 | 0 | 0 |
@@ -254,11 +254,53 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 Der bestehende Code deckt Sportwetten (E2) recht weit ab — für die Basisversion ist davon vor
 allem die Infrastruktur nutzbar, nicht die Fachlogik.
 
-## Persistenzschicht
+## Application-Schicht
 
-Für B-01 bis B-14 stehen Aggregat, Repository und Integrationstests. Was fehlt, ist die
-Application-Schicht (Commands, Queries, Read Models) und die Presentation-Schicht
-(Controller, Routen).
+Für B-01 bis B-14 stehen Aggregat, Repository, Command- bzw. Query-Handler und Tests. Es fehlt
+nur noch die Presentation-Schicht: Controller, Routen und die Abbildung der Ausnahmen auf
+HTTP-Codes.
+
+| Story | Command | Query |
+|---|---|---|
+| B-01 | — | `GetBetRowHandler` |
+| B-02 | — | `GetMembershipsHandler` |
+| B-03 | — | `GetParticipantFeesHandler` |
+| B-04 | — | `GetPayoutShareHandler` |
+| B-05 | — | `GetDrawsHandler` |
+| B-06 | `AssignBetRowHandler` | — |
+| B-07 | `RecordFeePaymentHandler` | `GetFeesHandler` |
+| B-08 | `RecordDrawHandler` | — |
+| B-09 | `RecordDrawWinningsHandler` | — |
+| B-10 | `CreateTippYearHandler` | `GetTippYearsHandler` |
+| B-11 | `AddMemberHandler` | — |
+| B-12 | `SubmitTicketHandler` | — |
+| B-13 | `DistributePayoutHandler` | — |
+| B-14 | `CreateBetPeriodHandler` | `GetBetPeriodsHandler` |
+
+Handler geben `CommandResult` bzw. `QueryResult` zurück. Die `commandId` ist noch nicht mit
+`EventStore.causation_id` verknüpft — das kommt mit dem Command Log (OPS-01/OPS-02).
+
+**Ausnahmen, die die HTTP-Schicht abbilden muss:**
+
+| Ausnahme | HTTP |
+|---|---|
+| `EntityNotFoundException` | 404 |
+| `BusinessRuleViolationException` (inkl. `DuplicateEntryException`) | 409 |
+| `InvalidArgumentException` | 400 |
+| `ConcurrencyException` | 409 |
+
+`DuplicateEntryException` ist neu: Regeln wie „eine Reihe pro Teilnehmer und Periode" stehen im
+Schema, nicht im Code. Ohne sie müsste die Application-Schicht `PDOException` fangen und
+SQLSTATE lesen, um zu erkennen, dass eine *Fachregel* abgelehnt hat.
+
+## Geldbeträge
+
+`EvenSplit` teilt in ganzen Cent und legt den Rest auf den ersten Anteil. In Fließkomma zu
+teilen und je Anteil zu runden erzeugt oder vernichtet Geld: 100,00 € auf drei ergibt dreimal
+33,33 € und ein Cent verschwindet. Betrifft die Jahresausschüttung (B-13) und die Verteilung
+eines Scheingewinns auf die Reihen (B-09).
+
+## Persistenzschicht
 
 | Aggregat | Repository | Projektionen, die sein Stream schreibt |
 |---|---|---|
@@ -283,8 +325,12 @@ beschreibt.
 
 ## Tests
 
-181 Tests. Die Integrationstests brauchen eine Datenbank und überspringen sich selbst, wenn
-keine erreichbar ist — `make test` bleibt also auch ohne grün.
+245 Tests (136 Unit, 109 Integration). Die Integrationstests brauchen eine Datenbank und
+überspringen sich selbst, wenn keine erreichbar ist — `make test` bleibt also auch ohne grün.
+
+Die Handler werden mit **echten** Repositories gegen eine echte Datenbank getestet. Mit
+gemockten Repositories bliebe kaum etwas übrig: welche Zeilen eine Query liefert, welcher
+Unique Key greift und ob eine Projektion konsistent endet, kann nur eine Datenbank beantworten.
 
 ```sh
 make test-db-start     # MariaDB 11.3 mit geladenem Schema

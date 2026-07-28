@@ -31,4 +31,15 @@ interface TicketRepositoryInterface
      * @return list<array<string, mixed>>
      */
     public function findWithParticipation(int $tippYearId, int $participantId): array;
+
+    /**
+     * Maps the ticket's bet rows to their snapshot ids.
+     *
+     * Evaluating a draw works on the aggregate, which knows bet row ids, but
+     * the per-row result is stored against the snapshot - the snapshot is what
+     * actually took part in the draw.
+     *
+     * @return array<int, int> bet row id => ticket row id
+     */
+    public function rowIdsOf(int $ticketId): array;
 }

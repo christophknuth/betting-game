@@ -22,7 +22,7 @@ use BettingGame\Domain\Event\TippYearStatusChanged;
 use BettingGame\Domain\Repository\EventStoreInterface;
 use BettingGame\Domain\Exception\ConcurrencyException;
 use BettingGame\Infrastructure\Persistence\Db;
-use BettingGame\Infrastructure\Persistence\Row;
+use BettingGame\Support\Row;
 use PDO;
 
 final class PdoEventStore implements EventStoreInterface
@@ -220,7 +220,7 @@ final class PdoEventStore implements EventStoreInterface
                 Row::string($eventData, 'draw_id'),
                 Row::int($eventData, 'ticket_id'),
                 Row::float($eventData, 'total_amount'),
-                Row::json($eventData, 'winning_classes'),
+                self::objectList($eventData, 'winning_classes'),
                 $domainEventId,
                 $occurredAt,
                 $causationId,

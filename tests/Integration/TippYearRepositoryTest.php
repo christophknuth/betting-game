@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace BettingGame\Tests\Integration;
 
 use BettingGame\Domain\Model\TippYear;
-use BettingGame\Infrastructure\Persistence\Row;
+use BettingGame\Support\Row;
 use BettingGame\Infrastructure\Persistence\TippYearRepository;
 use DateTimeImmutable;
 

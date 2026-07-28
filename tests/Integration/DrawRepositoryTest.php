@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace BettingGame\Tests\Integration;
 
+use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Model\Draw;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use BettingGame\Infrastructure\Persistence\DrawRepository;
-use BettingGame\Infrastructure\Persistence\Row;
+use BettingGame\Support\Row;
 use DateTimeImmutable;
-use PDOException;
 
 final class DrawRepositoryTest extends IntegrationTestCase
 {
@@ -94,7 +94,9 @@ final class DrawRepositoryTest extends IntegrationTestCase
     {
         $this->givenDraw(1, '2026-01-07');
 
-        $this->expectException(PDOException::class);
+        // The repository translates the rejected unique key into a domain
+        // exception, so the application layer never sees a PDOException.
+        $this->expectException(DuplicateEntryException::class);
         $this->expectExceptionMessageMatches('/uk_draw_date/');
         $this->givenDraw(2, '2026-01-07');
     }
@@ -120,7 +122,7 @@ final class DrawRepositoryTest extends IntegrationTestCase
     {
         $draw = $this->givenDraw(1, '2026-01-07');
 
-        $draw->recordWinnings(1, 123.45, ['5' => ['count' => 1, 'amount' => 123.45]]);
+        $draw->recordWinnings(1, 123.45, [['winning_class' => 5, 'amount' => 123.45]]);
         $this->repository->save($draw);
 
         $rows = $this->repository->findWithWinnings(1);

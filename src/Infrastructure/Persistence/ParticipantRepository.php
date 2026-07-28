@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Persistence;
 
+use BettingGame\Support\Row;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
 use BettingGame\Domain\ValueObject\DisplayName;

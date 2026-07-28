@@ -9,7 +9,7 @@ use BettingGame\Domain\Model\Ticket;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use BettingGame\Infrastructure\Persistence\FeeRepository;
-use BettingGame\Infrastructure\Persistence\Row;
+use BettingGame\Support\Row;
 use BettingGame\Infrastructure\Persistence\TicketRepository;
 use DateTimeImmutable;
 

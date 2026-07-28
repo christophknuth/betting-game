@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace BettingGame\Tests\Integration;
 
+use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\ValueObject\DisplayName;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
-use BettingGame\Infrastructure\Persistence\Row;
-use PDOException;
+use BettingGame\Support\Row;
 
 /**
  * Covers the repository after it moved onto EventSourcedRepository and the
@@ -80,7 +80,7 @@ final class ParticipantRepositoryTest extends IntegrationTestCase
     {
         $this->repository->save(Participant::create(1, 1, new DisplayName('Anna')));
 
-        $this->expectException(PDOException::class);
+        $this->expectException(DuplicateEntryException::class);
         $this->expectExceptionMessageMatches('/uk_user/');
         $this->repository->save(Participant::create(2, 1, new DisplayName('Anna again')));
     }
