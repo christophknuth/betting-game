@@ -129,6 +129,22 @@ final class JsonResponse
         ]);
     }
 
+    /**
+     * 503, for a dependency we need and cannot reach.
+     *
+     * Separate from 401 on purpose: a client that gets 401 discards its token
+     * and re-authenticates, which is precisely the wrong move when the reason
+     * is that we cannot reach the identity provider.
+     */
+    public static function serviceUnavailable(string $message = 'Service Unavailable'): self
+    {
+        return new self(503, [
+            'error' => 'Service Unavailable',
+            'message' => $message,
+            'timestamp' => (new \DateTimeImmutable())->format('c'),
+        ]);
+    }
+
     public function send(): void
     {
         http_response_code($this->statusCode);
