@@ -23,6 +23,34 @@ final class JsonResponse
         return new self(200, $data);
     }
 
+    /**
+     * An arbitrary status with a body - used to replay a stored response for an
+     * idempotent retry, which has to come back with its original status.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function of(int $statusCode, array $data): self
+    {
+        return new self($statusCode, $data);
+    }
+
+    /** @param array<string, mixed> $data */
+    public function withData(array $data): self
+    {
+        return new self($this->statusCode, [...$this->data, ...$data], $this->headers);
+    }
+
+    public function withHeader(string $name, string $value): self
+    {
+        return new self($this->statusCode, $this->data, [...$this->headers, $name => $value]);
+    }
+
+    /** @return array<string, string> */
+    public function headers(): array
+    {
+        return $this->headers;
+    }
+
     /** @param array<string, mixed> $data */
     public static function accepted(array $data): self
     {

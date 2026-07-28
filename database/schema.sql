@@ -338,6 +338,7 @@ CREATE TABLE command_log (
     status ENUM('accepted', 'processing', 'completed', 'failed') DEFAULT 'accepted',
     event_store_position BIGINT NULL,
     resource_id INT NULL,
+    http_status SMALLINT NULL COMMENT 'Status of the original response, replayed on an idempotent retry',
     response_body JSON NULL,
     error_message TEXT NULL,
     correlation_id VARCHAR(36) NULL,
@@ -353,8 +354,13 @@ CREATE TABLE command_log (
 -- Projektionen
 -- ============================================================
 
+-- One row per projector (see src/Infrastructure/Projection). The names have to
+-- match Projector::name(), because that is how a rebuild finds its state.
 INSERT INTO projection_state (projection_name, last_processed_position, status) VALUES
+('participant_read_model', 0, 'running'),
+('tipp_year_read_model', 0, 'running'),
+('bet_period_read_model', 0, 'running'),
 ('bet_row_read_model', 0, 'running'),
-('fee_read_model', 0, 'running'),
+('ticket_read_model', 0, 'running'),
 ('draw_read_model', 0, 'running'),
-('payout_read_model', 0, 'running');
+('fee_read_model', 0, 'running');

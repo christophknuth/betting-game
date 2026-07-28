@@ -66,6 +66,7 @@ final class Router
                 'controller' => 'AdminBetRowController',
                 'method' => 'assign',
                 'role' => 'admin',
+                'command' => true,
             ]);
 
             // --- Admin: fees (B-07) ---
@@ -79,6 +80,7 @@ final class Router
                 'controller' => 'AdminFeeController',
                 'method' => 'recordPayment',
                 'role' => 'admin',
+                'command' => true,
             ]);
 
             // --- Admin: draws (B-08, B-09) ---
@@ -87,11 +89,13 @@ final class Router
                 'controller' => 'AdminDrawController',
                 'method' => 'record',
                 'role' => 'admin',
+                'command' => true,
             ]);
             $r->addRoute('PUT', '/admin/draws/{drawId:\d+}/winnings', [
                 'controller' => 'AdminDrawController',
                 'method' => 'recordWinnings',
                 'role' => 'admin',
+                'command' => true,
             ]);
 
             // --- Admin: tipp year (B-10 to B-14) ---
@@ -105,6 +109,7 @@ final class Router
                 'controller' => 'AdminTippYearController',
                 'method' => 'create',
                 'role' => 'admin',
+                'command' => true,
             ]);
             $r->addRoute('GET', '/admin/tipp-years/{tippYearId:\d+}/bet-periods', [
                 'controller' => 'AdminTippYearController',
@@ -115,20 +120,51 @@ final class Router
                 'controller' => 'AdminTippYearController',
                 'method' => 'createBetPeriod',
                 'role' => 'admin',
+                'command' => true,
             ]);
             $r->addRoute('POST', '/admin/tipp-years/{tippYearId:\d+}/members', [
                 'controller' => 'AdminTippYearController',
                 'method' => 'addMember',
                 'role' => 'admin',
+                'command' => true,
             ]);
             $r->addRoute('POST', '/admin/tipp-years/{tippYearId:\d+}/tickets', [
                 'controller' => 'AdminTippYearController',
                 'method' => 'submitTicket',
                 'role' => 'admin',
+                'command' => true,
             ]);
             $r->addRoute('POST', '/admin/tipp-years/{tippYearId:\d+}/payout', [
                 'controller' => 'AdminTippYearController',
                 'method' => 'distributePayout',
+                'role' => 'admin',
+                'command' => true,
+            ]);
+
+            // --- Operations (OPS-01, OPS-03, OPS-04) ---
+
+            // Not admin-only: whoever issued a command may ask what became of
+            // it, and the id is a UUID nobody else can guess.
+            $r->addRoute('GET', '/commands/{commandId}', [
+                'controller' => 'CommandStatusController',
+                'method' => 'show',
+            ]);
+
+            $r->addRoute('GET', '/admin/audit/{aggregateType:[a-z_]+}/{aggregateId:\d+}', [
+                'controller' => 'AdminOperationsController',
+                'method' => 'audit',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('GET', '/admin/projections', [
+                'controller' => 'AdminOperationsController',
+                'method' => 'projections',
+                'role' => 'admin',
+            ]);
+            // Not marked as a command: a rebuild changes no domain state, and
+            // logging it as one would put it in the command history.
+            $r->addRoute('POST', '/admin/projections/{name:[a-z_]+}/rebuild', [
+                'controller' => 'AdminOperationsController',
+                'method' => 'rebuild',
                 'role' => 'admin',
             ]);
         });

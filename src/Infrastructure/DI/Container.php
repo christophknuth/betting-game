@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace BettingGame\Infrastructure\DI;
 
 use BettingGame\Application\Command;
+use BettingGame\Application\Projection\ProjectionManager;
 use BettingGame\Application\Query;
+use BettingGame\Domain\Repository\CommandLogRepositoryInterface;
+use BettingGame\Domain\Repository\ProjectionStateRepositoryInterface;
 use BettingGame\Domain\Repository\BetPeriodRepositoryInterface;
 use BettingGame\Domain\Repository\BetRowRepositoryInterface;
 use BettingGame\Domain\Repository\DrawRepositoryInterface;
@@ -22,7 +25,10 @@ use BettingGame\Infrastructure\EventStore\PdoEventStore;
 use BettingGame\Infrastructure\Logging\LoggerFactory;
 use BettingGame\Infrastructure\Persistence\BetPeriodRepository;
 use BettingGame\Infrastructure\Persistence\BetRowRepository;
+use BettingGame\Infrastructure\Persistence\CommandLogRepository;
 use BettingGame\Infrastructure\Persistence\Db;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
+use BettingGame\Infrastructure\Projection;
 use BettingGame\Infrastructure\Persistence\DrawRepository;
 use BettingGame\Infrastructure\Persistence\FeeRepository;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
@@ -125,6 +131,34 @@ final class Container
             TicketRepositoryInterface::class => \DI\autowire(TicketRepository::class),
             DrawRepositoryInterface::class => \DI\autowire(DrawRepository::class),
             FeeRepositoryInterface::class => \DI\autowire(FeeRepository::class),
+            CommandLogRepositoryInterface::class => \DI\autowire(CommandLogRepository::class),
+            ProjectionStateRepositoryInterface::class => \DI\autowire(ProjectionStateRepository::class),
+
+            // Projections (OPS-04). The manager takes every projector, so a new
+            // read model only has to be added to this list.
+            ProjectionManager::class => static function (PsrContainerInterface $c): ProjectionManager {
+                $db = $c->get(Db::class);
+                $eventStore = $c->get(EventStoreInterface::class);
+                $state = $c->get(ProjectionStateRepositoryInterface::class);
+
+                if (
+                    !$db instanceof Db
+                    || !$eventStore instanceof EventStoreInterface
+                    || !$state instanceof ProjectionStateRepositoryInterface
+                ) {
+                    throw new ContainerException('Cannot build the projection manager');
+                }
+
+                return new ProjectionManager($eventStore, $state, [
+                    new Projection\ParticipantProjector($db),
+                    new Projection\TippYearProjector($db),
+                    new Projection\BetPeriodProjector($db),
+                    new Projection\BetRowProjector($db),
+                    new Projection\TicketProjector($db),
+                    new Projection\DrawProjector($db),
+                    new Projection\FeeProjector($db),
+                ]);
+            },
 
             // Command handlers - autowired from the repository interfaces above
             Command\AddMemberHandler::class => \DI\autowire(),
@@ -146,6 +180,8 @@ final class Container
             Query\GetParticipantFeesHandler::class => \DI\autowire(),
             Query\GetPayoutShareHandler::class => \DI\autowire(),
             Query\GetTippYearsHandler::class => \DI\autowire(),
+            Query\GetCommandStatusHandler::class => \DI\autowire(),
+            Query\GetAuditTrailHandler::class => \DI\autowire(),
 
             // Controllers
             HealthController::class => \DI\autowire(),
@@ -155,6 +191,8 @@ final class Container
             Controller\AdminDrawController::class => \DI\autowire(),
             Controller\AdminFeeController::class => \DI\autowire(),
             Controller\AdminTippYearController::class => \DI\autowire(),
+            Controller\CommandStatusController::class => \DI\autowire(),
+            Controller\AdminOperationsController::class => \DI\autowire(),
 
             // HTTP
             Router::class => \DI\autowire(),

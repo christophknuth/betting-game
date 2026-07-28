@@ -182,12 +182,50 @@ Aggregate zu führen — nicht, eines zu verallgemeinern.
 
 # Betrieb (stufenübergreifend)
 
-| ID | Story | Endpunkt |
-|---|---|---|
-| **OPS-01** | Verarbeitungsstand eines Commands abfragen | `GET /commands/{commandId}` |
-| **OPS-02** | Commands mit `Idempotency-Key` wiederholen können | Header auf allen Commands |
-| **OPS-03** | Event-Historie eines Aggregats einsehen | `GET /admin/audit/{type}/{id}` |
-| **OPS-04** | Projektionen überwachen und neu aufbauen | `GET /admin/projections`, `.../rebuild` |
+| ID | Story | Endpunkt | Status |
+|---|---|---|---|
+| **OPS-01** | Verarbeitungsstand eines Commands abfragen | `GET /commands/{commandId}` | 🟢 |
+| **OPS-02** | Commands mit `Idempotency-Key` wiederholen können | Header auf allen Commands | 🟢 |
+| **OPS-03** | Event-Historie eines Aggregats einsehen | `GET /admin/audit/{type}/{id}` | 🟢 |
+| **OPS-04** | Projektionen überwachen und neu aufbauen | `GET /admin/projections`, `POST .../{name}/rebuild` | 🟢 |
+
+**Command Log (OPS-01, OPS-02).** Der `Kernel` führt jede als `command` markierte Route unter
+dem `command_log` aus. Der `Idempotency-Key` wird **vor** der Ausführung beansprucht — der
+Unique Key auf der Spalte entscheidet das Rennen. Erst prüfen und dann ausführen ließe ein
+Fenster, in dem zwei parallele Wiederholungen beide durchkommen; genau die Doppelbuchung, gegen
+die der Schlüssel existiert. Ein Retry liefert die gespeicherte Antwort mit ihrem
+ursprünglichen Statuscode und dem Header `Idempotent-Replay: true`.
+
+Die `commandId` der Antwort ist der Primärschlüssel im `command_log` — der Handler erzeugt zwar
+eine eigene, der Kernel überschreibt sie aber mit der protokollierten, damit
+`GET /commands/{id}` sie auch findet.
+
+**Ehrlich zur Asynchronität:** Die API beschreibt Commands als asynchron. Diese Implementierung
+schreibt synchron — wenn der Aufrufer die `202` hat, ist der Command bereits `completed`.
+`projectionsUpToDate` ist deshalb immer `true`. Der Endpunkt bleibt trotzdem sinnvoll: dort
+schlägt ein Retry nach, was der erste Versuch erzeugt hat.
+
+**Projektionen (OPS-04).** Sieben Projektoren, je einer pro Read Model. Die Repositories
+schreiben ihre Projektion weiterhin synchron beim Speichern — ein Laden direkt danach muss sie
+sehen. Die Projektoren sind der *zweite* Weg zu denselben Zeilen: sie spielen das Event-Log
+nach.
+
+Zwei Wege zu denselben Tabellen driften auseinander, wenn niemand nachsieht. Deshalb spielt
+[ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) ein komplettes
+Tippjahr durch die Command-Handler, fotografiert **alle 13** Read-Model-Tabellen, baut aus dem
+Event Store neu auf und vergleicht Zeile für Zeile. Einzige Ausnahme:
+`ticket_row_match.calculated_at` — das hält fest, *wann* gerechnet wurde, und darf sich bei
+einem Neuaufbau ändern.
+
+`ticket_row_match` steht in keinem Event; nur der Scheingewinn wird protokolliert. Der
+Projektor rechnet die Zeilen deshalb neu — über denselben Domain-Service
+`WinningsDistribution`, den auch der Command-Handler benutzt. Genau dafür wurde er aus dem
+Handler herausgezogen.
+
+**Ein Neuaufbau zieht nach unten durch.** Die Read Models hängen über Foreign Keys mit
+`ON DELETE CASCADE` zusammen: `participant` zu leeren leert auch `membership`, `bet_row` und
+`fee`. Ein Rebuild baut deshalb immer die abhängigen Projektionen mit auf — sonst blieben sie
+leer und niemand merkte es. Die Antwort listet alle tatsächlich neu aufgebauten.
 
 ---
 
@@ -234,9 +272,9 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 
 | Bereich | Auswirkung |
 |---|---|
-| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 268 (143 Unit, 125 Integration) |
+| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 305 (151 Unit, 154 Integration) |
 | [demo/](demo/) | Zeigt Prediction/Result — wird auf Tippreihe/Ziehung umgestellt |
-| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.0, 16 Operationen). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
+| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.1, 21 Operationen). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
 | PHPStan Level 10, PSR-12 | Unverändert gültig |
 
 ---
@@ -248,7 +286,7 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 | Basis | 17 | **17** — alle |
 | E1 | 9 | 0 |
 | E2 | 7 | teilweise vorhanden, aber nicht mehr geroutet |
-| Betrieb | 4 | 0 |
+| Betrieb | 4 | **4** — alle |
 
 Die Basisversion ist damit vollständig: 17 Routen, jede über HTTP getestet. Der bestehende
 Code deckt Sportwetten (E2) recht weit ab — davon ist für die Basis vor allem die Infrastruktur
@@ -346,7 +384,7 @@ beschreibt.
 
 ## Tests
 
-268 Tests (143 Unit, 125 Integration). Die Integrationstests brauchen eine Datenbank und
+305 Tests (151 Unit, 154 Integration). Die Integrationstests brauchen eine Datenbank und
 überspringen sich selbst, wenn keine erreichbar ist — `make test` bleibt also auch ohne grün.
 
 Die Handler werden mit **echten** Repositories gegen eine echte Datenbank getestet. Mit

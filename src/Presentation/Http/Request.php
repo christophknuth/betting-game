@@ -39,16 +39,26 @@ final class Request
         );
     }
 
-    /** @return array<string, string> */
+    /**
+     * PHP exposes headers as HTTP_IDEMPOTENCY_KEY. Keeping that spelling is
+     * what header() looks for.
+     *
+     * This used to rewrite the underscores to hyphens while header() rewrote
+     * hyphens to underscores, so the two never met and any header with more
+     * than one word was invisible. Single-word ones like Authorization worked,
+     * which is why it went unnoticed until Idempotency-Key.
+     *
+     * @return array<string, string>
+     */
     private static function parseHeaders(): array
     {
         $headers = [];
         foreach ($_SERVER as $key => $value) {
             if (str_starts_with($key, 'HTTP_') && is_string($value)) {
-                $headerKey = str_replace('_', '-', substr($key, 5));
-                $headers[$headerKey] = $value;
+                $headers[substr($key, 5)] = $value;
             }
         }
+
         return $headers;
     }
 

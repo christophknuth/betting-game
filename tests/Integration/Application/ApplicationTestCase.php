@@ -21,13 +21,23 @@ use BettingGame\Application\Query\GetMembershipsHandler;
 use BettingGame\Application\Query\GetParticipantFeesHandler;
 use BettingGame\Application\Query\GetPayoutShareHandler;
 use BettingGame\Application\Query\GetTippYearsHandler;
+use BettingGame\Application\Projection\ProjectionManager;
 use BettingGame\Infrastructure\Persistence\BetPeriodRepository;
 use BettingGame\Infrastructure\Persistence\BetRowRepository;
+use BettingGame\Infrastructure\Persistence\CommandLogRepository;
 use BettingGame\Infrastructure\Persistence\DrawRepository;
 use BettingGame\Infrastructure\Persistence\FeeRepository;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
 use BettingGame\Infrastructure\Persistence\TicketRepository;
 use BettingGame\Infrastructure\Persistence\TippYearRepository;
+use BettingGame\Infrastructure\Projection\BetPeriodProjector;
+use BettingGame\Infrastructure\Projection\BetRowProjector;
+use BettingGame\Infrastructure\Projection\DrawProjector;
+use BettingGame\Infrastructure\Projection\FeeProjector;
+use BettingGame\Infrastructure\Projection\ParticipantProjector;
+use BettingGame\Infrastructure\Projection\TicketProjector;
+use BettingGame\Infrastructure\Projection\TippYearProjector;
 use BettingGame\Tests\Integration\IntegrationTestCase;
 
 /**
@@ -47,6 +57,8 @@ abstract class ApplicationTestCase extends IntegrationTestCase
     protected DrawRepository $draws;
     protected FeeRepository $fees;
     protected ParticipantRepository $participants;
+    protected CommandLogRepository $commandLog;
+    protected ProjectionStateRepository $projectionState;
 
     protected function setUp(): void
     {
@@ -59,6 +71,24 @@ abstract class ApplicationTestCase extends IntegrationTestCase
         $this->draws = new DrawRepository($this->db, $this->eventStore);
         $this->fees = new FeeRepository($this->db, $this->eventStore);
         $this->participants = new ParticipantRepository($this->db, $this->eventStore);
+        $this->commandLog = new CommandLogRepository($this->db);
+        $this->projectionState = new ProjectionStateRepository($this->db);
+    }
+
+    /**
+     * Every projector, in the same set the container wires up.
+     */
+    protected function projections(): ProjectionManager
+    {
+        return new ProjectionManager($this->eventStore, $this->projectionState, [
+            new ParticipantProjector($this->db),
+            new TippYearProjector($this->db),
+            new BetPeriodProjector($this->db),
+            new BetRowProjector($this->db),
+            new TicketProjector($this->db),
+            new DrawProjector($this->db),
+            new FeeProjector($this->db),
+        ]);
     }
 
     // --- Commands ---
