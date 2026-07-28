@@ -42,7 +42,19 @@ info:
       Statuscode und dem Header `Idempotent-Replay: true`, ohne erneut zu schreiben.
       Ein Schlüssel, dessen erster Versuch fehlschlug, bleibt vergeben: Die Wiederholung
       erhält `409` statt eines erfundenen Ergebnisses.
-  version: 2.1.0
+
+    ## Authentifizierung
+
+    Bearer-Token von Keycloak. Die **Signatur wird gegen den JWKS-Endpunkt des Realms
+    geprüft** — Identität und Rollen sind damit Aussagen von Keycloak und nicht des
+    Aufrufers, worauf jede Berechtigungsregel dieser API beruht.
+
+    Zwei Statuscodes, die man auseinanderhalten muss:
+
+    - `401` — das Token wird abgelehnt. Der Grund steht bewusst nicht in der Antwort.
+    - `503` — Keycloak ist nicht erreichbar, die Signatur lässt sich gerade nicht prüfen.
+      Der Aufruf ist wiederholbar; das Token wegzuwerfen wäre falsch.
+  version: 2.2.0
   contact:
     name: API Support
     email: support@bettinggame.com
@@ -113,6 +125,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /participants/{participantId}/memberships:
     get:
@@ -149,6 +163,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /participants/{participantId}/fees:
     get:
@@ -197,6 +213,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /participants/{participantId}/payout-share:
     get:
@@ -226,6 +244,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
   # TIPPJAHR - Ziehungen und Gewinne
@@ -277,6 +297,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
   # ADMIN - Tippreihen
@@ -324,6 +346,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
   # ADMIN - Zahlungen
@@ -362,6 +386,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/fees:
     get:
@@ -402,6 +428,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
   # ADMIN - Ziehungen
@@ -441,6 +469,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/draws/{drawId}/winnings:
     put:
@@ -481,6 +511,8 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
   # ADMIN - Tippjahr
@@ -516,6 +548,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
     post:
       tags:
@@ -550,6 +584,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/tipp-years/{tippYearId}/bet-periods:
     get:
@@ -579,6 +615,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
     post:
       tags:
@@ -621,6 +659,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/tipp-years/{tippYearId}/members:
     post:
@@ -655,6 +695,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/tipp-years/{tippYearId}/tickets:
     post:
@@ -695,6 +737,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/tipp-years/{tippYearId}/payout:
     post:
@@ -736,6 +780,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '409':
           $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
   # OPERATIONS
@@ -781,6 +827,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/projections:
     get:
@@ -810,6 +858,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /admin/projections/{name}/rebuild:
     post:
@@ -852,6 +902,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
   /commands/{commandId}:
     get:
@@ -885,6 +937,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
 
 # ============================================
 # COMPONENTS
@@ -1548,7 +1602,25 @@ components:
 
   responses:
     UnauthorizedError:
-      description: Authentication required or invalid token
+      description: |
+        Kein, kein lesbares oder kein gültiges Token.
+
+        Die Antwort nennt den Grund bewusst nicht: welche Prüfung ein Token nicht
+        bestanden hat, ist eine Beschreibung der Validierungsregeln und damit eine
+        Rückmeldeschleife für den nächsten Fälschungsversuch. Der Grund steht im Log.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ServiceUnavailableError:
+      description: |
+        Der Identity Provider ist nicht erreichbar, die Signatur lässt sich gerade
+        weder bestätigen noch widerlegen.
+
+        Bewusst nicht `401`: ein `401` würde jeden Client dazu bringen, sein intaktes
+        Token wegzuwerfen und sich ausgerechnet dort neu anzumelden, wo wir schon
+        wissen, dass es nicht geht. Der Aufruf ist wiederholbar.
       content:
         application/json:
           schema:

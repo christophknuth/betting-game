@@ -36,6 +36,9 @@ $flag = static function (?string $value, bool $default): bool {
 
 $environment = $env('APP_ENV', 'development') ?? 'development';
 
+$keycloakUrl = rtrim($env('KEYCLOAK_URL', 'http://keycloak:8080') ?? 'http://keycloak:8080', '/');
+$realm = $env('KEYCLOAK_REALM', 'betting-game') ?? 'betting-game';
+
 return [
     'debug' => $flag($env('APP_DEBUG'), $environment !== 'production'),
     'production' => $environment === 'production',
@@ -62,17 +65,42 @@ return [
     ],
 
     'keycloak' => [
-        'url' => $env('KEYCLOAK_URL', 'http://keycloak:8080'),
-        'realm' => $env('KEYCLOAK_REALM', 'betting-game'),
+        'url' => $keycloakUrl,
+        'realm' => $realm,
         'client_id' => $env('KEYCLOAK_CLIENT_ID', 'betting-game-api'),
         'frontend_client_id' => $env('KEYCLOAK_FRONTEND_CLIENT_ID', 'betting-game-frontend'),
+
+        // The iss claim, which has to match exactly. Keycloak issues its
+        // *frontend* URL, so behind a reverse proxy this is the public address
+        // and not the one we reach Keycloak on - hence its own variable.
+        'issuer' => $env('KEYCLOAK_ISSUER', $keycloakUrl . '/realms/' . $realm),
+
+        // Where the realm publishes its public signing keys.
+        'jwks_url' => $env(
+            'KEYCLOAK_JWKS_URL',
+            $keycloakUrl . '/realms/' . $realm . '/protocol/openid-connect/certs'
+        ),
+
+        // A key set supplied directly, for a deployment that cannot reach
+        // Keycloak at request time. Either the JSON itself or a path to a file
+        // holding it. When set, nothing is fetched.
+        'jwks' => $env('KEYCLOAK_JWKS'),
+
+        'jwks_ttl' => (int) ($env('KEYCLOAK_JWKS_TTL', '300') ?? '300'),
+
+        // Checked against aud when set. Off by default: Keycloak's audience
+        // depends on how the client's mappers are configured, and a check that
+        // is on by default with the wrong value locks everyone out.
+        'audience' => $env('KEYCLOAK_AUDIENCE'),
+
+        // Tolerance for clock drift between us and Keycloak, in seconds.
+        'leeway' => (int) ($env('KEYCLOAK_LEEWAY', '30') ?? '30'),
     ],
 
-    'jwt' => [
-        'secret' => $env('JWT_SECRET', 'your-secret-key-change-in-production'),
-        'algorithm' => 'HS256',
-        'expiration' => 3600, // 1 hour
-    ],
+    // There is deliberately no JWT secret here. Tokens are signed by Keycloak
+    // with RS256 and verified against its published public key; a shared secret
+    // would only invite an HS256 path, and an application that accepts both is
+    // one where a token can be forged with the very key it publishes.
 
     'oidc' => [
         'issuer' => $env('OIDC_ISSUER', 'https://auth.bettinggame.com'),

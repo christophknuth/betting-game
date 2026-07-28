@@ -44,12 +44,24 @@ final class AuthMiddleware
 
         $token = substr($authHeader, 7);
 
-        // Validate token
-        $tokenData = $this->keycloakService->validateToken($token);
+        try {
+            $tokenData = $this->keycloakService->verifyToken($token);
+        } catch (InvalidTokenException $e) {
+            // The reason goes to the log, not to the caller: which of our
+            // checks a token failed is our business, and telling an attacker
+            // whether the signature or only the expiry was wrong turns the
+            // endpoint into a helper for forging the next one.
+            $this->logger->warning('Token rejected', ['reason' => $e->getMessage()]);
 
-        if (!$tokenData) {
-            $this->logger->warning('Invalid or expired token');
             return JsonResponse::unauthorized('Invalid or expired token');
+        } catch (KeyUnavailableException $e) {
+            // We cannot verify anything at all. That is an outage on our side,
+            // and answering 401 would tell every client its perfectly good
+            // token is bad and send them off to re-authenticate against a
+            // Keycloak we already know we cannot reach.
+            $this->logger->error('Cannot verify tokens', ['reason' => $e->getMessage()]);
+
+            return JsonResponse::serviceUnavailable('Authentication is temporarily unavailable');
         }
 
         // Extract user information
@@ -97,6 +109,10 @@ final class AuthMiddleware
 
     /**
      * Optional authentication (doesn't fail if no token)
+     *
+     * A token that fails verification leaves the request anonymous. It must not
+     * leave it authenticated-with-unverified-claims, which is what "optional"
+     * would mean if the failure were simply ignored.
      */
     public function handleOptional(Request $request): void
     {
@@ -106,20 +122,19 @@ final class AuthMiddleware
             return;
         }
 
-        $token = substr($authHeader, 7);
-        $tokenData = $this->keycloakService->validateToken($token);
+        try {
+            $tokenData = $this->keycloakService->verifyToken(substr($authHeader, 7));
+        } catch (InvalidTokenException | KeyUnavailableException $e) {
+            $this->logger->info('Optional authentication skipped', ['reason' => $e->getMessage()]);
 
-        if ($tokenData) {
-            $participantId = $this->keycloakService->getParticipantId($tokenData);
-            $username = $this->keycloakService->getUsername($tokenData);
-            $roles = $this->keycloakService->getRoles($tokenData);
-
-            $request->setAttribute('authenticated', true);
-            $request->setAttribute('token_data', $tokenData);
-            $request->setAttribute('participant_id', $participantId);
-            $request->setAttribute('username', $username);
-            $request->setAttribute('roles', $roles);
-            $request->setAttribute('subject', $tokenData['sub'] ?? null);
+            return;
         }
+
+        $request->setAttribute('authenticated', true);
+        $request->setAttribute('token_data', $tokenData);
+        $request->setAttribute('participant_id', $this->keycloakService->getParticipantId($tokenData));
+        $request->setAttribute('username', $this->keycloakService->getUsername($tokenData));
+        $request->setAttribute('roles', $this->keycloakService->getRoles($tokenData));
+        $request->setAttribute('subject', $tokenData['sub'] ?? null);
     }
 }

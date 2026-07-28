@@ -341,16 +341,37 @@ auch ein Admin kommt dort nicht durch, denn dafür gibt es die Admin-Endpunkte. 
 **vor** der Query, sonst verriete ein 404 bereits, dass zu einem fremden Teilnehmer nichts
 existiert.
 
-## ⚠️ Offen: Die Token-Signatur wird nicht geprüft
+## Token-Signatur
 
-[KeycloakService::validateToken()](src/Infrastructure/Auth/KeycloakService.php) prüft Ablauf und
-Issuer, aber **nicht die Signatur** — im Code als „For now, we trust tokens in development"
-vermerkt. Damit kann sich jeder ein Token mit beliebiger `participant_id` und der Rolle `admin`
-ausstellen; B-16 und B-17 sind gegen einen echten Angreifer wirkungslos.
+Die Identität kommt aus dem Token — also hängt jede Regel oben daran, dass das Token wirklich
+von Keycloak stammt. Bis [TokenVerifier](src/Infrastructure/Auth/TokenVerifier.php) existierte,
+las die Anwendung die Claims und glaubte sie: jeder konnte sich eine `participant_id` und die
+Rolle `admin` ausstellen, und B-15 bis B-17 waren damit Dekoration.
 
-Die Prüfung selbst ist korrekt implementiert und getestet — es fehlt nur die
-Signaturverifikation gegen den JWKS-Endpunkt von Keycloak. `getPublicKey()` holt bereits die
-Realm-Metadaten, wird aber nirgends verwendet. **Vor jedem produktiven Einsatz zu schließen.**
+Geprüft wird, in dieser Reihenfolge:
+
+| Prüfung | Wogegen |
+|---|---|
+| `alg` gegen eine Allowlist | `alg: none`; HS256, mit dem öffentlichen Schlüssel als „Secret" |
+| Signatur gegen den Public Key aus dem JWKS | gefälschte und nachträglich geänderte Tokens |
+| `exp`, `nbf`, `iat` (mit Leeway) | abgelaufene Tokens; Uhrendrift |
+| `iss` exakt | ein gültig signiertes Token des falschen Realms |
+| `aud`, wenn konfiguriert | ein Token für einen anderen Client |
+
+**Die Allowlist kann nur asymmetrische Verfahren enthalten** — der Konstruktor lehnt alles andere
+ab. Beide klassischen Fälschungen scheitern damit an derselben Stelle, und ein `HS256` in der
+Konfiguration fällt beim Start auf statt auf dem Request, der damit gefälscht worden wäre.
+
+Der Schlüssel kommt **immer aus dem Key Set, nie aus dem Token**. Eine unbekannte `kid` löst
+genau einen Refetch aus (Keycloak signiert mit dem neuen Schlüssel, sobald es rotiert) — der
+gedrosselt ist, denn die `kid` steht im Token, das der Aufrufer schreibt.
+
+Nicht erreichbares Keycloak ist **503, nicht 401**: ein 401 würde jedem Client sagen, sein
+intaktes Token sei kaputt, und ihn zur Neuanmeldung genau dorthin schicken, wo wir schon wissen,
+dass es nicht geht. Ein zuletzt bekanntes Key Set überlebt einen Ausfall — Signaturschlüssel
+rotieren im Monatsrhythmus, Tokens laufen binnen einer Stunde ab.
+
+ES\* und PS\* werden abgelehnt statt durchgewunken; Keycloaks Standard ist RS256.
 
 ## Geldbeträge
 

@@ -87,9 +87,9 @@ betting-game/
 - ✅ Minimal dependencies (7 production packages)
 - ✅ 109 unit tests across 12 test classes
 - ✅ OpenAPI 3.0 compliant
-- ✅ **Keycloak Authentication** (OAuth2/OIDC) — frontend end-to-end, backend see note below
-- ⚠️ **JWT Token Validation** (Backend) — `KeycloakService`/`AuthMiddleware` implemented, **not yet wired into `public/index.php`**
-- ✅ **Role-Based Access Control** (RBAC) — enforced in the frontend router; backend admin check is still a stub
+- ✅ **Keycloak Authentication** (OAuth2/OIDC) — end to end, frontend and backend
+- ✅ **JWT Token Validation** (Backend) — signature verified against the realm's JWKS, see [KEYCLOAK.md](KEYCLOAK.md)
+- ✅ **Role-Based Access Control** (RBAC) — enforced by the `Kernel` before the controller runs
 - ✅ **One class per file** (111 files, PSR-4 compliant)
 - ✅ **PSR-3: Logger Interface** (Monolog)
 - ✅ **PSR-11: Container Interface** (DI Container)
@@ -250,11 +250,9 @@ Authorization: Bearer <jwt-token>
 - `participant_id` - For participant endpoints
 - `realm_access.roles` containing `admin` - For admin endpoints
 
-> ⚠️ **Current state:** `public/index.php` still contains a *simulation* of this check — any
-> `Bearer` token is accepted, `participant_id` is taken from the URL and admin access is granted
-> when the token string contains the substring `admin`. The real implementation
-> (`Infrastructure\Auth\KeycloakService` + `AuthMiddleware`, registered in the DI container)
-> is **not** invoked yet. Do not deploy this as-is.
+The signature is verified against the realm's published public key, so those claims are
+statements by Keycloak rather than by the caller. An unreachable Keycloak answers **503**, not
+401 — see [KEYCLOAK.md](KEYCLOAK.md) for the full list of checks and the configuration.
 
 ## 📡 API Endpoints
 

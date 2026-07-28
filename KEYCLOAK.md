@@ -2,13 +2,11 @@
 
 Benutzerverwaltung und Authentifizierung über **Keycloak 23** mit OAuth2 / OpenID Connect.
 
-> ⚠️ **Statushinweis:** Der Login-Flow im Frontend ist vollständig verdrahtet. Im Backend
-> sind `KeycloakService` und `AuthMiddleware` implementiert und im DI-Container registriert,
-> werden von [`public/index.php`](public/index.php) aber **nicht aufgerufen**. Dort läuft
-> weiterhin eine Simulation: jeder Bearer-Token wird akzeptiert, `participant_id` stammt aus
-> der URL, Admin-Rechte gelten, sobald der Token die Zeichenkette `admin` enthält.
-> Alle unten beschriebenen Backend-Security-Eigenschaften greifen erst, wenn die Middleware
-> im Entry Point eingebunden ist.
+> **Status:** vollständig verdrahtet. [`public/index.php`](public/index.php) reicht an
+> [`Kernel`](src/Presentation/Http/Kernel.php) weiter, der `AuthMiddleware` vor jede Route
+> hängt, die sich nicht ausdrücklich als öffentlich markiert. Die Signatur wird gegen den
+> JWKS-Endpunkt des Realms geprüft — siehe
+> [TokenVerifier](src/Infrastructure/Auth/TokenVerifier.php).
 
 ## Schnellstart
 
@@ -84,12 +82,17 @@ Login-Ablauf:
 
 | Datei | Aufgabe |
 |-------|---------|
-| `src/Infrastructure/Auth/KeycloakService.php` | JWT-Validierung, Token-Parsing, Rollen |
+| `src/Infrastructure/Auth/TokenVerifier.php` | Signatur- und Claim-Prüfung |
+| `src/Infrastructure/Auth/JwkSet.php` | JWKS lesen, RSA-Schlüssel als PEM aufbauen |
+| `src/Infrastructure/Auth/KeycloakKeys.php` | JWKS holen und cachen, Rotation |
+| `src/Infrastructure/Auth/KeycloakService.php` | Token-Parsing, `participant_id`, Rollen |
 | `src/Infrastructure/Auth/AuthMiddleware.php` | Request-Authentifizierung, User-Kontext |
-| `src/Infrastructure/DI/Container.php` | Registrierung beider Services |
+| `src/Infrastructure/DI/Container.php` | Registrierung der Services |
 
 ```php
-$tokenData     = $keycloakService->validateToken($jwtToken);
+// Wirft InvalidTokenException, wenn das Token abgelehnt wird, und
+// KeyUnavailableException, wenn sich das gerade nicht entscheiden lässt.
+$tokenData     = $keycloakService->verifyToken($jwtToken);
 $participantId = $keycloakService->getParticipantId($tokenData);
 $roles         = $keycloakService->getRoles($tokenData);
 
@@ -197,12 +200,20 @@ Der Refresh Token ist an die SSO-Session gebunden: 30 Minuten Idle, maximal 10 S
 
 ## Security-Eigenschaften
 
-**Backend** (implementiert in `AuthMiddleware`, im Entry Point noch nicht aktiv):
+**Backend** (aktiv, `Kernel` → `AuthMiddleware` → `TokenVerifier`):
 
-- Signaturprüfung gegen den Public Key des Realms
-- Ablaufprüfung (expired Tokens werden abgelehnt)
-- Realm-Validierung (nur Tokens aus `betting-game`)
-- Rollenbasierte Zugriffskontrolle für Admin-Endpunkte
+- Signaturprüfung gegen den Public Key des Realms aus dem JWKS-Endpunkt
+- Algorithmus-Allowlist, die nur asymmetrische Verfahren enthalten *kann* — damit scheitern
+  `alg: none` und HS256-mit-dem-öffentlichen-Schlüssel an derselben Stelle
+- Ablaufprüfung (`exp`, `nbf`, `iat`) mit Leeway gegen Uhrendrift
+- Realm-Validierung: `iss` muss exakt stimmen
+- optional `aud`, wenn konfiguriert
+- Schlüsselrotation: eine unbekannte `kid` löst genau einen gedrosselten Refetch aus
+- rollenbasierte Zugriffskontrolle für Admin-Endpunkte
+
+Nicht erreichbares Keycloak beantwortet die API mit **503**, nicht mit 401 — ein 401 würde
+jeden Client dazu bringen, sein intaktes Token wegzuwerfen und sich ausgerechnet dort neu
+anzumelden, wo wir schon wissen, dass es nicht geht.
 
 **Frontend** (aktiv):
 

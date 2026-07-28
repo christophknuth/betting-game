@@ -424,11 +424,10 @@ INDEX idx_correlation_id (correlation_id)
 
 **Für Production-Readiness:**
 
-1. **JWT/OIDC Integration verdrahten** ⚠️
-   - `KeycloakService` und `AuthMiddleware` sind implementiert und im DI-Container registriert,
-     werden von `public/index.php` aber **nicht aufgerufen**. Dort steht weiterhin eine
-     Simulation: jeder Bearer-Token wird akzeptiert, Admin-Rechte gibt es, sobald der Token
-     die Zeichenkette `admin` enthält.
+1. ~~**JWT/OIDC Integration verdrahten**~~ ✅
+   - Erledigt. `public/index.php` reicht an `Kernel` weiter, der `AuthMiddleware` vor jede
+     nicht-öffentliche Route hängt; `TokenVerifier` prüft die Signatur gegen den
+     JWKS-Endpunkt des Realms. Siehe [KEYCLOAK.md](KEYCLOAK.md).
 
 2. **Fehlende Infrastruktur-Klassen** ⚠️
    - `Infrastructure\Persistence\PredictionRepository` wird in `Container.php` referenziert,

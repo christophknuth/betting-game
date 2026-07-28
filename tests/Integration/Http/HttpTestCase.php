@@ -8,6 +8,8 @@ use BettingGame\Application\Query\GetAuditTrailHandler;
 use BettingGame\Application\Query\GetCommandStatusHandler;
 use BettingGame\Infrastructure\Auth\AuthMiddleware;
 use BettingGame\Infrastructure\Auth\KeycloakService;
+use BettingGame\Infrastructure\Auth\StaticKeys;
+use BettingGame\Infrastructure\Auth\TokenVerifier;
 use BettingGame\Presentation\Controller\AdminBetRowController;
 use BettingGame\Presentation\Controller\AdminDrawController;
 use BettingGame\Presentation\Controller\AdminFeeController;
@@ -23,6 +25,7 @@ use BettingGame\Presentation\Http\Kernel;
 use BettingGame\Presentation\Http\Request;
 use BettingGame\Presentation\Router\Router;
 use BettingGame\Tests\Integration\Application\ApplicationTestCase;
+use BettingGame\Tests\Support\SigningKey;
 use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
 
@@ -36,6 +39,8 @@ use Psr\Log\NullLogger;
  */
 abstract class HttpTestCase extends ApplicationTestCase
 {
+    protected const ISSUER = 'http://keycloak:8080/realms/betting-game';
+
     protected Kernel $kernel;
 
     protected function setUp(): void
@@ -102,38 +107,68 @@ abstract class HttpTestCase extends ApplicationTestCase
         $this->kernel = new Kernel(
             $container,
             new Router(),
-            new AuthMiddleware(new KeycloakService(), new NullLogger()),
+            new AuthMiddleware(
+                new KeycloakService(new TokenVerifier(
+                    keys: new StaticKeys(SigningKey::shared()->jwks()),
+                    issuer: self::ISSUER
+                )),
+                new NullLogger()
+            ),
             new ErrorMapper(true),
             $this->commandLog
         );
     }
 
     /**
-     * A token the way KeycloakService currently reads it.
+     * A token signed with the key the kernel above verifies against.
      *
-     * Note it carries no valid signature - validateToken does not verify one
-     * yet (see its own comment). That is exactly why this test can forge a
-     * token, and why the same is true for anyone else.
+     * These are real signatures, not fixtures: the suite stands in for a
+     * Keycloak rather than for the absence of one. It used to append the
+     * literal string "unverified" and get in anyway, which was an accurate
+     * description of the application at the time.
      *
      * @param list<string> $roles
      */
     protected function token(?int $participantId, array $roles = []): string
     {
-        $encode = static fn (array $data): string => rtrim(
-            strtr(base64_encode(json_encode($data, JSON_THROW_ON_ERROR)), '+/', '-_'),
-            '='
-        );
+        return SigningKey::shared()->token([
+            'iss' => self::ISSUER,
+            'sub' => 'participant-' . ($participantId ?? 'unknown'),
+            'exp' => time() + 3600,
+            'iat' => time(),
+            'participant_id' => $participantId,
+            'preferred_username' => 'tester',
+            'realm_access' => ['roles' => $roles],
+        ]);
+    }
 
-        return $encode(['alg' => 'RS256', 'typ' => 'JWT'])
-            . '.'
-            . $encode([
-                'iss' => 'http://keycloak:8080/realms/betting-game',
-                'exp' => time() + 3600,
-                'participant_id' => $participantId,
-                'preferred_username' => 'tester',
-                'realm_access' => ['roles' => $roles],
-            ])
-            . '.unverified';
+    /**
+     * A token nobody signed - what a caller can produce on their own.
+     *
+     * @param list<string> $roles
+     */
+    protected function forgedToken(?int $participantId, array $roles = []): string
+    {
+        return SigningKey::shared()->unsignedToken([
+            'iss' => self::ISSUER,
+            'exp' => time() + 3600,
+            'participant_id' => $participantId,
+            'preferred_username' => 'attacker',
+            'realm_access' => ['roles' => $roles],
+        ]);
+    }
+
+    /** Properly signed, but past its expiry. */
+    protected function expiredToken(?int $participantId): string
+    {
+        return SigningKey::shared()->token([
+            'iss' => self::ISSUER,
+            'exp' => time() - 3600,
+            'iat' => time() - 7200,
+            'participant_id' => $participantId,
+            'preferred_username' => 'tester',
+            'realm_access' => ['roles' => []],
+        ]);
     }
 
     /**

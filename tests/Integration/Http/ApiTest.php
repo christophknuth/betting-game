@@ -64,6 +64,35 @@ final class ApiTest extends HttpTestCase
         self::assertSame(403, $this->send('GET', '/participants/7/bet-row', $this->token(8))->statusCode());
     }
 
+    /**
+     * B-15/B-16/B-17 rest entirely on this. Every rule above says "only this
+     * participant" or "only an admin", and each one is worth exactly as much as
+     * the signature check - the claims naming the participant and the role come
+     * out of the token.
+     *
+     * Until the verifier existed this request succeeded.
+     */
+    public function testAForgedTokenReachesNothing(): void
+    {
+        $response = $this->send('GET', '/participants/7/bet-row', $this->forgedToken(7));
+
+        self::assertSame(401, $response->statusCode());
+    }
+
+    public function testAForgedAdminTokenReachesNoAdminRoute(): void
+    {
+        $response = $this->send('GET', '/admin/tipp-years', $this->forgedToken(1, ['admin']));
+
+        self::assertSame(401, $response->statusCode(), 'the admin role has to be granted, not claimed');
+    }
+
+    public function testAnExpiredTokenIs401(): void
+    {
+        $response = $this->send('GET', '/participants/7/bet-row', $this->expiredToken(7));
+
+        self::assertSame(401, $response->statusCode());
+    }
+
     public function testAdminRoutesRejectANonAdmin(): void
     {
         $response = $this->send('GET', '/admin/tipp-years', $this->token(7));

@@ -18,7 +18,12 @@ use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
 use BettingGame\Domain\Repository\TicketRepositoryInterface;
 use BettingGame\Domain\Repository\TippYearRepositoryInterface;
 use BettingGame\Infrastructure\Auth\AuthMiddleware;
+use BettingGame\Infrastructure\Auth\CurlFetcher;
+use BettingGame\Infrastructure\Auth\KeycloakKeys;
 use BettingGame\Infrastructure\Auth\KeycloakService;
+use BettingGame\Infrastructure\Auth\KeySource;
+use BettingGame\Infrastructure\Auth\StaticKeys;
+use BettingGame\Infrastructure\Auth\TokenVerifier;
 use BettingGame\Infrastructure\Cache\FileCache;
 use BettingGame\Infrastructure\Config\Config;
 use BettingGame\Infrastructure\EventStore\PdoEventStore;
@@ -107,9 +112,47 @@ final class Container
                 );
             },
 
+            // Where the public signing keys come from. A statically configured
+            // key set wins when there is one, so a deployment that cannot reach
+            // Keycloak at request time still verifies signatures rather than
+            // falling back to trusting the token.
+            KeySource::class => static function (PsrContainerInterface $c) use ($settings): KeySource {
+                $configured = $settings->nullableString('keycloak.jwks');
+
+                if ($configured !== null && trim($configured) !== '') {
+                    return StaticKeys::from($configured);
+                }
+
+                $cache = $c->get(CacheInterface::class);
+                assert($cache instanceof CacheInterface);
+
+                return new KeycloakKeys(
+                    jwksUrl: $settings->string('keycloak.jwks_url'),
+                    fetcher: new CurlFetcher(),
+                    cache: $cache,
+                    ttlSeconds: $settings->int('keycloak.jwks_ttl', 300)
+                );
+            },
+
+            TokenVerifier::class => static function (PsrContainerInterface $c) use ($settings): TokenVerifier {
+                $keys = $c->get(KeySource::class);
+                assert($keys instanceof KeySource);
+
+                return new TokenVerifier(
+                    keys: $keys,
+                    issuer: $settings->string('keycloak.issuer'),
+                    audience: $settings->nullableString('keycloak.audience'),
+                    leewaySeconds: $settings->int('keycloak.leeway', 30)
+                );
+            },
+
             // Keycloak Service
-            KeycloakService::class => function () use ($settings) {
+            KeycloakService::class => static function (PsrContainerInterface $c) use ($settings): KeycloakService {
+                $verifier = $c->get(TokenVerifier::class);
+                assert($verifier instanceof TokenVerifier);
+
                 return new KeycloakService(
+                    verifier: $verifier,
                     keycloakUrl: $settings->string('keycloak.url', 'http://keycloak:8080'),
                     realm: $settings->string('keycloak.realm', 'betting-game')
                 );

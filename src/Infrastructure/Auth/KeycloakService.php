@@ -7,67 +7,33 @@ namespace BettingGame\Infrastructure\Auth;
 use Exception;
 
 /**
- * Keycloak JWT Token Validator
- * Validates JWT tokens issued by Keycloak
+ * Reads a Keycloak access token.
+ *
+ * The signature check itself lives in TokenVerifier; what is left here is the
+ * realm-specific part - which claim carries the participant id, where the roles
+ * are, what counts as a username. Those are Keycloak's conventions, not JWT's.
  */
 final class KeycloakService
 {
-    private string $keycloakUrl;
-    private string $realm;
-    /** @var array<string, mixed>|null */
-    private ?array $publicKey = null;
-
     public function __construct(
-        string $keycloakUrl = 'http://keycloak:8080',
-        string $realm = 'betting-game'
+        private TokenVerifier $verifier,
+        private string $keycloakUrl = 'http://keycloak:8080',
+        private string $realm = 'betting-game'
     ) {
         $this->keycloakUrl = rtrim($keycloakUrl, '/');
-        $this->realm = $realm;
     }
 
     /**
-     * Validate JWT token and return decoded payload
+     * Verified claims, or an exception saying why not.
      *
-     * @return array<string, mixed>|null
+     * @return array<string, mixed>
+     *
+     * @throws InvalidTokenException   the token is refused
+     * @throws KeyUnavailableException we cannot judge it right now
      */
-    public function validateToken(string $token): ?array
+    public function verifyToken(string $token): array
     {
-        try {
-            // Parse JWT
-            $parts = explode('.', $token);
-            if (count($parts) !== 3) {
-                return null;
-            }
-
-            [$header, $payload] = $parts;
-
-            // Decode header and payload
-            $headerData = $this->decodeJsonObject($this->base64UrlDecode($header));
-            $payloadData = $this->decodeJsonObject($this->base64UrlDecode($payload));
-
-            if ($headerData === null || $payloadData === null) {
-                return null;
-            }
-
-            // Check if token is expired
-            $exp = $payloadData['exp'] ?? null;
-            if (is_int($exp) && $exp < time()) {
-                return null;
-            }
-
-            // Verify realm
-            $issuer = $payloadData['iss'] ?? null;
-            if (!is_string($issuer) || !str_contains($issuer, "/realms/{$this->realm}")) {
-                return null;
-            }
-
-            // In production, verify signature with Keycloak's public key
-            // For now, we trust tokens in development
-
-            return $payloadData;
-        } catch (Exception) {
-            return null;
-        }
+        return $this->verifier->verify($token);
     }
 
     /**
@@ -99,41 +65,6 @@ final class KeycloakService
             }
 
             return $this->decodeJsonObject($response);
-        } catch (Exception) {
-            return null;
-        }
-    }
-
-    /**
-     * Get Keycloak public key (for signature verification)
-     *
-     * @return array<string, mixed>|null
-     */
-    public function getPublicKey(): ?array
-    {
-        if ($this->publicKey !== null) {
-            return $this->publicKey;
-        }
-
-        try {
-            $url = "{$this->keycloakUrl}/realms/{$this->realm}";
-
-            $ch = curl_init($url);
-            if ($ch === false) {
-                return null;
-            }
-
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            $response = curl_exec($ch);
-            curl_close($ch);
-
-            if (!is_string($response)) {
-                return null;
-            }
-
-            $this->publicKey = $this->decodeJsonObject($response);
-
-            return $this->publicKey;
         } catch (Exception) {
             return null;
         }
@@ -251,19 +182,5 @@ final class KeycloakService
 
         /** @var array<string, mixed> $decoded */
         return $decoded;
-    }
-
-    /**
-     * Base64 URL decode
-     */
-    private function base64UrlDecode(string $data): string
-    {
-        $remainder = strlen($data) % 4;
-        if ($remainder !== 0) {
-            $padlen = 4 - $remainder;
-            $data .= str_repeat('=', $padlen);
-        }
-
-        return base64_decode(strtr($data, '-_', '+/')) ?: '';
     }
 }
