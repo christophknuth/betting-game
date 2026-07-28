@@ -6,7 +6,6 @@ namespace BettingGame\Domain\Model;
 
 use BettingGame\Domain\Event\BetRowAssigned;
 use BettingGame\Domain\Event\BetRowReplaced;
-use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use DateTimeImmutable;
@@ -25,10 +24,7 @@ use DateTimeImmutable;
  */
 final class BetRow
 {
-    /** @var list<DomainEvent> */
-    private array $recordedEvents = [];
-    private int $version = 0;
-    private int $originalVersion = 0;
+    use RecordsEvents;
 
     private function __construct(
         private int $id,
@@ -69,8 +65,7 @@ final class BetRow
         int $version
     ): self {
         $row = new self($id, $participantId, $betPeriodId, $numbers, $assignedAt);
-        $row->version = $version;
-        $row->originalVersion = $version;
+        $row->markCommitted($version);
 
         return $row;
     }
@@ -106,22 +101,6 @@ final class BetRow
         ));
     }
 
-    private function recordEvent(DomainEvent $event): void
-    {
-        $this->recordedEvents[] = $event;
-    }
-
-    /**
-     * @return list<DomainEvent>
-     */
-    public function releaseEvents(): array
-    {
-        $events = $this->recordedEvents;
-        $this->recordedEvents = [];
-
-        return $events;
-    }
-
     public function id(): int
     {
         return $this->id;
@@ -145,18 +124,5 @@ final class BetRow
     public function assignedAt(): DateTimeImmutable
     {
         return $this->assignedAt;
-    }
-
-    public function version(): int
-    {
-        return $this->version;
-    }
-
-    /**
-     * Stream version this instance was loaded at - the expected version when appending.
-     */
-    public function originalVersion(): int
-    {
-        return $this->originalVersion;
     }
 }

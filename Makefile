@@ -1,4 +1,4 @@
-.PHONY: help install test coverage start stop restart db-reset logs
+.PHONY: help install test test-unit test-integration test-db-start test-db-stop coverage start stop restart db-reset logs
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -9,20 +9,26 @@ help: ## Show this help message
 install: ## Install dependencies
 	composer install
 
-test: ## Run tests
+test: ## Run tests (integration tests skip themselves without a database)
 	vendor/bin/phpunit --testdox
+
+test-unit: ## Run only the unit tests
+	vendor/bin/phpunit --testsuite Unit --testdox
+
+test-integration: ## Run only the integration tests (needs test-db-start)
+	vendor/bin/phpunit --testsuite Integration --testdox
 
 coverage: ## Generate code coverage report
 	vendor/bin/phpunit --coverage-html coverage --coverage-text
 
-phpstan: ## Run static analysis
-	vendor/bin/phpstan analyse src --level=8
+phpstan: ## Run static analysis (level 10, see phpstan.neon)
+	vendor/bin/phpstan analyse
 
 cs-check: ## Check code style
-	vendor/bin/phpcs --standard=PSR12 src
+	vendor/bin/phpcs --standard=PSR12 src tests public config
 
 cs-fix: ## Fix code style
-	vendor/bin/phpcbf --standard=PSR12 src
+	vendor/bin/phpcbf --standard=PSR12 src tests public config
 
 start: ## Start Docker containers
 	docker-compose up -d
@@ -51,6 +57,19 @@ logs-caddy: ## Show Caddy logs
 
 logs-db: ## Show Database logs
 	docker-compose logs -f db
+
+test-db-start: ## Start the database the integration tests run against
+	docker run -d --name bg-test-db \
+		-e MARIADB_ROOT_PASSWORD=secret -e MARIADB_DATABASE=betting_game_test \
+		-p 3306:3306 mariadb:11.3
+	@echo "Waiting for the database..."
+	@until docker exec bg-test-db mariadb -uroot -psecret -e "SELECT 1" betting_game_test >/dev/null 2>&1; \
+		do sleep 1; done
+	docker exec -i bg-test-db mariadb -uroot -psecret betting_game_test < database/schema.sql
+	@echo "Test database ready on port 3306"
+
+test-db-stop: ## Remove the integration test database
+	docker rm -f bg-test-db
 
 db-reset: ## Reset database
 	docker-compose exec db mysql -uroot -psecret betting_game < database/schema.sql

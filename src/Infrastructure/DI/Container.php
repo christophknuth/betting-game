@@ -4,16 +4,28 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\DI;
 
+use BettingGame\Domain\Repository\BetPeriodRepositoryInterface;
+use BettingGame\Domain\Repository\BetRowRepositoryInterface;
+use BettingGame\Domain\Repository\DrawRepositoryInterface;
 use BettingGame\Domain\Repository\EventStoreInterface;
+use BettingGame\Domain\Repository\FeeRepositoryInterface;
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
+use BettingGame\Domain\Repository\TicketRepositoryInterface;
+use BettingGame\Domain\Repository\TippYearRepositoryInterface;
 use BettingGame\Infrastructure\Auth\AuthMiddleware;
 use BettingGame\Infrastructure\Auth\KeycloakService;
 use BettingGame\Infrastructure\Cache\FileCache;
 use BettingGame\Infrastructure\Config\Config;
 use BettingGame\Infrastructure\EventStore\PdoEventStore;
 use BettingGame\Infrastructure\Logging\LoggerFactory;
+use BettingGame\Infrastructure\Persistence\BetPeriodRepository;
+use BettingGame\Infrastructure\Persistence\BetRowRepository;
 use BettingGame\Infrastructure\Persistence\Db;
+use BettingGame\Infrastructure\Persistence\DrawRepository;
+use BettingGame\Infrastructure\Persistence\FeeRepository;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
+use BettingGame\Infrastructure\Persistence\TicketRepository;
+use BettingGame\Infrastructure\Persistence\TippYearRepository;
 use BettingGame\Presentation\Controller\HealthController;
 use BettingGame\Presentation\Router\Router;
 use DI\ContainerBuilder;
@@ -102,6 +114,12 @@ final class Container
 
             // Domain Repositories
             ParticipantRepositoryInterface::class => \DI\autowire(ParticipantRepository::class),
+            TippYearRepositoryInterface::class => \DI\autowire(TippYearRepository::class),
+            BetPeriodRepositoryInterface::class => \DI\autowire(BetPeriodRepository::class),
+            BetRowRepositoryInterface::class => \DI\autowire(BetRowRepository::class),
+            TicketRepositoryInterface::class => \DI\autowire(TicketRepository::class),
+            DrawRepositoryInterface::class => \DI\autowire(DrawRepository::class),
+            FeeRepositoryInterface::class => \DI\autowire(FeeRepository::class),
 
             // Controllers
             HealthController::class => \DI\autowire(),

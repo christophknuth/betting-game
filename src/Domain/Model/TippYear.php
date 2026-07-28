@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BettingGame\Domain\Model;
 
-use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Event\MemberAdded;
 use BettingGame\Domain\Event\PayoutDistributed;
 use BettingGame\Domain\Event\TippYearCreated;
@@ -22,10 +21,7 @@ use DateTimeImmutable;
  */
 final class TippYear
 {
-    /** @var list<DomainEvent> */
-    private array $recordedEvents = [];
-    private int $version = 0;
-    private int $originalVersion = 0;
+    use RecordsEvents;
 
     private function __construct(
         private int $id,
@@ -88,8 +84,7 @@ final class TippYear
         int $version
     ): self {
         $year = new self($id, $name, $startDate, $endDate, $status, $ticketCostPerRow, $createdAt);
-        $year->version = $version;
-        $year->originalVersion = $version;
+        $year->markCommitted($version);
 
         return $year;
     }
@@ -179,22 +174,6 @@ final class TippYear
         $this->recordEvent(new TippYearStatusChanged((string) $this->id, $from, $to));
     }
 
-    private function recordEvent(DomainEvent $event): void
-    {
-        $this->recordedEvents[] = $event;
-    }
-
-    /**
-     * @return list<DomainEvent>
-     */
-    public function releaseEvents(): array
-    {
-        $events = $this->recordedEvents;
-        $this->recordedEvents = [];
-
-        return $events;
-    }
-
     public function id(): int
     {
         return $this->id;
@@ -228,18 +207,5 @@ final class TippYear
     public function createdAt(): DateTimeImmutable
     {
         return $this->createdAt;
-    }
-
-    public function version(): int
-    {
-        return $this->version;
-    }
-
-    /**
-     * Stream version this instance was loaded at - the expected version when appending.
-     */
-    public function originalVersion(): int
-    {
-        return $this->originalVersion;
     }
 }

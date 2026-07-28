@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace BettingGame\Domain\Model;
 
 use BettingGame\Domain\Event\BetPeriodCreated;
-use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\ValueObject\DateRange;
 use DateTimeImmutable;
@@ -23,10 +22,7 @@ use DateTimeImmutable;
  */
 final class BetPeriod
 {
-    /** @var list<DomainEvent> */
-    private array $recordedEvents = [];
-    private int $version = 0;
-    private int $originalVersion = 0;
+    use RecordsEvents;
 
     private function __construct(
         private int $id,
@@ -83,8 +79,7 @@ final class BetPeriod
         int $version
     ): self {
         $period = new self($id, $tippYearId, $name, $range, $sequence);
-        $period->version = $version;
-        $period->originalVersion = $version;
+        $period->markCommitted($version);
 
         return $period;
     }
@@ -112,22 +107,6 @@ final class BetPeriod
         return $this->range->contains($date);
     }
 
-    private function recordEvent(DomainEvent $event): void
-    {
-        $this->recordedEvents[] = $event;
-    }
-
-    /**
-     * @return list<DomainEvent>
-     */
-    public function releaseEvents(): array
-    {
-        $events = $this->recordedEvents;
-        $this->recordedEvents = [];
-
-        return $events;
-    }
-
     public function id(): int
     {
         return $this->id;
@@ -151,18 +130,5 @@ final class BetPeriod
     public function sequence(): int
     {
         return $this->sequence;
-    }
-
-    public function version(): int
-    {
-        return $this->version;
-    }
-
-    /**
-     * Stream version this instance was loaded at - the expected version when appending.
-     */
-    public function originalVersion(): int
-    {
-        return $this->originalVersion;
     }
 }
