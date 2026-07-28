@@ -20,6 +20,7 @@ use BettingGame\Domain\Event\TicketSubmitted;
 use BettingGame\Domain\Event\TippYearCreated;
 use BettingGame\Domain\Event\TippYearStatusChanged;
 use BettingGame\Domain\Repository\EventStoreInterface;
+use BettingGame\Domain\Repository\RecordedEvent;
 use BettingGame\Domain\Exception\ConcurrencyException;
 use BettingGame\Infrastructure\Persistence\Db;
 use BettingGame\Support\Row;
@@ -130,6 +131,117 @@ final class PdoEventStore implements EventStoreInterface
         return $events;
     }
 
+    /** @return list<RecordedEvent> */
+    public function recordsOf(string $streamId): array
+    {
+        $rows = $this->db->fetchAll(
+            '
+            SELECT e.event_store_id, e.version, e.event_type, e.event_data, e.metadata, e.occurred_at
+            FROM event_store e
+            JOIN event_stream s
+                ON s.aggregate_type = e.aggregate_type
+               AND s.aggregate_id = e.aggregate_id
+            WHERE s.stream_id = ?
+            ORDER BY e.version ASC
+            ',
+            [$streamId]
+        );
+
+        return $this->toRecords($rows);
+    }
+
+    /**
+     * @param list<string> $eventTypes
+     *
+     * @return list<RecordedEvent>
+     */
+    public function readFrom(int $afterPosition, int $limit = 1000, array $eventTypes = []): array
+    {
+        // Ordering by the auto-increment id is what makes a replay deterministic:
+        // occurred_at can tie, and two aggregates' versions say nothing about
+        // their order relative to each other.
+        if ($eventTypes === []) {
+            $rows = $this->db->fetchAll(
+                '
+                SELECT event_store_id, version, event_type, event_data, metadata, occurred_at
+                FROM event_store
+                WHERE event_store_id > ?
+                ORDER BY event_store_id ASC
+                LIMIT ' . max(1, $limit),
+                [$afterPosition]
+            );
+
+            return $this->toRecords($rows);
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($eventTypes), '?'));
+
+        $rows = $this->db->fetchAll(
+            '
+            SELECT event_store_id, version, event_type, event_data, metadata, occurred_at
+            FROM event_store
+            WHERE event_store_id > ? AND event_type IN (' . $placeholders . ')
+            ORDER BY event_store_id ASC
+            LIMIT ' . max(1, $limit),
+            [$afterPosition, ...$eventTypes]
+        );
+
+        return $this->toRecords($rows);
+    }
+
+    public function headPosition(): int
+    {
+        $row = $this->db->fetchOne('SELECT COALESCE(MAX(event_store_id), 0) AS head FROM event_store');
+
+        return $row === null ? 0 : Row::int($row, 'head');
+    }
+
+    /** @param list<string> $eventTypes */
+    public function countFrom(int $afterPosition, array $eventTypes = []): int
+    {
+        if ($eventTypes === []) {
+            $row = $this->db->fetchOne(
+                'SELECT COUNT(*) AS pending FROM event_store WHERE event_store_id > ?',
+                [$afterPosition]
+            );
+
+            return $row === null ? 0 : Row::int($row, 'pending');
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($eventTypes), '?'));
+
+        $row = $this->db->fetchOne(
+            '
+            SELECT COUNT(*) AS pending
+            FROM event_store
+            WHERE event_store_id > ? AND event_type IN (' . $placeholders . ')
+            ',
+            [$afterPosition, ...$eventTypes]
+        );
+
+        return $row === null ? 0 : Row::int($row, 'pending');
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return list<RecordedEvent>
+     */
+    private function toRecords(array $rows): array
+    {
+        $records = [];
+
+        foreach ($rows as $row) {
+            $records[] = new RecordedEvent(
+                Row::int($row, 'event_store_id'),
+                Row::int($row, 'version'),
+                $this->deserializeEvent($row)
+            );
+        }
+
+        return $records;
+    }
+
     public function getStreamVersion(string $streamId): int
     {
         $row = $this->db->fetchOne(
@@ -180,6 +292,7 @@ final class PdoEventStore implements EventStoreInterface
                 Row::string($eventData, 'name'),
                 Row::string($eventData, 'start_date'),
                 Row::string($eventData, 'end_date'),
+                Row::nullableInt($eventData, 'sequence') ?? 1,
                 $domainEventId,
                 $occurredAt,
                 $causationId,

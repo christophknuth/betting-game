@@ -265,6 +265,7 @@ erDiagram
         string status "accepted / processing / completed / failed"
         bigint event_store_position "nullable - denormalised position of first resulting event"
         int resource_id "nullable"
+        int http_status "nullable - replayed on idempotent retry"
         json response_body "JSONB - replayed on idempotent retry"
         text error_message "nullable"
         string correlation_id "Trace ID - propagated to EventStore"

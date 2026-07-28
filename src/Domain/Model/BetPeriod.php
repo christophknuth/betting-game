@@ -61,7 +61,8 @@ final class BetPeriod
             $tippYearId,
             trim($name),
             $range->start()->format('Y-m-d'),
-            $range->end()->format('Y-m-d')
+            $range->end()->format('Y-m-d'),
+            $sequence
         ));
 
         return $period;

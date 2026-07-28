@@ -14,6 +14,7 @@ final class BetPeriodCreated extends DomainEvent
         private string $name,
         private string $startDate,
         private string $endDate,
+        private int $sequence = 1,
         ?string $eventId = null,
         ?DateTimeImmutable $occurredAt = null,
         ?string $causationId = null,
@@ -46,6 +47,9 @@ final class BetPeriodCreated extends DomainEvent
             'name' => $this->name,
             'start_date' => $this->startDate,
             'end_date' => $this->endDate,
+            // Part of the period's state, so it belongs in the event - without
+            // it a rebuilt projection would lose the ordering.
+            'sequence' => $this->sequence,
         ];
     }
 }

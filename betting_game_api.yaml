@@ -31,11 +31,18 @@ info:
 
     - **Queries** (`GET`) liefern `200` mit einem aus dem Event Store projizierten Read Model.
     - **Commands** (`POST`/`PUT`) liefern `202 Accepted` mit einer `CommandResponse`.
-      Der Schreibvorgang geht in den Event Store, die Lesemodelle folgen asynchron.
       `GET /commands/{commandId}` liefert den Verarbeitungsstand.
+
+      *Zum Stand der Implementierung:* Der Schreibvorgang läuft derzeit **synchron** ab —
+      wenn der Aufrufer die `202` in Händen hält, sind Event Store und Lesemodelle bereits
+      aktuell. Der Statuscode und der Command-Endpunkt halten den Vertrag für den Fall offen,
+      dass das Schreiben später aus dem Request herauswandert.
     - Alle Commands akzeptieren einen **`Idempotency-Key`**-Header. Ein Retry mit demselben
-      Schlüssel liefert die ursprüngliche `CommandResponse`, ohne erneut zu schreiben.
-  version: 2.0.0
+      Schlüssel liefert die ursprüngliche `CommandResponse` mit ihrem ursprünglichen
+      Statuscode und dem Header `Idempotent-Replay: true`, ohne erneut zu schreiben.
+      Ein Schlüssel, dessen erster Versuch fehlschlug, bleibt vergeben: Die Wiederholung
+      erhält `409` statt eines erfundenen Ergebnisses.
+  version: 2.1.0
   contact:
     name: API Support
     email: support@bettinggame.com
@@ -734,14 +741,132 @@ paths:
   # OPERATIONS
   # ============================================
 
+  /admin/audit/{aggregateType}/{aggregateId}:
+    get:
+      tags:
+        - Operations
+      summary: Event-Historie eines Aggregats einsehen (OPS-03)
+      description: |
+        Alle Events eines Aggregats, älteste zuerst.
+
+        Zeigt Dinge, die in keinem Lesemodell stehen — etwa den Grund, aus dem eine Tippreihe
+        innerhalb der laufenden Periode ersetzt wurde.
+      operationId: getAuditTrail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: aggregateType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [participant, tipp_year, bet_period, bet_row, ticket, draw, fee]
+        - name: aggregateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Event-Historie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditTrailReadModel'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/projections:
+    get:
+      tags:
+        - Operations
+      summary: Projektionen überwachen (OPS-04)
+      description: |
+        Stand aller Lesemodelle. `lag` zählt nur die Events, die diese Projektion auch
+        konsumiert — eine Tippreihen-Projektion hinkt nicht hinterher, weil eine Gebühr
+        gebucht wurde.
+      operationId: getProjections
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Projektionen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectionReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/projections/{name}/rebuild:
+    post:
+      tags:
+        - Operations
+      summary: Projektion neu aufbauen (OPS-04)
+      description: |
+        Spielt eine Projektion aus dem Event Store neu ein. `all` baut alle auf.
+
+        Läuft **synchron**; die Antwort ist der Zustand danach, keine Bestätigung.
+
+        Die Liste enthält in der Regel mehr als die angeforderte Projektion: Die Lesemodelle
+        hängen über Foreign Keys mit `ON DELETE CASCADE` zusammen, deshalb werden die davon
+        abhängigen mit aufgebaut — sonst blieben sie leer.
+      operationId: rebuildProjection
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Name der Projektion oder `all`
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Neu aufgebaute Projektionen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rebuilt:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectionReadModel'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
   /commands/{commandId}:
     get:
       tags:
         - Operations
-      summary: Verarbeitungsstand eines Commands abfragen
+      summary: Verarbeitungsstand eines Commands abfragen (OPS-01)
       description: |
-        Verfolgt die asynchrone Verarbeitung eines akzeptierten Commands. `commandId` ist der
-        Wert aus der `CommandResponse` und zugleich `EventStore.causation_id`.
+        `commandId` ist der Wert aus der `CommandResponse`.
+
+        **Hinweis:** Diese Implementierung schreibt synchron — wenn der Aufrufer die `202` hat,
+        ist der Command bereits `completed`, und `projectionsUpToDate` ist immer `true`. Der
+        Endpunkt ist dort nützlich, wo ein Retry nachschlägt, was der erste Versuch erzeugt hat.
+
+        Nicht auf Administratoren beschränkt: Wer einen Command abgesetzt hat, darf erfahren,
+        was daraus wurde, und die ID ist nicht erratbar.
       operationId: getCommandStatus
       security:
         - bearerAuth: []
@@ -1111,8 +1236,14 @@ components:
         resourceId:
           type: integer
           nullable: true
+        httpStatus:
+          type: integer
+          nullable: true
+          description: Status der ursprünglichen Antwort, wird bei einem Retry wiederholt
         projectionsUpToDate:
           type: boolean
+        eventStorePosition:
+          type: integer
         acceptedAt:
           type: string
           format: date-time
@@ -1121,7 +1252,81 @@ components:
           format: date-time
           nullable: true
         error:
-          $ref: '#/components/schemas/ErrorResponse'
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+
+    AuditTrailReadModel:
+      type: object
+      properties:
+        aggregateType:
+          type: string
+        aggregateId:
+          type: string
+        streamId:
+          type: string
+          example: bet_row-12
+        version:
+          type: integer
+          description: Version des jüngsten Events
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              position:
+                type: integer
+                description: Globale Position im Event Store
+              version:
+                type: integer
+                description: Version innerhalb dieses Streams
+              eventId:
+                type: string
+                format: uuid
+              eventType:
+                type: string
+                example: bet_row.replaced
+              occurredAt:
+                type: string
+                format: date-time
+              causationId:
+                type: string
+                nullable: true
+              correlationId:
+                type: string
+                nullable: true
+              data:
+                type: object
+                description: Nutzlast des Events
+
+    ProjectionReadModel:
+      type: object
+      properties:
+        name:
+          type: string
+          example: bet_row_read_model
+        status:
+          type: string
+          enum: [running, rebuilding, stopped, failed, unknown]
+        lastProcessedPosition:
+          type: integer
+        headPosition:
+          type: integer
+          description: Position des jüngsten Events im Store
+        lag:
+          type: integer
+          description: Noch nicht verarbeitete Events *dieser* Projektion
+        upToDate:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+          nullable: true
 
     # ============================================
     # COMMANDS

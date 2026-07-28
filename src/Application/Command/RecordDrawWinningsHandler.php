@@ -6,11 +6,9 @@ namespace BettingGame\Application\Command;
 
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
-use BettingGame\Domain\Model\Draw;
-use BettingGame\Domain\Model\Ticket;
 use BettingGame\Domain\Repository\DrawRepositoryInterface;
 use BettingGame\Domain\Repository\TicketRepositoryInterface;
-use BettingGame\Domain\ValueObject\EvenSplit;
+use BettingGame\Domain\Service\WinningsDistribution;
 
 /**
  * The administrator reads one number off the statement - what the ticket won -
@@ -36,6 +34,12 @@ final class RecordDrawWinningsHandler
             throw new EntityNotFoundException("Draw {$command->drawId} does not exist");
         }
 
+        $drawnNumbers = $draw->numbers();
+
+        if ($drawnNumbers === null) {
+            throw new BusinessRuleViolationException('The draw has no numbers yet');
+        }
+
         $ticket = $this->tickets->findCovering($draw->tippYearId(), $draw->drawDate());
 
         if ($ticket === null) {
@@ -44,7 +48,25 @@ final class RecordDrawWinningsHandler
             );
         }
 
-        $matches = $this->evaluateRows($draw, $ticket, $command);
+        $ticketRowIds = $this->tickets->rowIdsOf($ticket->id());
+        $rows = [];
+
+        foreach ($ticket->rows() as $row) {
+            $ticketRowId = $ticketRowIds[$row['betRowId']] ?? null;
+
+            if ($ticketRowId !== null) {
+                $rows[] = ['ticketRowId' => $ticketRowId, 'numbers' => $row['numbers']];
+            }
+        }
+
+        $matches = WinningsDistribution::of(
+            $drawnNumbers,
+            $draw->superzahl(),
+            $ticket->superzahl(),
+            $rows,
+            $command->totalAmount,
+            $command->winningClasses
+        );
 
         $draw->recordWinnings($ticket->id(), $command->totalAmount, $this->classSummary($command));
         $this->draws->save($draw);
@@ -57,97 +79,8 @@ final class RecordDrawWinningsHandler
     }
 
     /**
-     * @return list<array{ticketRowId: int, matchedNumbers: int, superzahlMatched: bool,
-     *     winningClass: int|null, amount: float}>
-     */
-    private function evaluateRows(Draw $draw, Ticket $ticket, RecordDrawWinningsCommand $command): array
-    {
-        $ticketRowIds = $this->tickets->rowIdsOf($ticket->id());
-        $evaluated = [];
-
-        foreach ($ticket->rows() as $row) {
-            $ticketRowId = $ticketRowIds[$row['betRowId']] ?? null;
-
-            if ($ticketRowId === null) {
-                continue;
-            }
-
-            $result = $draw->evaluate($row['numbers'], $ticket->superzahl());
-
-            $evaluated[] = [
-                'ticketRowId' => $ticketRowId,
-                'matchedNumbers' => $result['matchedNumbers'],
-                'superzahlMatched' => $result['superzahlMatched'],
-                'winningClass' => $result['winningClass'],
-                'amount' => 0.0,
-            ];
-        }
-
-        return $this->distribute($evaluated, $command);
-    }
-
-    /**
-     * Puts money on the rows that won.
-     *
-     * With an explicit breakdown each class's amount is split among the rows in
-     * that class. Without one there is no way to tell classes apart, so the
-     * total is split evenly across every winning row - stated plainly because
-     * it is an assumption, not a fact from the statement.
-     *
-     * @param list<array{ticketRowId: int, matchedNumbers: int, superzahlMatched: bool,
-     *     winningClass: int|null, amount: float}> $rows
-     *
-     * @return list<array{ticketRowId: int, matchedNumbers: int, superzahlMatched: bool,
-     *     winningClass: int|null, amount: float}>
-     */
-    private function distribute(array $rows, RecordDrawWinningsCommand $command): array
-    {
-        $winnersByClass = [];
-
-        foreach ($rows as $index => $row) {
-            if ($row['winningClass'] !== null) {
-                $winnersByClass[$row['winningClass']][] = $index;
-            }
-        }
-
-        if ($winnersByClass === []) {
-            return $rows;
-        }
-
-        /** @var array<int, float> $amounts row index => its share */
-        $amounts = [];
-
-        if ($command->winningClasses !== []) {
-            foreach ($command->winningClasses as $class) {
-                $indexes = $winnersByClass[$class['winningClass']] ?? [];
-
-                if ($indexes === []) {
-                    continue;
-                }
-
-                foreach (EvenSplit::of($class['amount'], count($indexes)) as $position => $share) {
-                    $amounts[$indexes[$position]] = $share;
-                }
-            }
-        } else {
-            $allWinners = array_merge(...array_values($winnersByClass));
-
-            foreach (EvenSplit::of($command->totalAmount, count($allWinners)) as $position => $share) {
-                $amounts[$allWinners[$position]] = $share;
-            }
-        }
-
-        $settled = [];
-        foreach ($rows as $index => $row) {
-            $row['amount'] = $amounts[$index] ?? 0.0;
-            $settled[] = $row;
-        }
-
-        return $settled;
-    }
-
-    /**
-     * The breakdown as it goes into the event.
+     * The breakdown as it goes into the event, so a rebuild can reproduce the
+     * same attribution.
      *
      * @return list<array<string, mixed>>
      */
