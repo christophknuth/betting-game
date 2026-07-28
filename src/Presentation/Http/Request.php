@@ -76,6 +76,41 @@ final class Request
     }
 
     /**
+     * A query parameter as an integer.
+     *
+     * @throws InvalidInputException when present but not a number - a filter
+     *     the caller mistyped must not silently turn into 0 and match nothing
+     */
+    public function queryInt(string $name): ?int
+    {
+        $value = $this->queryParam($name);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (preg_match('/^-?\d+$/', $value) !== 1) {
+            throw new InvalidInputException("$name must be an integer");
+        }
+
+        return (int) $value;
+    }
+
+    /**
+     * A query flag. Accepts the spellings a browser or client actually sends.
+     */
+    public function queryBool(string $name, bool $default = false): bool
+    {
+        $value = $this->queryParam($name);
+
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return in_array(strtolower($value), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
      * Decoded JSON request body. Values are mixed by nature - callers must
      * narrow them before use.
      *

@@ -14,6 +14,62 @@ namespace BettingGame\Presentation\Http;
 final class Input
 {
     /**
+     * A path segment as an integer.
+     *
+     * Route patterns already constrain most of these, but a controller must not
+     * depend on the routing table's regex to keep its types honest.
+     *
+     * @param array<string, string> $params
+     *
+     * @throws InvalidInputException
+     */
+    public static function pathInt(array $params, string $key): int
+    {
+        $value = $params[$key] ?? null;
+
+        if (!is_string($value) || preg_match('/^\d+$/', $value) !== 1) {
+            throw new InvalidInputException("$key in the path must be an integer");
+        }
+
+        return (int) $value;
+    }
+
+    /**
+     * A JSON array of integers, e.g. the six numbers of a bet row.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return list<int>
+     *
+     * @throws InvalidInputException
+     */
+    public static function intList(array $data, string $key): array
+    {
+        $value = $data[$key] ?? null;
+
+        if (!is_array($value)) {
+            throw new InvalidInputException("$key must be an array of integers");
+        }
+
+        $numbers = [];
+        foreach ($value as $item) {
+            if (is_int($item)) {
+                $numbers[] = $item;
+                continue;
+            }
+
+            if (is_string($item) && preg_match('/^-?\d+$/', $item) === 1) {
+                $numbers[] = (int) $item;
+                continue;
+            }
+
+            throw new InvalidInputException("$key must contain integers only");
+        }
+
+        return $numbers;
+    }
+
+    /**
      * @param array<string, mixed> $data
      *
      * @throws InvalidInputException
@@ -75,6 +131,22 @@ final class Input
         }
 
         return self::int($data, $key);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @throws InvalidInputException
+     */
+    public static function float(array $data, string $key): float
+    {
+        $value = self::optionalFloat($data, $key);
+
+        if ($value === null) {
+            throw new InvalidInputException("$key must be a number");
+        }
+
+        return $value;
     }
 
     /**
