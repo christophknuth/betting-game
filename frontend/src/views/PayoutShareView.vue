@@ -13,23 +13,50 @@
       <div class="field-inline">
         <div class="field">
           <label for="tippYearId">Tippjahr</label>
-          <input id="tippYearId" v-model="tippYearId" type="number" min="1" placeholder="laufendes Jahr">
+          <input
+            id="tippYearId"
+            v-model="tippYearId"
+            type="number"
+            min="1"
+            placeholder="laufendes Jahr"
+          >
         </div>
-        <button class="btn-primary" :disabled="query.loading" @click="reload">Anzeigen</button>
+        <button
+          class="btn-primary"
+          :disabled="query.loading"
+          @click="reload"
+        >
+          Anzeigen
+        </button>
       </div>
     </div>
 
-    <div v-if="query.loading" class="state loading">Wird geladen …</div>
-    <div v-else-if="query.error" class="state empty">{{ query.error }}</div>
+    <div
+      v-if="query.loading"
+      class="state loading"
+    >
+      Wird geladen …
+    </div>
+    <div
+      v-else-if="query.error"
+      class="state empty"
+    >
+      {{ query.error }}
+    </div>
 
     <template v-else-if="query.data">
       <div class="card section">
         <div class="page-header">
           <div>
             <h3>{{ query.data.tippYearName }}</h3>
-            <p class="subtitle">Tippjahr #{{ query.data.tippYearId }}</p>
+            <p class="subtitle">
+              Tippjahr #{{ query.data.tippYearId }}
+            </p>
           </div>
-          <span class="badge" :class="query.data.tippYearStatus">
+          <span
+            class="badge"
+            :class="query.data.tippYearStatus"
+          >
             {{ statusLabel(query.data.tippYearStatus) }}
           </span>
         </div>
@@ -47,7 +74,10 @@
 
             <dt>Zahlungsstatus</dt>
             <dd>
-              <span class="badge" :class="query.data.paymentStatus">
+              <span
+                class="badge"
+                :class="query.data.paymentStatus"
+              >
                 {{ statusLabel(query.data.paymentStatus) }}
               </span>
             </dd>
@@ -57,11 +87,17 @@
 
       <div class="card">
         <h3>{{ distributed ? 'Mein Anteil' : 'Zwischenstand' }}</h3>
-        <p class="figure" :class="{ provisional: !distributed }">
+        <p
+          class="figure"
+          :class="{ provisional: !distributed }"
+        >
           {{ formatAmount(distributed ? query.data.amount : query.data.provisionalAmount) }}
         </p>
 
-        <p v-if="!distributed" class="state note">
+        <p
+          v-if="!distributed"
+          class="state note"
+        >
           Solange die Ausschüttung nicht gebucht ist, gibt es keinen Anteil, sondern nur
           diesen Zwischenstand. Er wird genauso gerechnet wie die spätere Ausschüttung und
           bewegt sich mit jeder weiteren Ziehung.

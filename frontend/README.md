@@ -22,10 +22,20 @@ cd frontend
 npm install
 npm run dev        # http://localhost:3000
 npm run build      # Ausgabe nach dist/
+npm run lint       # prüft, ändert nichts
+npm run lint:fix   # korrigiert, was automatisch korrigierbar ist
 ```
 
-`npm run lint` steht in der `package.json`, hat aber keine ESLint-Konfiguration im
-Repository und schlägt deshalb fehl — siehe „Offene Punkte“.
+Ohne lokales Node läuft beides im Container:
+
+```bash
+podman run --rm -v "$PWD:/app:Z" -w /app node:18-alpine sh -c "npm install && npm run lint"
+```
+
+Regelsatz: `eslint:recommended` + `plugin:vue/vue3-recommended` (siehe
+[`.eslintrc.cjs`](.eslintrc.cjs)). `vue3-recommended` ist die strengste der drei
+Vue-Voreinstellungen; sie enthält neben den Fehlerregeln auch die Formatierungs- und
+Reihenfolgeregeln. Der Bestand ist fehlerfrei — **halte ihn so**.
 
 Läuft parallel der Frontend-Container aus `docker-compose.yml`, belegt der Port 3000 —
 vorher `docker-compose stop frontend`.
@@ -170,9 +180,6 @@ keycloak-js 23, Vite 5.
 
 ## Offene Punkte
 
-- `npm run lint` ist ohne `.eslintrc` nicht lauffähig. Entweder eine Konfiguration
-  ergänzen oder das Skript entfernen — ein Befehl, der immer fehlschlägt, wird nicht
-  benutzt und deckt darum auch nichts auf.
 - Keine automatisierten Tests (Vitest, Playwright).
 - Kein TypeScript.
 - Teilnehmer- und Adminlisten arbeiten teils mit IDs statt mit Namen, weil die Basisversion

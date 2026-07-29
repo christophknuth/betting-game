@@ -234,7 +234,35 @@ cd frontend
 npm install
 npm run dev        # http://localhost:3000 (Backend muss auf :8080 laufen)
 npm run build      # Ausgabe nach dist/
+npm run lint       # prüft, ändert nichts
+npm run lint:fix   # korrigiert das automatisch Korrigierbare
 ```
+
+### Regelsatz
+
+`eslint:recommended` + `plugin:vue/vue3-recommended`, konfiguriert in
+[`frontend/.eslintrc.cjs`](frontend/.eslintrc.cjs). `vue3-recommended` ist die strengste
+der drei Vue-Voreinstellungen — sie stapelt *essential* (echte Fehler),
+*strongly-recommended* (Lesbarkeit) und *recommended* (Reihenfolge und Benennung).
+Genau diese Kombination empfiehlt die Vue-Dokumentation selbst, wer sie kennt, muss hier
+keine Hausregeln lernen.
+
+Eine Ausnahme ist konfiguriert: `vue/multi-word-component-names` erlaubt `App` — die eine
+Komponente, die sinnvoll kein zweites Wort trägt.
+
+Der Bestand ist **fehlerfrei** — halte ihn so. Ohne lokales Node läuft die Prüfung im
+Container:
+
+```bash
+podman run --rm -v "$PWD/frontend:/app:Z" -w /app node:18-alpine \
+  sh -c "npm install && npm run lint"
+```
+
+Die Formatierungsregeln (`max-attributes-per-line`,
+`singleline-html-element-content-newline`) sind bewusst **nicht** abgeschaltet, obwohl sie
+die Templates länger machen: Sie ersetzen den Formatter, den dieses Projekt nicht hat.
+Wer sie doch abschaltet, braucht dafür einen — sonst driftet die Formatierung wieder
+auseinander.
 
 Läuft parallel der Frontend-Container, belegt dieser Port 3000 — vorher
 `docker-compose stop frontend`.
@@ -290,8 +318,6 @@ docker-compose logs frontend
 
 ## Offene Punkte
 
-- **`npm run lint` läuft nicht.** Das Skript steht in der `package.json`, eine
-  ESLint-Konfiguration fehlt im Repository.
 - **Keine automatisierten Tests.** Vitest für die Composables (der Idempotency-Key hat
   eine Regel, die sich prüfen lässt), Playwright für den Durchstich.
 - **Teilnehmer werden über IDs angesprochen.** „Teilnehmer-ID“ statt Name in

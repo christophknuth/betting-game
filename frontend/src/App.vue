@@ -1,28 +1,58 @@
 <template>
   <div class="app">
-    <nav v-if="authStore.isAuthenticated" class="navbar">
+    <nav
+      v-if="authStore.isAuthenticated"
+      class="navbar"
+    >
       <div class="container">
-        <h1 class="logo">🎲 Tippgemeinschaft</h1>
+        <h1 class="logo">
+          🎲 Tippgemeinschaft
+        </h1>
 
         <div class="nav-links">
-          <router-link to="/bet-row">Meine Reihe</router-link>
-          <router-link to="/memberships">Teilnahmen</router-link>
-          <router-link to="/fees">Gebühren</router-link>
-          <router-link to="/payout-share">Gewinnanteil</router-link>
-          <router-link to="/draws">Ziehungen</router-link>
+          <router-link to="/bet-row">
+            Meine Reihe
+          </router-link>
+          <router-link to="/memberships">
+            Teilnahmen
+          </router-link>
+          <router-link to="/fees">
+            Gebühren
+          </router-link>
+          <router-link to="/payout-share">
+            Gewinnanteil
+          </router-link>
+          <router-link to="/draws">
+            Ziehungen
+          </router-link>
 
           <template v-if="authStore.isAdmin()">
             <span class="nav-divider">|</span>
-            <router-link to="/admin/tipp-years">Tippjahre</router-link>
-            <router-link to="/admin/bet-rows">Reihen</router-link>
-            <router-link to="/admin/draws">Ziehungen&nbsp;⚙</router-link>
-            <router-link to="/admin/fees">Gebühren&nbsp;⚙</router-link>
-            <router-link to="/admin/operations">Betrieb</router-link>
+            <router-link to="/admin/tipp-years">
+              Tippjahre
+            </router-link>
+            <router-link to="/admin/bet-rows">
+              Reihen
+            </router-link>
+            <router-link to="/admin/draws">
+              Ziehungen&nbsp;⚙
+            </router-link>
+            <router-link to="/admin/fees">
+              Gebühren&nbsp;⚙
+            </router-link>
+            <router-link to="/admin/operations">
+              Betrieb
+            </router-link>
           </template>
 
           <div class="user-menu">
             <span class="username">{{ authStore.displayName }}</span>
-            <button class="btn-logout" @click="logout">Abmelden</button>
+            <button
+              class="btn-logout"
+              @click="logout"
+            >
+              Abmelden
+            </button>
           </div>
         </div>
       </div>

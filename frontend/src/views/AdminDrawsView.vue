@@ -12,18 +12,37 @@
     <div class="field-inline">
       <div class="field">
         <label for="tippYear">Tippjahr</label>
-        <select id="tippYear" v-model="tippYearId" @change="loadDraws">
-          <option value="">bitte wählen</option>
-          <option v-for="year in tippYears" :key="year.tippYearId" :value="year.tippYearId">
+        <select
+          id="tippYear"
+          v-model="tippYearId"
+          @change="loadDraws"
+        >
+          <option value="">
+            bitte wählen
+          </option>
+          <option
+            v-for="year in tippYears"
+            :key="year.tippYearId"
+            :value="year.tippYearId"
+          >
             {{ year.name }} (#{{ year.tippYearId }})
           </option>
         </select>
       </div>
-      <button class="btn-secondary" :disabled="!tippYearId || draws.loading" @click="loadDraws">
+      <button
+        class="btn-secondary"
+        :disabled="!tippYearId || draws.loading"
+        @click="loadDraws"
+      >
         Aktualisieren
       </button>
     </div>
-    <div v-if="years.error" class="state error">{{ years.error }}</div>
+    <div
+      v-if="years.error"
+      class="state error"
+    >
+      {{ years.error }}
+    </div>
   </div>
 
   <!-- B-08 -->
@@ -33,51 +52,116 @@
       <div class="field-row">
         <div class="field">
           <label for="drawDate">Ziehungsdatum</label>
-          <input id="drawDate" v-model="newDraw.drawDate" type="date" required>
+          <input
+            id="drawDate"
+            v-model="newDraw.drawDate"
+            type="date"
+            required
+          >
         </div>
         <div class="field">
           <label for="drawNumbers">Gewinnzahlen</label>
-          <input id="drawNumbers" v-model="newDraw.numbers" placeholder="3 12 19 27 33 45" required>
+          <input
+            id="drawNumbers"
+            v-model="newDraw.numbers"
+            placeholder="3 12 19 27 33 45"
+            required
+          >
         </div>
         <div class="field">
           <label for="superzahl">Superzahl</label>
-          <input id="superzahl" v-model="newDraw.superzahl" type="number" min="0" max="9" required>
+          <input
+            id="superzahl"
+            v-model="newDraw.superzahl"
+            type="number"
+            min="0"
+            max="9"
+            required
+          >
         </div>
       </div>
 
-      <p class="state note">Ein doppeltes Ziehungsdatum wird mit 409 abgelehnt.</p>
-      <div v-if="numbersError" class="state error">{{ numbersError }}</div>
+      <p class="state note">
+        Ein doppeltes Ziehungsdatum wird mit 409 abgelehnt.
+      </p>
+      <div
+        v-if="numbersError"
+        class="state error"
+      >
+        {{ numbersError }}
+      </div>
 
-      <button class="btn-primary" :disabled="recordCmd.pending || !tippYearId" type="submit">
+      <button
+        class="btn-primary"
+        :disabled="recordCmd.pending || !tippYearId"
+        type="submit"
+      >
         {{ recordCmd.pending ? 'Wird gesendet …' : 'Ziehung eintragen' }}
       </button>
       <CommandFeedback :command="recordCmd" />
     </form>
   </div>
 
-  <div v-if="!tippYearId" class="state empty">Kein Tippjahr gewählt.</div>
-  <div v-else-if="draws.loading" class="state loading">Wird geladen …</div>
-  <div v-else-if="draws.error" class="state error">{{ draws.error }}</div>
-  <div v-else-if="!drawList.length" class="state empty">
+  <div
+    v-if="!tippYearId"
+    class="state empty"
+  >
+    Kein Tippjahr gewählt.
+  </div>
+  <div
+    v-else-if="draws.loading"
+    class="state loading"
+  >
+    Wird geladen …
+  </div>
+  <div
+    v-else-if="draws.error"
+    class="state error"
+  >
+    {{ draws.error }}
+  </div>
+  <div
+    v-else-if="!drawList.length"
+    class="state empty"
+  >
     Für dieses Tippjahr ist noch keine Ziehung eingetragen.
   </div>
 
   <template v-else>
-    <div v-for="draw in drawList" :key="draw.drawId" class="card">
+    <div
+      v-for="draw in drawList"
+      :key="draw.drawId"
+      class="card"
+    >
       <div class="page-header">
         <div>
           <h3>{{ formatDate(draw.drawDate) }}</h3>
-          <p class="subtitle">Ziehung #{{ draw.drawId }}</p>
+          <p class="subtitle">
+            Ziehung #{{ draw.drawId }}
+          </p>
         </div>
-        <span class="badge" :class="draw.status">{{ statusLabel(draw.status) }}</span>
+        <span
+          class="badge"
+          :class="draw.status"
+        >{{ statusLabel(draw.status) }}</span>
       </div>
 
       <div class="numbers section">
-        <span v-for="number in draw.numbers" :key="number" class="ball">{{ number }}</span>
-        <span v-if="draw.superzahl !== null" class="ball superzahl">{{ draw.superzahl }}</span>
+        <span
+          v-for="number in draw.numbers"
+          :key="number"
+          class="ball"
+        >{{ number }}</span>
+        <span
+          v-if="draw.superzahl !== null"
+          class="ball superzahl"
+        >{{ draw.superzahl }}</span>
       </div>
 
-      <div v-if="draw.ticket" class="state success section">
+      <div
+        v-if="draw.ticket"
+        class="state success section"
+      >
         Tippschein #{{ draw.ticket.ticketId }} ({{ draw.ticket.rowCount }} Reihen) hat
         {{ formatAmount(draw.ticket.totalAmount) }} gewonnen.
       </div>
@@ -100,11 +184,18 @@
           </span>
         </div>
 
-        <button class="btn-primary" :disabled="winningsCmds[draw.drawId]?.pending" type="submit">
+        <button
+          class="btn-primary"
+          :disabled="winningsCmds[draw.drawId]?.pending"
+          type="submit"
+        >
           {{ winningsCmds[draw.drawId]?.pending ? 'Wird gesendet …' : 'Gewinn eintragen' }}
         </button>
 
-        <CommandFeedback v-if="winningsCmds[draw.drawId]" :command="winningsCmds[draw.drawId]" />
+        <CommandFeedback
+          v-if="winningsCmds[draw.drawId]"
+          :command="winningsCmds[draw.drawId]"
+        />
       </form>
     </div>
   </template>

@@ -15,9 +15,19 @@
     <div class="field-inline">
       <div class="field">
         <label for="tippYear">Tippjahr</label>
-        <select id="tippYear" v-model="tippYearId" @change="loadPeriods">
-          <option value="">bitte wählen</option>
-          <option v-for="year in tippYears" :key="year.tippYearId" :value="year.tippYearId">
+        <select
+          id="tippYear"
+          v-model="tippYearId"
+          @change="loadPeriods"
+        >
+          <option value="">
+            bitte wählen
+          </option>
+          <option
+            v-for="year in tippYears"
+            :key="year.tippYearId"
+            :value="year.tippYearId"
+          >
             {{ year.name }} (#{{ year.tippYearId }})
           </option>
         </select>
@@ -25,18 +35,41 @@
 
       <div class="field">
         <label for="betPeriod">Tippperiode</label>
-        <select id="betPeriod" v-model="form.betPeriodId" :disabled="!betPeriods.length">
-          <option value="">bitte wählen</option>
-          <option v-for="period in betPeriods" :key="period.betPeriodId" :value="period.betPeriodId">
+        <select
+          id="betPeriod"
+          v-model="form.betPeriodId"
+          :disabled="!betPeriods.length"
+        >
+          <option value="">
+            bitte wählen
+          </option>
+          <option
+            v-for="period in betPeriods"
+            :key="period.betPeriodId"
+            :value="period.betPeriodId"
+          >
             {{ period.name }} ({{ formatDate(period.startDate) }} – {{ formatDate(period.endDate) }})
           </option>
         </select>
       </div>
     </div>
 
-    <div v-if="years.error" class="state error">{{ years.error }}</div>
-    <div v-else-if="periods.error" class="state error">{{ periods.error }}</div>
-    <div v-else-if="tippYearId && !periods.loading && !betPeriods.length" class="state empty">
+    <div
+      v-if="years.error"
+      class="state error"
+    >
+      {{ years.error }}
+    </div>
+    <div
+      v-else-if="periods.error"
+      class="state error"
+    >
+      {{ periods.error }}
+    </div>
+    <div
+      v-else-if="tippYearId && !periods.loading && !betPeriods.length"
+      class="state empty"
+    >
       Für dieses Tippjahr ist keine Periode angelegt. Ohne Periode gibt es keine Reihe.
     </div>
   </div>
@@ -49,18 +82,33 @@
       <div class="field-row">
         <div class="field">
           <label for="participantId">Teilnehmer-ID</label>
-          <input id="participantId" v-model="form.participantId" type="number" min="1" required>
+          <input
+            id="participantId"
+            v-model="form.participantId"
+            type="number"
+            min="1"
+            required
+          >
         </div>
         <div class="field">
           <label for="numbers">Sechs Zahlen</label>
-          <input id="numbers" v-model="form.numbers" placeholder="3 12 19 27 33 45" required>
+          <input
+            id="numbers"
+            v-model="form.numbers"
+            placeholder="3 12 19 27 33 45"
+            required
+          >
           <span class="hint">Trennzeichen egal: Leerzeichen, Komma oder Semikolon</span>
         </div>
       </div>
 
       <div class="field">
         <label for="replaceReason">Grund der Ersetzung</label>
-        <input id="replaceReason" v-model="form.replaceReason" placeholder="nur beim Ersetzen">
+        <input
+          id="replaceReason"
+          v-model="form.replaceReason"
+          placeholder="nur beim Ersetzen"
+        >
         <span class="hint">
           Nur nötig, um eine bereits zugeordnete Reihe zu ersetzen. Ohne den Grund
           antwortet der Endpunkt mit 409 — regulär wechselt die Reihe erst mit der
@@ -68,9 +116,18 @@
         </span>
       </div>
 
-      <div v-if="numbersError" class="state error">{{ numbersError }}</div>
+      <div
+        v-if="numbersError"
+        class="state error"
+      >
+        {{ numbersError }}
+      </div>
 
-      <button class="btn-primary" :disabled="command.pending || !form.betPeriodId" type="submit">
+      <button
+        class="btn-primary"
+        :disabled="command.pending || !form.betPeriodId"
+        type="submit"
+      >
         {{ command.pending ? 'Wird gesendet …' : 'Reihe zuordnen' }}
       </button>
 

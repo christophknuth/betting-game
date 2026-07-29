@@ -14,45 +14,88 @@
     <div class="page-header">
       <h3>Projektionen</h3>
       <div class="actions">
-        <button class="btn-secondary" :disabled="projections.loading" @click="loadProjections">
+        <button
+          class="btn-secondary"
+          :disabled="projections.loading"
+          @click="loadProjections"
+        >
           Aktualisieren
         </button>
-        <button class="btn-danger" :disabled="rebuilding" @click="rebuild('all')">
+        <button
+          class="btn-danger"
+          :disabled="rebuilding"
+          @click="rebuild('all')"
+        >
           Alle neu aufbauen
         </button>
       </div>
     </div>
 
-    <div v-if="projections.loading" class="state loading">Wird geladen …</div>
-    <div v-else-if="projections.error" class="state error">{{ projections.error }}</div>
+    <div
+      v-if="projections.loading"
+      class="state loading"
+    >
+      Wird geladen …
+    </div>
+    <div
+      v-else-if="projections.error"
+      class="state error"
+    >
+      {{ projections.error }}
+    </div>
 
-    <div v-else class="card table-wrap">
+    <div
+      v-else
+      class="card table-wrap"
+    >
       <table class="data">
         <thead>
           <tr>
             <th>Projektion</th>
             <th>Status</th>
-            <th class="numeric">Verarbeitet</th>
-            <th class="numeric">Head</th>
-            <th class="numeric">Rückstand</th>
+            <th class="numeric">
+              Verarbeitet
+            </th>
+            <th class="numeric">
+              Head
+            </th>
+            <th class="numeric">
+              Rückstand
+            </th>
             <th>Aktualisiert</th>
-            <th></th>
+            <th />
           </tr>
         </thead>
         <tbody>
-          <tr v-for="projection in projectionList" :key="projection.name">
+          <tr
+            v-for="projection in projectionList"
+            :key="projection.name"
+          >
             <td><code>{{ projection.name }}</code></td>
             <td>
-              <span class="badge" :class="projection.upToDate ? 'ok' : 'lagging'">
+              <span
+                class="badge"
+                :class="projection.upToDate ? 'ok' : 'lagging'"
+              >
                 {{ projection.upToDate ? 'aktuell' : projection.status }}
               </span>
             </td>
-            <td class="numeric">{{ projection.lastProcessedPosition }}</td>
-            <td class="numeric">{{ projection.headPosition }}</td>
-            <td class="numeric">{{ projection.lag }}</td>
+            <td class="numeric">
+              {{ projection.lastProcessedPosition }}
+            </td>
+            <td class="numeric">
+              {{ projection.headPosition }}
+            </td>
+            <td class="numeric">
+              {{ projection.lag }}
+            </td>
             <td>{{ formatDateTime(projection.updatedAt) }}</td>
             <td>
-              <button class="btn-link" :disabled="rebuilding" @click="rebuild(projection.name)">
+              <button
+                class="btn-link"
+                :disabled="rebuilding"
+                @click="rebuild(projection.name)"
+              >
                 neu aufbauen
               </button>
             </td>
@@ -68,8 +111,16 @@
       der Zustand danach, keine Bestätigung.
     </p>
 
-    <div v-if="rebuildError" class="state error">{{ rebuildError }}</div>
-    <div v-else-if="rebuilt.length" class="state success">
+    <div
+      v-if="rebuildError"
+      class="state error"
+    >
+      {{ rebuildError }}
+    </div>
+    <div
+      v-else-if="rebuilt.length"
+      class="state success"
+    >
       Neu aufgebaut: {{ rebuilt.map(entry => entry.name).join(', ') }}
     </div>
   </div>
@@ -80,22 +131,48 @@
     <div class="field-inline">
       <div class="field grow">
         <label for="commandId">Command-ID</label>
-        <input id="commandId" v-model="commandId" placeholder="UUID aus der CommandResponse">
+        <input
+          id="commandId"
+          v-model="commandId"
+          placeholder="UUID aus der CommandResponse"
+        >
       </div>
-      <button class="btn-primary" :disabled="!commandId || commandStatus.loading" @click="loadCommand">
+      <button
+        class="btn-primary"
+        :disabled="!commandId || commandStatus.loading"
+        @click="loadCommand"
+      >
         Nachsehen
       </button>
     </div>
 
-    <div v-if="commandStatus.loading" class="state loading">Wird geladen …</div>
-    <div v-else-if="commandStatus.error" class="state error">{{ commandStatus.error }}</div>
+    <div
+      v-if="commandStatus.loading"
+      class="state loading"
+    >
+      Wird geladen …
+    </div>
+    <div
+      v-else-if="commandStatus.error"
+      class="state error"
+    >
+      {{ commandStatus.error }}
+    </div>
 
-    <dl v-else-if="commandStatus.data" class="facts">
+    <dl
+      v-else-if="commandStatus.data"
+      class="facts"
+    >
       <dt>Typ</dt>
       <dd>{{ commandStatus.data.commandType }}</dd>
 
       <dt>Status</dt>
-      <dd><span class="badge" :class="commandStatus.data.status">{{ commandStatus.data.status }}</span></dd>
+      <dd>
+        <span
+          class="badge"
+          :class="commandStatus.data.status"
+        >{{ commandStatus.data.status }}</span>
+      </dd>
 
       <dt>Aggregat</dt>
       <dd>{{ commandStatus.data.aggregateType ?? '–' }} {{ commandStatus.data.aggregateId ?? '' }}</dd>
@@ -134,28 +211,60 @@
     <div class="field-inline">
       <div class="field">
         <label for="aggregateType">Typ</label>
-        <select id="aggregateType" v-model="audit.aggregateType">
-          <option v-for="type in AGGREGATE_TYPES" :key="type" :value="type">{{ type }}</option>
+        <select
+          id="aggregateType"
+          v-model="audit.aggregateType"
+        >
+          <option
+            v-for="type in AGGREGATE_TYPES"
+            :key="type"
+            :value="type"
+          >
+            {{ type }}
+          </option>
         </select>
       </div>
       <div class="field">
         <label for="aggregateId">ID</label>
-        <input id="aggregateId" v-model="audit.aggregateId" type="number" min="1">
+        <input
+          id="aggregateId"
+          v-model="audit.aggregateId"
+          type="number"
+          min="1"
+        >
       </div>
-      <button class="btn-primary" :disabled="!audit.aggregateId || trail.loading" @click="loadTrail">
+      <button
+        class="btn-primary"
+        :disabled="!audit.aggregateId || trail.loading"
+        @click="loadTrail"
+      >
         Anzeigen
       </button>
     </div>
 
-    <div v-if="trail.loading" class="state loading">Wird geladen …</div>
-    <div v-else-if="trail.error" class="state empty">{{ trail.error }}</div>
+    <div
+      v-if="trail.loading"
+      class="state loading"
+    >
+      Wird geladen …
+    </div>
+    <div
+      v-else-if="trail.error"
+      class="state empty"
+    >
+      {{ trail.error }}
+    </div>
 
     <template v-else-if="trail.data">
       <p class="subtitle">
         Stream <code>{{ trail.data.streamId }}</code>, Version {{ trail.data.version }}
       </p>
 
-      <div v-for="event in trail.data.events" :key="event.eventId" class="event">
+      <div
+        v-for="event in trail.data.events"
+        :key="event.eventId"
+        class="event"
+      >
         <div class="page-header">
           <div>
             <strong>{{ event.eventType }}</strong>

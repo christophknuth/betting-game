@@ -1,7 +1,10 @@
 <template>
   <slot v-if="authStore.participantId" />
 
-  <div v-else class="state note">
+  <div
+    v-else
+    class="state note"
+  >
     <p>
       <strong>Dieses Token trägt keinen <code>participant_id</code>-Claim.</strong>
     </p>

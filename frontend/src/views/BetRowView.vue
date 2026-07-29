@@ -22,19 +22,42 @@
           >
           <span class="hint">ID der Periode, leer = heute laufend</span>
         </div>
-        <button class="btn-primary" :disabled="betRow.loading" @click="reload">Anzeigen</button>
+        <button
+          class="btn-primary"
+          :disabled="betRow.loading"
+          @click="reload"
+        >
+          Anzeigen
+        </button>
       </div>
     </div>
 
-    <div v-if="betRow.loading" class="state loading">Wird geladen …</div>
+    <div
+      v-if="betRow.loading"
+      class="state loading"
+    >
+      Wird geladen …
+    </div>
 
     <!-- A 404 here is an answer, not a fault: it means no row is assigned for
          that period. So the API's message goes into the empty state. -->
-    <div v-else-if="betRow.error" class="state empty">{{ betRow.error }}</div>
+    <div
+      v-else-if="betRow.error"
+      class="state empty"
+    >
+      {{ betRow.error }}
+    </div>
 
-    <div v-else-if="betRow.data" class="card">
+    <div
+      v-else-if="betRow.data"
+      class="card"
+    >
       <div class="numbers section">
-        <span v-for="number in betRow.data.numbers" :key="number" class="ball">{{ number }}</span>
+        <span
+          v-for="number in betRow.data.numbers"
+          :key="number"
+          class="ball"
+        >{{ number }}</span>
       </div>
 
       <dl class="facts">

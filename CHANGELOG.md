@@ -6,6 +6,35 @@ fest, was wann und warum geändert wurde.
 
 ---
 
+## ESLint für das Frontend (2026-07-29)
+
+**Das Lint-Skript stand in der `package.json`, ohne dass es eine Konfiguration gab** — es
+schlug immer fehl und wurde darum nie benutzt.
+
+- [`frontend/.eslintrc.cjs`](frontend/.eslintrc.cjs) mit `eslint:recommended` +
+  `plugin:vue/vue3-recommended`, der strengsten der drei Vue-Voreinstellungen. Eine
+  einzige Ausnahme: `vue/multi-word-component-names` erlaubt `App`.
+- `.cjs`, weil die `package.json` `"type": "module"` deklariert.
+- `npm run lint` prüft jetzt nur noch, `npm run lint:fix` korrigiert. Vorher trug das
+  Lint-Skript ein `--fix` — ein Prüfbefehl, der die Dateien ändert, ist in einer Pipeline
+  nicht zu gebrauchen.
+
+**Ergebnis der ersten Prüfung: 515 Verstöße, davon 0 Fehler.** Alle stammten aus vier
+Formatierungsregeln (`max-attributes-per-line`, `singleline-html-element-content-newline`,
+`html-self-closing`, `multiline-html-element-content-newline`) und waren automatisch
+korrigierbar. Dass aus `eslint:recommended` und den Vue-Fehlerregeln nichts kam, heißt:
+keine ungenutzten Variablen, keine unbekannten Bezeichner, keine fehlenden `:key`.
+
+Die Formatierungsregeln sind bewusst **nicht** abgeschaltet worden, obwohl sie die
+Templates länger machen. Sie ersetzen den Formatter, den dieses Projekt nicht hat.
+
+**Eine Stelle war danach kaputt und ist von Hand korrigiert:** In `DrawsView` stand
+„5 Richtige + Superzahl“ als zwei Markup-Fragmente, deren Abstand davon abhing, wo die
+Zeile umbrach. Der Formatierer darf woanders umbrechen — die Zeichenkette wird jetzt in
+JavaScript zusammengesetzt statt aus Markup.
+
+---
+
 ## Frontend auf die Lotto-Domäne umgestellt (2026-07-29)
 
 **Die SPA rief Endpunkte auf, die es seit dem Kurswechsel nicht mehr gab.** Predictions,
