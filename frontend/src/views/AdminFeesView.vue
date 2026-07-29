@@ -12,30 +12,77 @@
     <div class="field-inline">
       <div class="field">
         <label for="tippYearId">Tippjahr</label>
-        <input id="tippYearId" v-model="filters.tippYearId" type="number" min="1" placeholder="alle">
+        <input
+          id="tippYearId"
+          v-model="filters.tippYearId"
+          type="number"
+          min="1"
+          placeholder="alle"
+        >
       </div>
       <div class="field">
         <label for="participantId">Teilnehmer</label>
-        <input id="participantId" v-model="filters.participantId" type="number" min="1" placeholder="alle">
+        <input
+          id="participantId"
+          v-model="filters.participantId"
+          type="number"
+          min="1"
+          placeholder="alle"
+        >
       </div>
       <div class="field">
         <label for="paymentStatus">Status</label>
-        <select id="paymentStatus" v-model="filters.paymentStatus">
-          <option value="">alle</option>
-          <option value="open">offen</option>
-          <option value="paid">bezahlt</option>
-          <option value="waived">erlassen</option>
+        <select
+          id="paymentStatus"
+          v-model="filters.paymentStatus"
+        >
+          <option value="">
+            alle
+          </option>
+          <option value="open">
+            offen
+          </option>
+          <option value="paid">
+            bezahlt
+          </option>
+          <option value="waived">
+            erlassen
+          </option>
         </select>
       </div>
-      <button class="btn-primary" :disabled="query.loading" @click="reload">Filtern</button>
+      <button
+        class="btn-primary"
+        :disabled="query.loading"
+        @click="reload"
+      >
+        Filtern
+      </button>
     </div>
   </div>
 
-  <div v-if="query.loading" class="state loading">Wird geladen …</div>
-  <div v-else-if="query.error" class="state error">{{ query.error }}</div>
-  <div v-else-if="!fees.length" class="state empty">Zu diesem Filter gibt es keine Gebühren.</div>
+  <div
+    v-if="query.loading"
+    class="state loading"
+  >
+    Wird geladen …
+  </div>
+  <div
+    v-else-if="query.error"
+    class="state error"
+  >
+    {{ query.error }}
+  </div>
+  <div
+    v-else-if="!fees.length"
+    class="state empty"
+  >
+    Zu diesem Filter gibt es keine Gebühren.
+  </div>
 
-  <div v-else class="card table-wrap">
+  <div
+    v-else
+    class="card table-wrap"
+  >
     <table class="data">
       <thead>
         <tr>
@@ -43,32 +90,52 @@
           <th>Teilnehmer</th>
           <th>Schein</th>
           <th>Zeitraum</th>
-          <th class="numeric">Betrag</th>
+          <th class="numeric">
+            Betrag
+          </th>
           <th>Fällig</th>
           <th>Status</th>
           <th>Gebucht von</th>
-          <th></th>
+          <th />
         </tr>
       </thead>
       <tbody>
-        <tr v-for="fee in fees" :key="fee.feeId">
+        <tr
+          v-for="fee in fees"
+          :key="fee.feeId"
+        >
           <td>#{{ fee.feeId }}</td>
           <td>{{ fee.displayName }} (#{{ fee.participantId }})</td>
           <td>#{{ fee.ticketId }}</td>
           <td>{{ formatDate(fee.periodStart) }} – {{ formatDate(fee.periodEnd) }}</td>
-          <td class="numeric">{{ formatAmount(fee.amount) }}</td>
+          <td class="numeric">
+            {{ formatAmount(fee.amount) }}
+          </td>
           <td>{{ formatDate(fee.dueDate) }}</td>
-          <td><span class="badge" :class="fee.paymentStatus">{{ statusLabel(fee.paymentStatus) }}</span></td>
+          <td>
+            <span
+              class="badge"
+              :class="fee.paymentStatus"
+            >{{ statusLabel(fee.paymentStatus) }}</span>
+          </td>
           <td>{{ fee.bookedBy ?? '–' }}</td>
           <td>
-            <button class="btn-link" @click="open(fee)">buchen</button>
+            <button
+              class="btn-link"
+              @click="open(fee)"
+            >
+              buchen
+            </button>
           </td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <div v-if="selected" class="card section">
+  <div
+    v-if="selected"
+    class="card section"
+  >
     <h3>Gebühr #{{ selected.feeId }} buchen</h3>
     <p class="subtitle">
       {{ selected.displayName }} · {{ formatAmount(selected.amount) }} ·
@@ -79,31 +146,60 @@
       <div class="field-row">
         <div class="field">
           <label for="status">Zahlungsstatus</label>
-          <select id="status" v-model="booking.paymentStatus">
-            <option value="paid">bezahlt</option>
-            <option value="open">offen</option>
-            <option value="waived">erlassen</option>
+          <select
+            id="status"
+            v-model="booking.paymentStatus"
+          >
+            <option value="paid">
+              bezahlt
+            </option>
+            <option value="open">
+              offen
+            </option>
+            <option value="waived">
+              erlassen
+            </option>
           </select>
         </div>
         <div class="field">
           <label for="paidAt">Bezahlt am</label>
-          <input id="paidAt" v-model="booking.paidAt" type="datetime-local">
+          <input
+            id="paidAt"
+            v-model="booking.paidAt"
+            type="datetime-local"
+          >
         </div>
         <div class="field">
           <label for="method">Zahlungsweg</label>
-          <select id="method" v-model="booking.paymentMethod">
-            <option value="">–</option>
-            <option value="bank_transfer">Überweisung</option>
-            <option value="paypal">PayPal</option>
-            <option value="cash">bar</option>
-            <option value="other">sonstiges</option>
+          <select
+            id="method"
+            v-model="booking.paymentMethod"
+          >
+            <option value="">
+              –
+            </option>
+            <option value="bank_transfer">
+              Überweisung
+            </option>
+            <option value="paypal">
+              PayPal
+            </option>
+            <option value="cash">
+              bar
+            </option>
+            <option value="other">
+              sonstiges
+            </option>
           </select>
         </div>
       </div>
 
       <div class="field">
         <label for="note">Notiz</label>
-        <input id="note" v-model="booking.note">
+        <input
+          id="note"
+          v-model="booking.note"
+        >
         <span class="hint">Beim Erlass einer Gebühr erforderlich.</span>
       </div>
 
@@ -113,10 +209,20 @@
       </p>
 
       <div class="actions">
-        <button class="btn-primary" :disabled="command.pending" type="submit">
+        <button
+          class="btn-primary"
+          :disabled="command.pending"
+          type="submit"
+        >
           {{ command.pending ? 'Wird gesendet …' : 'Buchen' }}
         </button>
-        <button class="btn-secondary" type="button" @click="selected = null">Abbrechen</button>
+        <button
+          class="btn-secondary"
+          type="button"
+          @click="selected = null"
+        >
+          Abbrechen
+        </button>
       </div>
 
       <CommandFeedback :command="command" />

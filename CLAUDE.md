@@ -45,9 +45,16 @@ der Administrator schreibt alles.
 - **Doku-Stand.** Die Dokumentation ist seit dem 2026-07-29 nachgezogen — die Tabelle in
   [AGENTS.md](AGENTS.md) Abschnitt 2 sagt, was gilt.
 - **Das Frontend hat kein PHP.** `frontend/` ist eine Vue-3-SPA gegen die Lotto-Endpunkte
-  ([FRONTEND.md](FRONTEND.md)). Dort gelten PHPStan und PSR-12 nicht; geprüft wird sie über
-  den Build: `docker-compose build frontend` führt `npm run build` aus. `npm run lint` hat
-  keine ESLint-Konfiguration und schlägt fehl.
+  ([FRONTEND.md](FRONTEND.md)). Dort gelten PHPStan und PSR-12 nicht, sondern ESLint mit
+  `eslint:recommended` + `plugin:vue/vue3-recommended` — **fehlerfrei, halte es so.**
+  Node ist hier nicht im PATH; Lint und Build laufen im Container:
+
+  ```bash
+  podman run --rm -v "$PWD/frontend:/app:Z" -w /app node:18-alpine \
+    sh -c "npm install && npm run lint"
+  docker-compose build frontend      # führt npm run build aus
+  ```
+
 - **PHPStan Level 10 und PSR-12 sind erfüllt.** Änderungen müssen das bleiben lassen.
 - **Kommentare erklären das Warum.** Der Bestand ist durchgehend so geschrieben; siehe
   AGENTS.md Abschnitt 6. Neuen Code im selben Ton kommentieren, nicht die Signatur nacherzählen.

@@ -13,74 +13,145 @@
     <div class="field-inline">
       <div class="field">
         <label for="tippYearId">Tippjahr</label>
-        <select v-if="tippYears.length" id="tippYearId" v-model="tippYearId">
-          <option v-for="year in tippYears" :key="year.tippYearId" :value="year.tippYearId">
+        <select
+          v-if="tippYears.length"
+          id="tippYearId"
+          v-model="tippYearId"
+        >
+          <option
+            v-for="year in tippYears"
+            :key="year.tippYearId"
+            :value="year.tippYearId"
+          >
             {{ year.tippYearName }} (#{{ year.tippYearId }})
           </option>
         </select>
-        <input v-else id="tippYearId" v-model="tippYearId" type="number" min="1" placeholder="ID des Tippjahres">
+        <input
+          v-else
+          id="tippYearId"
+          v-model="tippYearId"
+          type="number"
+          min="1"
+          placeholder="ID des Tippjahres"
+        >
       </div>
 
       <div class="field">
         <label for="status">Status</label>
-        <select id="status" v-model="filters.status">
-          <option value="">alle</option>
-          <option value="scheduled">angesetzt</option>
-          <option value="drawn">gezogen</option>
-          <option value="evaluated">ausgewertet</option>
+        <select
+          id="status"
+          v-model="filters.status"
+        >
+          <option value="">
+            alle
+          </option>
+          <option value="scheduled">
+            angesetzt
+          </option>
+          <option value="drawn">
+            gezogen
+          </option>
+          <option value="evaluated">
+            ausgewertet
+          </option>
         </select>
       </div>
 
       <label class="checkbox">
-        <input v-model="filters.withWinningsOnly" type="checkbox">
+        <input
+          v-model="filters.withWinningsOnly"
+          type="checkbox"
+        >
         nur Ziehungen mit Gewinn
       </label>
 
-      <button class="btn-primary" :disabled="query.loading || !tippYearId" @click="reload">
+      <button
+        class="btn-primary"
+        :disabled="query.loading || !tippYearId"
+        @click="reload"
+      >
         Anzeigen
       </button>
     </div>
   </div>
 
-  <div v-if="!tippYearId" class="state empty">
+  <div
+    v-if="!tippYearId"
+    class="state empty"
+  >
     Kein Tippjahr gewählt. Die Auswahl stammt aus den eigenen Teilnahmen; ohne Teilnahme
     lässt sich die ID direkt eintragen.
   </div>
 
-  <div v-else-if="query.loading" class="state loading">Wird geladen …</div>
-  <div v-else-if="query.error" class="state error">{{ query.error }}</div>
+  <div
+    v-else-if="query.loading"
+    class="state loading"
+  >
+    Wird geladen …
+  </div>
+  <div
+    v-else-if="query.error"
+    class="state error"
+  >
+    {{ query.error }}
+  </div>
 
   <template v-else-if="query.data">
     <div class="card section">
       <h3>Gewinne des Tippjahres</h3>
-      <p class="figure">{{ formatAmount(query.data.totalWinnings) }}</p>
+      <p class="figure">
+        {{ formatAmount(query.data.totalWinnings) }}
+      </p>
       <p class="subtitle">
         Immer die volle Jahressumme, unabhängig vom Filter oben — eine gefilterte Liste
         soll nicht wie ein kleineres Jahr aussehen.
       </p>
     </div>
 
-    <div v-if="!query.data.draws.length" class="state empty">
+    <div
+      v-if="!query.data.draws.length"
+      class="state empty"
+    >
       Zu diesem Filter gibt es keine Ziehungen.
     </div>
 
-    <div v-for="draw in query.data.draws" :key="draw.drawId" class="card">
+    <div
+      v-for="draw in query.data.draws"
+      :key="draw.drawId"
+      class="card"
+    >
       <div class="page-header">
         <div>
           <h3>Ziehung vom {{ formatDate(draw.drawDate) }}</h3>
-          <p class="subtitle">#{{ draw.drawId }}</p>
+          <p class="subtitle">
+            #{{ draw.drawId }}
+          </p>
         </div>
-        <span class="badge" :class="draw.status">{{ statusLabel(draw.status) }}</span>
+        <span
+          class="badge"
+          :class="draw.status"
+        >{{ statusLabel(draw.status) }}</span>
       </div>
 
       <div class="numbers section">
-        <span v-for="number in draw.numbers" :key="number" class="ball">{{ number }}</span>
-        <span v-if="draw.superzahl !== null" class="ball superzahl" title="Superzahl">
+        <span
+          v-for="number in draw.numbers"
+          :key="number"
+          class="ball"
+        >{{ number }}</span>
+        <span
+          v-if="draw.superzahl !== null"
+          class="ball superzahl"
+          title="Superzahl"
+        >
           {{ draw.superzahl }}
         </span>
       </div>
 
-      <div v-if="!draw.ticket" class="state empty">
+      <div
+        v-if="!draw.ticket"
+        class="state empty"
+      >
         An dieser Ziehung hat kein Tippschein teilgenommen.
       </div>
 
@@ -94,28 +165,38 @@
 
           <template v-if="draw.ticket.bestMatch">
             <dt>Beste Reihe</dt>
-            <dd>
-              {{ draw.ticket.bestMatch.matchedNumbers }} Richtige<template
-                v-if="draw.ticket.bestMatch.superzahlMatched"
-              > + Superzahl</template>
-            </dd>
+            <dd>{{ bestMatchLabel(draw.ticket.bestMatch) }}</dd>
           </template>
         </dl>
 
-        <div v-if="draw.ticket.winningClasses?.length" class="table-wrap">
+        <div
+          v-if="draw.ticket.winningClasses?.length"
+          class="table-wrap"
+        >
           <table class="data">
             <thead>
               <tr>
                 <th>Gewinnklasse</th>
-                <th class="numeric">Reihen</th>
-                <th class="numeric">Betrag</th>
+                <th class="numeric">
+                  Reihen
+                </th>
+                <th class="numeric">
+                  Betrag
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="entry in draw.ticket.winningClasses" :key="entry.winningClass">
+              <tr
+                v-for="entry in draw.ticket.winningClasses"
+                :key="entry.winningClass"
+              >
                 <td>{{ winningClassLabel(entry.winningClass) }}</td>
-                <td class="numeric">{{ entry.rowCount }}</td>
-                <td class="numeric">{{ formatAmount(entry.amount) }}</td>
+                <td class="numeric">
+                  {{ entry.rowCount }}
+                </td>
+                <td class="numeric">
+                  {{ formatAmount(entry.amount) }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -144,6 +225,16 @@ const reload = () => {
     query.load(() => api.getDraws(tippYearId.value, { ...filters }))
   }
 }
+
+/**
+ * "5 Richtige" or "5 Richtige + Superzahl".
+ *
+ * Assembled here rather than from two template fragments: as markup, the space
+ * before the "+" depended on where the line happened to break, and a formatter
+ * is free to break it elsewhere.
+ */
+const bestMatchLabel = (bestMatch) =>
+  `${bestMatch.matchedNumbers} Richtige${bestMatch.superzahlMatched ? ' + Superzahl' : ''}`
 
 // Loading is left to the watcher, including for the initial selection below -
 // calling it here as well would fire the same request twice.

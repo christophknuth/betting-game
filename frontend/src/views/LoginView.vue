@@ -2,10 +2,15 @@
   <div class="login-container">
     <div class="login-card">
       <h1>🎲 Tippgemeinschaft</h1>
-      <p class="subtitle">Lotto 6 aus 49 — Anmeldung über Keycloak</p>
+      <p class="subtitle">
+        Lotto 6 aus 49 — Anmeldung über Keycloak
+      </p>
 
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
+      <div
+        v-if="loading"
+        class="loading-state"
+      >
+        <div class="spinner" />
         <p>Wird initialisiert …</p>
       </div>
 
@@ -17,11 +22,18 @@
           </p>
         </div>
 
-        <button class="btn-login" :disabled="loggingIn" @click="handleLogin">
+        <button
+          class="btn-login"
+          :disabled="loggingIn"
+          @click="handleLogin"
+        >
           {{ loggingIn ? 'Weiterleitung …' : 'Mit Keycloak anmelden' }}
         </button>
 
-        <div v-if="error" class="error-message">
+        <div
+          v-if="error"
+          class="error-message"
+        >
           {{ error }}
         </div>
 
@@ -49,7 +61,10 @@
 
         <div class="keycloak-info">
           <p class="small">
-            <a href="http://localhost:8090/admin/master/console/#/betting-game" target="_blank">
+            <a
+              href="http://localhost:8090/admin/master/console/#/betting-game"
+              target="_blank"
+            >
               Keycloak Admin Console
             </a> (admin/admin)
           </p>

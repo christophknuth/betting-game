@@ -1,7 +1,15 @@
 <template>
-  <div v-if="command.error" class="state error feedback">{{ command.error }}</div>
+  <div
+    v-if="command.error"
+    class="state error feedback"
+  >
+    {{ command.error }}
+  </div>
 
-  <div v-else-if="command.result" class="state success feedback">
+  <div
+    v-else-if="command.result"
+    class="state success feedback"
+  >
     <p>
       Angenommen.
       <template v-if="command.result.resourceId">

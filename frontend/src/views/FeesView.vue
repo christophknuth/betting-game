@@ -3,7 +3,9 @@
     <div class="page-header">
       <div>
         <h2>Meine Gebühren</h2>
-        <p class="subtitle">Der eigene Anteil an jedem Tippschein, mit Zahlungsstatus.</p>
+        <p class="subtitle">
+          Der eigene Anteil an jedem Tippschein, mit Zahlungsstatus.
+        </p>
       </div>
     </div>
 
@@ -11,37 +13,76 @@
       <div class="field-inline">
         <div class="field">
           <label for="tippYearId">Tippjahr</label>
-          <input id="tippYearId" v-model="filters.tippYearId" type="number" min="1" placeholder="alle">
+          <input
+            id="tippYearId"
+            v-model="filters.tippYearId"
+            type="number"
+            min="1"
+            placeholder="alle"
+          >
         </div>
         <div class="field">
           <label for="paymentStatus">Zahlungsstatus</label>
-          <select id="paymentStatus" v-model="filters.paymentStatus">
-            <option value="">alle</option>
-            <option value="open">offen</option>
-            <option value="paid">bezahlt</option>
-            <option value="waived">erlassen</option>
+          <select
+            id="paymentStatus"
+            v-model="filters.paymentStatus"
+          >
+            <option value="">
+              alle
+            </option>
+            <option value="open">
+              offen
+            </option>
+            <option value="paid">
+              bezahlt
+            </option>
+            <option value="waived">
+              erlassen
+            </option>
           </select>
         </div>
-        <button class="btn-primary" :disabled="query.loading" @click="reload">Filtern</button>
+        <button
+          class="btn-primary"
+          :disabled="query.loading"
+          @click="reload"
+        >
+          Filtern
+        </button>
       </div>
     </div>
 
-    <div v-if="query.loading" class="state loading">Wird geladen …</div>
-    <div v-else-if="query.error" class="state error">{{ query.error }}</div>
+    <div
+      v-if="query.loading"
+      class="state loading"
+    >
+      Wird geladen …
+    </div>
+    <div
+      v-else-if="query.error"
+      class="state error"
+    >
+      {{ query.error }}
+    </div>
 
     <template v-else-if="query.data">
       <div class="card-grid section">
         <div class="card">
           <h3>Belastet</h3>
-          <p class="figure">{{ formatAmount(query.data.summary.totalCharged) }}</p>
+          <p class="figure">
+            {{ formatAmount(query.data.summary.totalCharged) }}
+          </p>
         </div>
         <div class="card">
           <h3>Davon offen</h3>
-          <p class="figure open">{{ formatAmount(query.data.summary.totalOpen) }}</p>
+          <p class="figure open">
+            {{ formatAmount(query.data.summary.totalOpen) }}
+          </p>
         </div>
         <div class="card">
           <h3>Offene Posten</h3>
-          <p class="figure">{{ query.data.summary.openCount }}</p>
+          <p class="figure">
+            {{ query.data.summary.openCount }}
+          </p>
         </div>
       </div>
 
@@ -50,18 +91,26 @@
         Gebühren zeigt den offenen Betrag, nicht den des ganzen Jahres.
       </p>
 
-      <div v-if="!query.data.fees.length" class="state empty">
+      <div
+        v-if="!query.data.fees.length"
+        class="state empty"
+      >
         Zu diesem Filter gibt es keine Gebühren.
       </div>
 
-      <div v-else class="card table-wrap">
+      <div
+        v-else
+        class="card table-wrap"
+      >
         <table class="data">
           <thead>
             <tr>
               <th>Gebühr</th>
               <th>Tippschein</th>
               <th>Zeitraum</th>
-              <th class="numeric">Betrag</th>
+              <th class="numeric">
+                Betrag
+              </th>
               <th>Fällig</th>
               <th>Status</th>
               <th>Bezahlt am</th>
@@ -69,14 +118,22 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="fee in query.data.fees" :key="fee.feeId">
+            <tr
+              v-for="fee in query.data.fees"
+              :key="fee.feeId"
+            >
               <td>#{{ fee.feeId }}</td>
               <td>#{{ fee.ticketId }}</td>
               <td>{{ formatDate(fee.periodStart) }} – {{ formatDate(fee.periodEnd) }}</td>
-              <td class="numeric">{{ formatAmount(fee.amount) }}</td>
+              <td class="numeric">
+                {{ formatAmount(fee.amount) }}
+              </td>
               <td>{{ formatDate(fee.dueDate) }}</td>
               <td>
-                <span class="badge" :class="fee.paymentStatus">{{ statusLabel(fee.paymentStatus) }}</span>
+                <span
+                  class="badge"
+                  :class="fee.paymentStatus"
+                >{{ statusLabel(fee.paymentStatus) }}</span>
               </td>
               <td>{{ formatDateTime(fee.paidAt) }}</td>
               <td>{{ fee.paymentMethod ?? '–' }}</td>
