@@ -1,353 +1,317 @@
-# Quick Start Guide - Betting Game (Backend + Frontend)
+# Schnelleinstieg
 
-## 🚀 Schnellstart mit Docker (empfohlen)
+Vom leeren Repository zu einem durchgespielten Tippjahr. Fachlicher Hintergrund:
+[USER_STORIES.md](USER_STORIES.md), Architektur: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-> **ℹ️ Hinweis:** Beide Config-Fehler (Caddy & PHP-FPM) wurden behoben.  
-> Siehe [DOCKER.md](DOCKER.md), Abschnitt „Troubleshooting", für Details.
-
-### Stack
-- **Backend:**
-  - PHP-FPM 8.3 (Alpine - minimaler Footprint)
-  - Caddy 2.7 (Moderner Webserver mit Auto-HTTPS)
-  - MariaDB 11.3 (Neueste stabile Version)
-  - PHPMyAdmin (Datenbank-Management)
-- **Frontend:**
-  - Vue.js 3 (Progressive Framework)
-  - Vite 5 (Build Tool)
-  - Nginx (Static File Server)
-- **Authentifizierung:**
-  - Keycloak 23.0 (OAuth2/OIDC)
-  - PostgreSQL 16 (Keycloak-Datenbank)
-
-### 1. In das Projektverzeichnis wechseln
-```bash
-cd betting-game
-```
-
-### 2. Mit Docker starten
-```bash
-make start
-# Wartet automatisch 5 Sekunden, dann:
-make composer-install
-```
-
-Das war's! Die Services laufen jetzt:
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8080
-- **PHPMyAdmin**: http://localhost:8081 (root/secret)
-- **Keycloak**: http://localhost:8090 (Admin Console: /admin, admin/admin)
-
-> Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import.
-> Fortschritt: `docker-compose logs -f keycloak`
-
-### 3. Frontend nutzen
-
-1. Öffne http://localhost:3000
-2. Klick auf "Login with Keycloak"
-3. Demo-Login: `testuser` / `test123` (Admin: `admin` / `admin123`)
-4. Fertig! 🎉
-
-Details zu Benutzern und Rollen: siehe [KEYCLOAK.md](KEYCLOAK.md).
-
-## 🎯 Features testen
-
-### Predictions erstellen
-1. Gehe zu "New Prediction"
-2. Event ID eingeben (z.B. 100)
-3. JSON Template nutzen oder eigene Daten
-4. Submit!
-
-### Scores anschauen
-- Gehe zu "Scores"
-- Siehe Summary Dashboard
-- Siehe Score History
-
-### Games beitreten
-1. Gehe zu "Games"
-2. Game ID eingeben (z.B. 1)
-3. Terms akzeptieren
-4. Join!
-
-## 🧪 API direkt testen
+## 1. Stack starten
 
 ```bash
-# API Health Check
-curl http://localhost:8080/health
-
-# Prediction erstellen (benötigt Auth Header)
-curl -X POST http://localhost:8080/participants/1/events/1/predictions \
-  -H "Authorization: Bearer test-token" \
-  -H "Content-Type: application/json" \
-  -d '{"predictionData": {"homeScore": 2, "awayScore": 1}}'
+docker-compose up -d
+docker-compose exec php composer install
+curl http://localhost:8080/health          # {"status":"healthy","timestamp":"..."}
 ```
 
-> ⚠️ `test-token` funktioniert nur, weil `public/index.php` die Token-Prüfung aktuell noch
-> simuliert (jeder Bearer-Token wird akzeptiert). Einen echten Keycloak-Token holst du dir
-> mit dem Snippet in [KEYCLOAK.md](KEYCLOAK.md#testen).
+| Dienst | URL | Zugang |
+|---|---|---|
+| API (Caddy) | http://localhost:8080 | Bearer-Token |
+| PHPMyAdmin | http://localhost:8081 | root / secret |
+| Keycloak | http://localhost:8090 | Admin Console `/admin`, admin / admin |
+| MariaDB | localhost:3306 | root / secret, DB `betting_game` |
 
-## 📋 Manuelle Installation (ohne Docker)
+Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import:
+`docker-compose logs -f keycloak`, warten auf `Keycloak 23.0.x started`.
 
-### Voraussetzungen
-- PHP 8.3+
-- MariaDB 10.6+ (Docker-Stack nutzt 11.3) oder MySQL 8.0+
-- Composer 2.x
-- Node.js 18+ (für das Frontend)
+Das Schema wird beim ersten Start der Datenbank automatisch aus
+[database/schema.sql](database/schema.sql) geladen. Neu einspielen: `make db-reset`.
 
-### Installation
+> Der Container `frontend` auf Port 3000 ist **Altbestand** aus dem alten
+> Sportwetten-Tippspiel und passt zu keinem Endpunkt dieser API mehr. Für die Basis wird er
+> nicht gebraucht: `docker-compose stop frontend`.
 
-1. **Dependencies installieren**
+## 2. Token holen
+
+Die Demo-Benutzer stehen in [keycloak/realm-export.json](keycloak/realm-export.json):
+
+| Username | Passwort | Rollen | `participant_id` |
+|---|---|---|---|
+| `admin` | `admin123` | user, admin | 1 |
+| `testuser` | `test123` | user | 2 |
+| `john.doe` | `password` | user | 3 |
+
 ```bash
-composer install
-```
-
-2. **Datenbank erstellen**
-```bash
-mysql -u root -p -e "CREATE DATABASE betting_game CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -u root -p betting_game < database/schema.sql
-```
-
-3. **Konfiguration anpassen**
-```bash
-cp .env.example .env
-# Bearbeite .env mit deinen Datenbankzugangsdaten
-```
-
-4. **Web Server konfigurieren**
-
-**Apache**: `.htaccess` ist bereits vorhanden
-
-**Nginx**: Füge zu deiner config hinzu:
-```nginx
-location / {
-    try_files $uri $uri/ /index.php?$query_string;
+token() {
+  curl -s -X POST http://localhost:8090/realms/betting-game/protocol/openid-connect/token \
+    -d client_id=betting-game-frontend -d grant_type=password \
+    -d "username=$1" -d "password=$2" | jq -r .access_token
 }
+
+ADMIN=$(token admin admin123)
+USER=$(token testuser test123)
 ```
 
-5. **Starten**
+Ohne gültiges Token antwortet jede Route außer `/health` mit `401`. Ist Keycloak nicht
+erreichbar, kommt **503** — ein Schlüsselproblem ist kein ungültiges Token.
+
+## 3. Vorbereiten, was noch keinen Endpunkt hat
+
+Zwei Dinge fehlen der Basisversion als HTTP-Operation:
+
+- **Teilnehmer anlegen.** Selbstregistrierung ist E1-01, eine Admin-Route dafür gibt es
+  nicht.
+- **Lebenszyklus des Tippjahres.** `planned → running → closed` ist im Aggregat
+  durchgesetzt, hat aber weder Command noch Route. Ein frisch angelegtes Tippjahr steht auf
+  `planned` und nimmt in diesem Zustand **keinen Tippschein** an.
+
+Für einen Durchlauf werden beide von Hand vorbereitet:
+
 ```bash
-# Mit PHP Built-in Server (nur Development!)
-php -S localhost:8080 -t public
+docker-compose exec db mariadb -uroot -psecret betting_game <<'SQL'
+INSERT INTO user (user_id, username, password_hash, email) VALUES
+  (1, 'admin',    'x', 'admin@example.com'),
+  (2, 'testuser', 'x', 'test@example.com');
+
+INSERT INTO participant (participant_id, user_id, display_name, is_active) VALUES
+  (1, 1, 'Admin',     1),
+  (2, 2, 'Test User', 1);
+SQL
 ```
 
-## 🧪 Tests ausführen
+> **Was das kostet:** `participant` und `tipp_year` sind Projektionen. Von Hand
+> geschriebene Zeilen stehen in keinem Event — ein
+> `POST /admin/projections/participant_read_model/rebuild` baut sie aus dem Event Log neu
+> auf und die manuellen Zeilen sind weg. Für einen Durchstich ist das in Ordnung; für
+> Produktivdaten ist es der falsche Weg. Sauber ist der Weg über die Aggregate, so wie es
+> [ApplicationTestCase](tests/Integration/Application/ApplicationTestCase.php) macht.
+
+## 4. Ein Tippjahr aufsetzen
+
+Jeder Command trägt einen `Idempotency-Key`, jeder antwortet mit `202` und einer
+`resourceId`.
 
 ```bash
-# Alle Tests
-make test
-
-# Mit Coverage Report
-make coverage
-
-# Statische Analyse
-make phpstan
-
-# Code Style Check
-make cs-check
+api() { curl -s -X "$1" "http://localhost:8080$2" \
+  -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" ${3:+-d "$3"}; }
 ```
 
-## 📊 Projektstruktur verstehen
+**B-10 — Tippjahr anlegen**
 
-```
-betting-game/
-├── src/
-│   ├── Domain/           # ← Business Logik (keine Dependencies)
-│   ├── Application/      # ← Use Cases (Commands & Queries)
-│   ├── Infrastructure/   # ← Datenbank, EventStore, Auth, Cache, Logging
-│   └── Presentation/     # ← HTTP Controller, Routing
-├── tests/                # ← Unit Tests
-├── database/             # ← SQL Schema
-├── docker/               # ← Dockerfile, Caddyfile, PHP-Configs
-├── keycloak/             # ← Realm-Export (Benutzer, Clients, Rollen)
-├── frontend/             # ← Vue.js 3 SPA
-└── public/               # ← Web Root
-    └── index.php         # ← Entry Point
-```
-
-## 🔑 API Authentifizierung
-
-Für Entwicklung: Jeder Authorization Header wird derzeit akzeptiert:
 ```bash
-Authorization: Bearer test-token
+api POST /admin/tipp-years \
+  '{"name":"Tippjahr 2026","startDate":"2026-01-01","endDate":"2026-12-31","ticketCostPerRow":1.20}'
 ```
 
-Grund: `public/index.php` enthält noch eine Simulation der Token-Prüfung. Die echte
-Validierung (`Infrastructure\Auth\KeycloakService` + `AuthMiddleware`) ist implementiert,
-aber noch nicht im Entry Point verdrahtet – vor einem Production-Deployment nachziehen.
-
-## 📝 Erste Schritte
-
-### 1. Testdaten anlegen
-
-```sql
--- Über PHPMyAdmin oder MySQL CLI
-USE betting_game;
-
--- User anlegen
-INSERT INTO user (username, password_hash, email) 
-VALUES ('testuser', '$2y$10$...', 'test@example.com');
-
--- Participant anlegen
-INSERT INTO participant (user_id, display_name) 
-VALUES (1, 'Test Player');
-
--- Game Type bereits vorhanden (siehe schema.sql)
-
--- Betting Game anlegen
-INSERT INTO betting_game (name, description, game_type_id, start_date, end_date, status)
-VALUES ('Bundesliga Tipprunde', 'Tippe die Bundesliga Spiele', 1, '2024-01-01', '2024-12-31', 'active');
-
--- Event anlegen
-INSERT INTO event (betting_game_id, event_name, event_date, deadline)
-VALUES (1, 'Bayern vs Dortmund', '2024-12-31 15:30:00', '2024-12-31 15:00:00');
+```json
+{"commandId":"8f14e45f-…","status":"accepted","resourceId":1,"timestamp":"…"}
 ```
 
-### 2. API Testen
+**B-14 — Tippperioden festlegen.** Sie müssen im Tippjahr liegen und dürfen sich nicht
+überlappen. Eine einzige Periode über das ganze Jahr ergibt „eine Reihe pro Jahr".
 
-**Prediction abrufen (noch keine vorhanden)**
 ```bash
-curl http://localhost:8080/participants/1/predictions \
-  -H "Authorization: Bearer test-token"
+api POST /admin/tipp-years/1/bet-periods '{"name":"Q1 2026","startDate":"2026-01-01","endDate":"2026-03-31"}'
+api POST /admin/tipp-years/1/bet-periods '{"name":"Q2 2026","startDate":"2026-04-01","endDate":"2026-06-30"}'
 ```
 
-**Prediction erstellen**
+**B-11 — Teilnehmer aufnehmen**
+
 ```bash
-curl -X POST http://localhost:8080/participants/1/events/1/predictions \
-  -H "Authorization: Bearer test-token" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "predictionData": {
-      "homeScore": 3,
-      "awayScore": 2
-    }
-  }'
+api POST /admin/tipp-years/1/members '{"participantId":1}'
+api POST /admin/tipp-years/1/members '{"participantId":2}'
 ```
 
-**Prediction updaten**
+**B-06 — Tippreihen zuordnen.** Sechs verschiedene Zahlen aus 1–49; gespeichert wird
+aufsteigend.
+
 ```bash
-curl -X PUT http://localhost:8080/participants/1/predictions/{predictionId} \
-  -H "Authorization: Bearer test-token" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "predictionData": {
-      "homeScore": 2,
-      "awayScore": 1
-    }
-  }'
+api PUT /admin/participants/1/bet-row '{"betPeriodId":1,"numbers":[3,12,19,27,33,45]}'
+api PUT /admin/participants/2/bet-row '{"betPeriodId":1,"numbers":[7,8,9,10,11,12]}'
 ```
 
-## 🔍 Event Sourcing verstehen
+Ein zweiter Versuch für dieselbe Periode wird mit `409` abgelehnt — durchgesetzt vom Unique
+Key, nicht von einer Prüfung im Code. Eine Korrektur innerhalb der laufenden Periode
+verlangt einen ausdrücklichen Grund:
 
-Alle Änderungen werden als Events gespeichert:
-
-```sql
--- Events anschauen
-SELECT * FROM event_store ORDER BY event_store_id DESC LIMIT 10;
-
--- Aktuellen Stream Status
-SELECT * FROM event_stream;
-
--- Projection Status
-SELECT * FROM projection_state;
-```
-
-### Event Flow:
-1. Command → Handler
-2. Domain Logic → Events generieren
-3. Events → EventStore
-4. EventStore → Projections (Read Models)
-5. Client erhält Response
-
-## 🐛 Debugging
-
-### Logs anschauen (Docker)
 ```bash
-make logs
+api PUT /admin/participants/2/bet-row \
+  '{"betPeriodId":1,"numbers":[1,2,3,4,5,6],"replaceReason":"falsche Reihe übertragen"}'
 ```
 
-### Datenbank überprüfen
+## 5. Tippjahr starten
+
+Hier greift die Lücke aus Schritt 3 — ein Tippschein wird nur angenommen, solange das
+Tippjahr `running` ist:
+
 ```bash
-make db-shell
-# Dann SQL Commands
+docker-compose exec db mariadb -uroot -psecret betting_game \
+  -e "UPDATE tipp_year SET status = 'running' WHERE tipp_year_id = 1;"
 ```
 
-### PHP Errors
+## 6. Tippschein, Ziehungen, Gewinne
+
+**B-12 — Tippschein einreichen.** Bündelt die Reihen aller Teilnehmer, deren Periode den
+`periodStart` enthält, kopiert sie als Snapshot nach `ticket_row` und erzeugt je Teilnehmer
+eine `Fee`. `total_cost = row_count × drawCount × ticketCostPerRow`.
+
 ```bash
-# In public/index.php (Development)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+api POST /admin/tipp-years/1/tickets \
+  '{"periodStart":"2026-01-01","periodEnd":"2026-01-31","drawCount":9,"superzahl":7,"lotteryReference":"LOT-2026-01"}'
 ```
 
-## 📚 Weitere Informationen
+Der Snapshot ist der Punkt: eine spätere Korrektur einer `BetRow` verändert bereits
+eingereichte Scheine nicht.
 
-- Vollständige Dokumentation: [README.md](README.md)
-- Architektur & offene Punkte: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Keycloak-Login & Demo-User: [KEYCLOAK.md](KEYCLOAK.md)
-- Frontend: [FRONTEND.md](FRONTEND.md)
-- Docker-Stack & Troubleshooting: [DOCKER.md](DOCKER.md)
-- PSR-Standards: [PSR.md](PSR.md)
-- Änderungshistorie: [CHANGELOG.md](CHANGELOG.md)
-- OpenAPI Spec: `betting_game_api.yaml`
-- ER-Diagramm: `betting_game_er_extended.mermaid`
+**B-08 — Ziehung eintragen.** Doppeltes Ziehungsdatum → `409`. Superzahl 0–9.
 
-## ⚡ Performance Tipps
-
-### Production Setup
-
-1. **OPCache aktivieren** (php.ini):
-```ini
-opcache.enable=1
-opcache.memory_consumption=256
-opcache.max_accelerated_files=20000
-```
-
-2. **DI Container kompilieren**:
-```php
-// config/config.php
-'production' => true,
-```
-
-3. **MariaDB optimieren**:
-```sql
-SET GLOBAL innodb_buffer_pool_size = 1G;
-```
-
-4. **Projections cachen**:
-Nutze Redis oder Memcached für Read Models.
-
-## 🆘 Häufige Probleme
-
-### "Connection refused" zu Datenbank
 ```bash
-# Docker läuft?
+api POST /admin/draws '{"tippYearId":1,"drawDate":"2026-01-07","numbers":[3,12,19,27,40,41],"superzahl":7}'
+```
+
+**B-09 — Gewinne eintragen.** Der Betrag ist der Gewinn des *gesamten* Scheins. Die Treffer
+je Reihe rechnet das System aus den Gewinnzahlen und den Reihen-Snapshots; die Verteilung
+läuft in ganzen Cent über `EvenSplit`.
+
+```bash
+api PUT /admin/draws/1/winnings '{"totalAmount":123.45}'
+```
+
+Optional lässt sich der Betrag nach Gewinnklassen aufschlüsseln; ohne diese Angabe rechnet
+das System die Treffer selbst und verteilt die Summe darauf:
+
+```bash
+api POST /admin/draws '{"tippYearId":1,"drawDate":"2026-01-10","numbers":[3,12,19,33,44,45],"superzahl":7}'
+api PUT /admin/draws/2/winnings \
+  '{"totalAmount":500.00,"winningClasses":[{"winningClass":5,"amount":300.00}]}'
+```
+
+**B-07 — Zahlung buchen.** Die Fee-IDs liefert `GET /admin/fees`.
+
+```bash
+curl -s http://localhost:8080/admin/fees -H "Authorization: Bearer $ADMIN"
+
+api PUT /admin/fees/1/payment \
+  '{"paymentStatus":"paid","paidAt":"2026-01-20 10:00:00","paymentMethod":"bank_transfer"}'
+```
+
+## 7. Jahresausschüttung
+
+Ausschütten geht nur aus dem Status `closed` und nur einmal — auch das hat noch keine
+Route:
+
+```bash
+docker-compose exec db mariadb -uroot -psecret betting_game \
+  -e "UPDATE tipp_year SET status = 'closed' WHERE tipp_year_id = 1;"
+```
+
+**B-13 — Ausschüttung buchen.** `confirm` fehlt oder ist `false` → `409`: eine Ausschüttung
+lässt sich nicht rückgängig machen und wird deshalb nie angenommen, sondern nur bestätigt.
+
+```bash
+api POST /admin/tipp-years/1/payout '{"confirm":true,"note":"Jahresabschluss 2026"}'
+```
+
+Verteilt wird **gleichmäßig auf alle Teilnehmer des Tippjahres**, unabhängig davon, wie
+viele Perioden jemand bezahlt hat. Die Rundungsdifferenz geht auf den ersten Anteil.
+
+## 8. Teilnehmersicht
+
+Mit dem Token von `testuser` (`participant_id: 2`):
+
+```bash
+curl -s http://localhost:8080/participants/2/bet-row       -H "Authorization: Bearer $USER"
+curl -s http://localhost:8080/participants/2/memberships   -H "Authorization: Bearer $USER"
+curl -s http://localhost:8080/participants/2/fees          -H "Authorization: Bearer $USER"
+curl -s http://localhost:8080/participants/2/payout-share  -H "Authorization: Bearer $USER"
+curl -s http://localhost:8080/tipp-years/1/draws           -H "Authorization: Bearer $USER"
+```
+
+Ein Zugriff auf fremde Daten wird mit `403` abgelehnt — auch mit dem Admin-Token:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' \
+  http://localhost:8080/participants/1/fees -H "Authorization: Bearer $USER"   # 403
+```
+
+Die Identität kommt aus dem Token, nie aus dem Pfad. Der Admin hat eigene Endpunkte —
+sonst wären die Teilnehmerrouten eine zweite, leisere Admin-API.
+
+## 9. Betrieb ansehen
+
+```bash
+# OPS-01: Was ist aus einem Command geworden?
+curl -s http://localhost:8080/commands/8f14e45f-… -H "Authorization: Bearer $ADMIN"
+
+# OPS-03: Event-Historie eines Aggregats
+curl -s http://localhost:8080/admin/audit/tipp_year/1 -H "Authorization: Bearer $ADMIN"
+
+# OPS-04: Projektionen überwachen und neu aufbauen
+curl -s http://localhost:8080/admin/projections -H "Authorization: Bearer $ADMIN"
+curl -s -X POST http://localhost:8080/admin/projections/tipp_year_read_model/rebuild \
+  -H "Authorization: Bearer $ADMIN"
+```
+
+**OPS-02 ausprobieren:** denselben Command zweimal mit demselben `Idempotency-Key`
+schicken. Der zweite Aufruf führt nichts aus, sondern liefert die gespeicherte Antwort mit
+ihrem ursprünglichen Statuscode und dem Header `Idempotent-Replay: true`.
+
+Ein Rebuild zieht nach unten durch: `participant` zu leeren leert über
+`ON DELETE CASCADE` auch `membership`, `bet_row` und `fee`, also werden die abhängigen
+Projektionen mit aufgebaut. Die Antwort listet alle tatsächlich neu aufgebauten.
+
+## 10. Tests und Prüfungen
+
+```bash
+docker-compose exec php vendor/bin/phpunit --testdox
+docker-compose exec php vendor/bin/phpstan analyse
+docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
+```
+
+Mit lokalem PHP stattdessen `make test`, `make phpstan`, `make cs-check`,
+`make all-tests`.
+
+Die Integrationstests brauchen eine Datenbank und **überspringen sich selbst**, wenn keine
+erreichbar ist. Eine grüne Ausgabe ohne laufende Datenbank beweist deshalb nichts über die
+Persistenz. Eigene Testdatenbank:
+
+```bash
+make test-db-start        # MariaDB 11.3 auf Port 3306, Schema geladen
+make test-integration
+make test-db-stop
+```
+
+## Häufige Probleme
+
+**`401` auf jede Route** — Token abgelaufen (Lebensdauer 60 Minuten) oder für den falschen
+Realm ausgestellt. Neu holen, siehe Schritt 2.
+
+**`503` statt `401`** — die API erreicht Keycloak nicht.
+
+```bash
+docker-compose exec php curl -s http://keycloak:8080/realms/betting-game | head -c 100
+```
+
+Das Backend spricht Keycloak unter dem internen Namen `keycloak:8080` an, das Frontend
+unter `localhost:8090`.
+
+**`409` beim Tippschein** — das Tippjahr ist nicht `running`, siehe Schritt 5.
+
+**`409` bei einer Tippreihe** — für diese Periode existiert bereits eine. Mit
+`replaceReason` ersetzen oder die nächste Periode wählen.
+
+**„Connection refused" zur Datenbank**
+
+```bash
 docker-compose ps
-
-# Restart
-make restart
+docker-compose logs db
 ```
 
-### "Permission denied" Fehler
-```bash
-chmod -R 775 var/
-chown -R www-data:www-data /var/www/betting-game
-```
+**Schema neu laden** — `make db-reset` (löscht nichts, spielt `schema.sql` erneut ein;
+für einen wirklich leeren Stand `docker-compose down -v`).
 
-### Tests schlagen fehl
-```bash
-# Dependencies neu installieren
-rm -rf vendor/
-composer install
+## Weiter
 
-# Test DB erstellen
-mysql -u root -p -e "CREATE DATABASE betting_game_test;"
-mysql -u root -p betting_game_test < database/schema.sql
-```
-
-## 📞 Support
-
-Bei Fragen:
-1. Checke `README.md` für Details
-2. Schaue in die Tests für Beispiele
-3. Prüfe Event Store Logs
-4. Erstelle ein GitHub Issue
-
-Viel Erfolg! 🎉
+- [USER_STORIES.md](USER_STORIES.md) — was das System fachlich kann, Story für Story
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Schichten, Event Sourcing, offene Punkte
+- [KEYCLOAK.md](KEYCLOAK.md) — Benutzer, Rollen, Token-Prüfung
+- [DOCKER.md](DOCKER.md) — Stack, Tuning, Troubleshooting
+- [betting_game_api.yaml](betting_game_api.yaml) — der vollständige API-Vertrag

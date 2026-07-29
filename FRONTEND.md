@@ -1,8 +1,26 @@
-# Frontend – Vue.js 3 SPA
+# Frontend – Vue.js 3 SPA (Altbestand)
 
-Schlichtes, funktionales Frontend für die Betting Game API. Ergänzende Setup-Hinweise
-stehen in [`frontend/README.md`](frontend/README.md), die Auth-Details in
-[KEYCLOAK.md](KEYCLOAK.md).
+> ## ⛔ Diese SPA passt nicht mehr zum Backend
+>
+> Das Frontend stammt aus dem **Sportwetten-Tippspiel**, das dieses Projekt vor dem
+> Kurswechsel auf die Lotterie-Tippgemeinschaft war (Commit `f1d0771`). Es ruft
+> Predictions, Scores und Games auf — **keiner dieser Endpunkte existiert noch**. Jeder
+> fachliche Request der SPA läuft heute in einen `404`; lediglich Login und Logout über
+> Keycloak funktionieren weiter.
+>
+> Die aktuelle API ist in [betting_game_api.yaml](betting_game_api.yaml) beschrieben, die
+> Fachlichkeit in [USER_STORIES.md](USER_STORIES.md). Für die Basisversion wird kein
+> Frontend gebraucht — Teilnehmer lesen, der Administrator bucht, beides über HTTP.
+>
+> **Dieses Dokument beschreibt den Ist-Zustand von [frontend/](frontend/) als Altbestand.**
+> Nichts daraus als Vorlage für neue Arbeit übernehmen: weder die Endpunktnamen noch die
+> Views noch das API-Client-Modul. Wer die Oberfläche wiederbeleben will, baut sie gegen
+> die Endpunkte aus [README.md](README.md) neu auf.
+>
+> Container abschalten: `docker-compose stop frontend`.
+
+Ergänzende Setup-Hinweise stehen in [`frontend/README.md`](frontend/README.md), die
+Auth-Details in [KEYCLOAK.md](KEYCLOAK.md).
 
 ## Überblick
 
@@ -105,14 +123,22 @@ api.admin.getAllGames(params)
 api.admin.createGame(gameData)
 api.admin.endGame(bettingGameId, data)
 api.admin.recordResult(eventId, resultData)
-api.admin.calculateScores(eventId)        // ⚠️ Route fehlt im Backend
-api.admin.awardScore(participantId, data) // ⚠️ Route fehlt im Backend
+api.admin.calculateScores(eventId)
+api.admin.awardScore(participantId, data)
 ```
 
-> ⚠️ `calculateScores` und `awardScore` rufen `/admin/events/{id}/scores/calculate` bzw.
-> `/admin/participants/{id}/scores` auf. Diese Routen sind in
-> `src/Presentation/Router/Router.php` nicht registriert und liefern 404 – die zugehörigen
-> Commands (`CalculateScoresCommand`, `AwardScoreCommand`) existieren aber bereits.
+> ⛔ **Keine dieser Methoden trifft heute noch eine Route.** Sie rufen
+> `/participants/{id}/predictions`, `/participants/{id}/scores`, `/admin/games`,
+> `/admin/events/{id}/results` und Ähnliches auf — die Routentabelle in
+> [Router.php](src/Presentation/Router/Router.php) kennt seit dem Kurswechsel nur noch
+> Tippreihen, Tippscheine, Ziehungen, Gebühren und die Ausschüttung. Alle Aufrufe enden in
+> `404 Route not found`.
+>
+> Die Entsprechungen in der Lotterie-Domäne sind strukturell andere: ein Tipp ist dort
+> `(Teilnehmer, Tippperiode)` statt `(Teilnehmer, Ereignis)`, und Punkte gibt es nicht,
+> sondern Treffer je Reihe und einen gleichmäßigen Jahresanteil. Ein neues Frontend lässt
+> sich deshalb nicht aus diesem ableiten — siehe
+> [USER_STORIES.md](USER_STORIES.md), Abschnitt „Migration des bestehenden Codes".
 
 ## Authentifizierung
 
@@ -218,8 +244,19 @@ docker-compose logs frontend
 
 ## Offene Punkte
 
-- Unit-/E2E-Tests (Vitest, Playwright)
-- Real-time Updates (WebSocket), Notifications
-- Erweiterte Filter und Suche, Datenvisualisierung, Export (CSV/PDF)
-- Dark Mode, Mehrsprachigkeit, Profilseite
-- TypeScript, wiederverwendbare Komponenten-Bibliothek, Composables
+Vor allem anderen: **die SPA an die aktuelle API anschließen oder sie entfernen.** Solange
+beides nicht passiert, ist sie ein Container, der ein Produkt zeigt, das es nicht mehr gibt.
+
+Was ein Frontend der Basisversion abbilden müsste (alles lesend, Schreibzugriff hat nur der
+Administrator):
+
+| Ansicht | Endpunkt |
+|---|---|
+| Eigene Tippreihe | `GET /participants/{id}/bet-row` |
+| Eigene Teilnahmen | `GET /participants/{id}/memberships` |
+| Eigene Gebühren | `GET /participants/{id}/fees` |
+| Eigener Jahresanteil | `GET /participants/{id}/payout-share` |
+| Ziehungen des Tippjahres | `GET /tipp-years/{id}/draws` |
+
+Danach erst: Unit-/E2E-Tests (Vitest, Playwright), TypeScript, Dark Mode,
+Mehrsprachigkeit, wiederverwendbare Komponenten.

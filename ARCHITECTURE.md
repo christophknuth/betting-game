@@ -1,512 +1,389 @@
-# Betting Game API - Architecture & Implementation Summary
+# Architektur
 
-## 📋 Projektübersicht
+Wie die Anwendung aufgebaut ist und warum. Die Fachlichkeit steht in
+[USER_STORIES.md](USER_STORIES.md), die Arbeitsanleitung in [AGENTS.md](AGENTS.md).
 
-Diese PHP-Anwendung implementiert die vollständige OpenAPI-Spezifikation für ein Tippspiel-Verwaltungssystem mit modernsten Architekturpatterns.
+Stand: Ausbaustufe Basis, vollständig implementiert — 17 fachliche Stories, 4 Betriebsstories,
+22 Routen.
 
-## ✅ Erfüllte Anforderungen
+---
 
-### ✓ OpenAPI Implementation
-- Alle Participant Endpoints implementiert (Predictions, Scores, Participations)
-- Admin Endpoints implementiert (Games, Predictions, Results) – Controller und Routen vorhanden;
-  die zugehörigen Repository-Implementierungen fehlen im DI-Container noch (siehe „Offene Punkte")
-- CQRS konsequent umgesetzt (Commands & Queries getrennt)
-- REST-konform (richtige HTTP Verben, Status Codes)
-
-### ✓ PHP & Dependencies
-- **PHP 8.3** mit modernen Features (Property Promotion, Match Expression, etc.)
-- **Minimale Dependencies** (7 Production Packages):
-  - FastRoute (schnellstes PHP Router)
-  - PHP-DI (DI Container)
-  - ramsey/uuid (UUID Generation)
-  - monolog/monolog (PSR-3 Logger)
-  - psr/log, psr/container, psr/simple-cache (Interface-Pakete)
-- Keine Framework-Abhängigkeiten (Laravel, Symfony) für maximale Performance
-
-### ✓ Event Sourcing
-- Vollständige EventStore Implementation
-- Alle Domain Changes als Events erfasst (14 Event-Klassen), u. a.:
-  - PredictionSubmitted, PredictionUpdated, PredictionEvaluated
-  - BettingGameCreated, BettingGameEnded
-  - ParticipantCreated, ParticipantApproved, ParticipantJoinedGame, ParticipantLeftGame
-  - ResultRecorded, ResultUpdated, ScoreAwarded, ScoresCalculated
-- Event Reconstitution (Aggregate aus Events wiederherstellen)
-- Projections für Read Models
-- Snapshot Support vorbereitet
-
-### ✓ Erweitertes ER-Diagramm
-- Neue Tabellen für Event Sourcing:
-  - `event_store` - Immutable Event Log
-  - `event_stream` - Stream Metadata
-  - `snapshot` - Aggregate Snapshots
-  - `projection_state` - Projection Tracking
-  - `event_publisher` - Event Publishing
-- Optimistic Locking (`version` columns)
-- Vollständige referentielle Integrität
-
-### ✓ Onion Architecture
-```
-┌─────────────────────────────────────┐
-│ Presentation (HTTP, Controllers)    │ ← Abhängig von Application
-├─────────────────────────────────────┤
-│ Application (Commands, Queries)     │ ← Abhängig von Domain
-├─────────────────────────────────────┤
-│ Domain (Entities, Events, VOs)      │ ← KEINE Abhängigkeiten!
-├─────────────────────────────────────┤
-│ Infrastructure (DB, EventStore)     │ ← Implementiert Domain Interfaces
-└─────────────────────────────────────┘
-```
-
-**Vorteile:**
-- Domain-Logik isoliert und testbar
-- Frameworks austauschbar
-- Database austauschbar
-- Klare Dependency Direction (immer nach innen)
-
-### ✓ Domain Validation
-Alle Value Objects haben strenge Validierung:
-- **ParticipantId / EventId**: Nur positive Integers
-- **PredictionData**: Non-empty, JSON-serializable
-- **DisplayName**: 2-50 Zeichen, getrimmt
-- **Email**: RFC-valide, normalisiert
-- **GameStatus**: Enum-basiert (upcoming, active, ended, cancelled)
-
-Exceptions:
-- `InvalidArgumentException` für Validierungsfehler
-- `EntityNotFoundException` für nicht gefundene Entities
-- `ConcurrencyException` für Version Conflicts
-- `DeadlinePassedException` für Business Rules
-- `UnauthorizedAccessException` für Autorisierungsfehler
-
-### ✓ Interfaces & Dependency Injection
-**Repository Interfaces (Domain Layer):**
-```php
-interface PredictionRepositoryInterface
-interface EventStoreInterface
-interface ParticipantRepositoryInterface
-interface GameEventRepositoryInterface
-interface BettingGameRepositoryInterface
-interface ResultRepositoryInterface
-```
-
-**Read Model Interfaces (Application Layer):**
-```php
-interface PredictionReadModelRepositoryInterface
-interface ScoreReadModelRepositoryInterface
-interface AdminPredictionReadModelRepositoryInterface
-interface BettingGameReadModelRepositoryInterface
-interface LeaderboardReadModelRepositoryInterface
-interface ParticipantReadModelRepositoryInterface
-interface ParticipationReadModelRepositoryInterface
-```
-
-**DI Container:**
-- PHP-DI für automatisches Autowiring
-- Production: Compiled Container für maximale Performance
-- Alle Dependencies über Interfaces injected
-
-### ✓ Schnelles Routing
-**FastRoute** - Regex-basiertes Routing mit Kompilierung:
-- Pattern Matching ohne Overhead
-- Route Caching
-- Parameter Extraction optimiert
-- Kein Reflection zur Runtime
-
-### ✓ Unit Tests & Coverage
-**Test Structure** (22 Testklassen, 262 Testmethoden):
-```
-tests/
-├── Unit/                     (210 Tests, keine Datenbank nötig)
-│   ├── Domain/
-│   │   ├── BettingGameTest.php
-│   │   ├── ParticipantTest.php
-│   │   ├── PredictionTest.php
-│   │   ├── ResultTest.php
-│   │   └── ValueObjectTest.php
-│   ├── Application/
-│   │   ├── CommandHandlerTest.php
-│   │   ├── NewCommandHandlerTest.php
-│   │   ├── NewQueryHandlerTest.php
-│   │   └── QueryHandlerTest.php
-│   ├── Infrastructure/
-│   │   └── FileCacheTest.php
-│   └── Presentation/
-│       ├── AdminGameControllerTest.php
-│       ├── AdminParticipantControllerTest.php
-│       ├── AdminResultControllerTest.php
-│       ├── JsonResponseTest.php
-│       ├── ParticipationControllerTest.php
-│       ├── PredictionControllerTest.php
-│       ├── RouterTest.php
-│       └── ScoreControllerTest.php
-└── Integration/              (52 Tests, braucht MariaDB)
-    ├── IntegrationTestCase.php
-    ├── AdminEndpointTest.php
-    ├── BettingGameFlowTest.php
-    ├── ParticipantFlowTest.php
-    ├── PredictionFlowTest.php
-    └── ResultAndScoreFlowTest.php
-```
-
-Controller-Tests bauen die (finalen) Handler echt und doppeln nur die
-Repository-Interfaces darunter — dadurch stehen Controller und Handler gemeinsam unter Test.
-Die Integrationstests fahren die volle Kette Controller → Handler → Repository gegen eine
-echte Datenbank und **überspringen sich selbst**, wenn keine erreichbar ist.
-
-**Coverage:** aktuell **76 %** Zeilenabdeckung. Bericht erzeugen mit:
-
-```bash
-composer test-coverage
-```
-
-Nicht abgedeckt sind `Infrastructure/Auth` und `Infrastructure/Logging` (je 0 %).
-
-**Test Features:**
-- Mocking mit PHPUnit
-- Strict types in Tests
-- Testdox output für Dokumentation
-- Dataprovider für umfangreiche Validierung
-
-## 🏗️ Architektur Details
-
-### Event Sourcing Flow
+## 1. Onion Architecture
 
 ```
-1. HTTP Request
-   ↓
-2. Controller empfängt Request
-   ↓
-3. Command erstellt (z.B. SubmitPredictionCommand)
-   ↓
-4. Handler lädt Aggregate (falls vorhanden)
-   ↓
-5. Domain Logic führt aus
-   ↓
-6. Events werden generiert (z.B. PredictionSubmitted)
-   ↓
-7. EventStore.append(events, expectedVersion)
-   ↓
-8. Optimistic Locking Check (Version)
-   ↓
-9. Events persistiert (immutable)
-   ↓
-10. Projection Update (Read Model)
-    ↓
-11. CommandResult zurück an Client
+┌──────────────────────────────────────────────┐
+│ Presentation   Controller, Router, Kernel    │ → hängt an Application
+├──────────────────────────────────────────────┤
+│ Application    Commands, Queries, Projection │ → hängt an Domain
+├──────────────────────────────────────────────┤
+│ Domain         Aggregate, VOs, Events        │ → hängt an nichts
+├──────────────────────────────────────────────┤
+│ Infrastructure PDO, EventStore, Auth, Cache  │ → implementiert Domain-Interfaces
+└──────────────────────────────────────────────┘
 ```
 
-### CQRS Pattern
+`src/Domain/` importiert nichts außerhalb von `BettingGame\Domain` — kein PDO, kein HTTP,
+keine PSR-Pakete. Wer dort ein `use BettingGame\Infrastructure\…` schreibt, hat die
+Architektur gebrochen. Der praktische Nutzen ist nicht Austauschbarkeit im Prospekt, sondern
+dass die Domänenregeln ohne Datenbank testbar sind: `tests/Unit/Domain/` läuft ohne alles.
 
-**Write Side (Commands):**
-```php
-SubmitPredictionCommand
-  → SubmitPredictionHandler
-    → Prediction::submit() // Domain Logic
-      → Events generieren
-        → EventStore
-          → Projection Update
+Die einzige Stelle, die alle Schichten kennt, ist
+[Container.php](src/Infrastructure/DI/Container.php).
+
+---
+
+## 2. Request-Fluss
+
+```
+public/index.php          Globals → Request, Container bauen, Response senden
+  └─ Kernel::handle()     src/Presentation/Http/Kernel.php
+       ├─ Router          FastRoute, Routentabelle in Presentation/Router/Router.php
+       ├─ AuthMiddleware  außer bei 'public' => true
+       ├─ Authorization   bei 'role' => 'admin'
+       ├─ command_log     bei 'command' => true
+       ├─ Controller      Input::* validiert, Command/Query-DTO, Handler
+       └─ ErrorMapper     Domain-Exception → HTTP-Status
 ```
 
-**Read Side (Queries):**
-```php
-GetParticipantPredictionsQuery
-  → GetParticipantPredictionsHandler
-    → PredictionReadModelRepository
-      → Optimierte SELECT Query
-        → PredictionReadModel[]
+Der ganze Ablauf steht im [Kernel](src/Presentation/Http/Kernel.php), nicht in
+`index.php` und nicht in den Controllern. Das ist der Grund, warum
+[HttpTestCase](tests/Integration/Http/HttpTestCase.php) die komplette Kette ohne Webserver
+fahren kann. Neue Querschnittslogik gehört genau dorthin.
+
+### Routen-Flags
+
+| Flag | Wirkung |
+|---|---|
+| `'public' => true` | Keine Authentifizierung. **Nur** `/health` |
+| `'role' => 'admin'` | Kernel erzwingt die Admin-Rolle vor dem Controller |
+| `'command' => true` | Läuft unter Command-Log und Idempotency-Key |
+| (nichts) | Authentifiziert; die Eigentumsprüfung macht der Controller |
+
+Eine Route ist **per Default authentifiziert**. Andersherum würde ein vergessenes Flag sie
+still öffentlich machen. Pfadparameter sind mit `{id:\d+}` eingeschränkt, damit eine
+vertippte URL `404` gibt statt `400` aus der Tiefe eines Handlers.
+
+### Zugriffsschutz
+
+`Authorization::requireSelf()` vergleicht die `participantId` aus dem Pfad mit dem
+`participant_id`-Claim des Tokens. Die Identität kommt **aus dem Token**, sonst bestätigte
+die Prüfung nur sich selbst. Sie ist bewusst so streng, dass auch ein Admin nicht
+durchkommt — der hat eigene Endpunkte, sonst wären die Teilnehmerrouten eine zweite,
+leisere Admin-API.
+
+Die Prüfung läuft **vor** der Query. Andernfalls verriete ein `404` bereits, dass zu einem
+fremden Teilnehmer nichts existiert.
+
+---
+
+## 3. Event Sourcing und CQRS
+
+### Schreibweg
+
+```
+Command-DTO
+  → Handler                lädt Aggregat über Repository-Interface
+    → Domänenmethode       setzt die Regel durch, recordEvent()
+      → Repository         transactionally(): Events + Projektion, ein COMMIT
+        → CommandResult    202 accepted
 ```
 
-**Vorteile:**
-- Getrennte Datenmodelle (Write ≠ Read)
-- Optimierte Queries ohne Joins
-- Skalierbar (Read Replicas möglich)
-- Event Log als Single Source of Truth
+Aggregate zeichnen ihre Events über das Trait
+[RecordsEvents](src/Domain/Model/RecordsEvents.php) auf. Das Speichern läuft über
+[EventSourcedRepository](src/Infrastructure/Persistence/EventSourcedRepository.php), die
+gemeinsame `abstract`-Basis aller Repositories — eine der wenigen Vererbungen im Projekt.
+
+### Leseweg
+
+Query-Handler lesen direkt die Projektionstabellen. Keine Events, keine Rekonstruktion,
+keine Joins über den Event Store. Deshalb bleibt eine Leseabfrage ein einfaches `SELECT`,
+auch wenn das Aggregat dahinter 200 Events hat.
+
+### Die zwei Wege zu denselben Zeilen
+
+Repositories schreiben ihre Projektion **synchron** beim Speichern — ein `load()` direkt
+danach muss die Zeile sehen. Die sieben Projektoren in `src/Infrastructure/Projection/`
+sind der *zweite* Weg: sie spielen das Event-Log nach, angestoßen über
+`POST /admin/projections/{name}/rebuild`.
+
+Zwei Wege zu denselben Tabellen driften auseinander, wenn niemand nachsieht. Deshalb spielt
+[ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) ein ganzes
+Tippjahr durch die Command-Handler, fotografiert alle 13 Read-Model-Tabellen, baut aus dem
+Event Store neu auf und vergleicht zeilenweise. Einzige zugelassene Abweichung:
+`ticket_row_match.calculated_at` — das hält fest, *wann* gerechnet wurde.
+
+**Wer eine Projektion ändert, ändert beide Seiten.**
 
 ### Optimistic Locking
 
-```php
-// Beim Speichern:
-$currentVersion = $eventStore->getStreamVersion($id);
-if ($currentVersion !== $expectedVersion) {
-    throw new ConcurrencyException();
-}
-```
+Der Event Store schreibt mit erwarteter Streamversion. Stimmt sie nicht, wirft er
+`ConcurrencyException` → `409`. Der Verlierer wiederholt; dank Idempotency-Key ist das
+gefahrlos.
 
-**Verhindert:**
-- Lost Updates
-- Inkonsistente Daten
-- Race Conditions
+IDs vergibt `nextId()` als `MAX(id) + 1`. Bei Nebenläufigkeit entscheidet der Unique Key
+auf der Zieltabelle, nicht eine Prüfung im Code.
 
-### Performance Optimierungen
+### Ehrlich zur Asynchronität
 
-1. **FastRoute**: Compiled Routing (keine Regex zur Runtime)
-2. **PHP-DI**: Container Compilation in Production
-3. **Prepared Statements**: SQL Injection Prevention + Performance
-4. **Projection Tables**: Denormalisierte Read Models
-5. **Event Snapshots**: Große Event Streams nicht komplett replayed
-6. **Indexierung**: Alle Foreign Keys + Lookup Columns indexiert
+Die OpenAPI-Spezifikation beschreibt Commands als asynchron (`202 accepted`). Diese
+Implementierung schreibt synchron: wenn der Aufrufer die `202` hat, ist der Command bereits
+`completed` und `projectionsUpToDate` immer `true`. Der Statusendpunkt bleibt trotzdem
+sinnvoll — dort schlägt ein Retry nach, was der erste Versuch erzeugt hat.
 
-## 📂 Dateistruktur
+---
 
-```
-betting-game/
-├── composer.json                    # Dependencies & Scripts
-├── phpunit.xml                      # PHPUnit Konfiguration
-├── docker-compose.yml               # Docker Setup
-├── Makefile                         # Convenience Commands
-├── README.md                        # Vollständige Dokumentation
-├── QUICKSTART.md                    # Schnelleinstieg
-│
-├── config/
-│   └── config.php                   # App Configuration
-│
-├── database/
-│   └── schema.sql                   # MariaDB Schema mit Event Sourcing
-│
-├── src/                             # 111 PHP-Dateien, eine Klasse pro Datei
-│   ├── Domain/                      # CORE - Keine Abhängigkeiten!
-│   │   ├── Model/                   # 4 Aggregates: BettingGame, Participant,
-│   │   │                            #   Prediction, Result
-│   │   ├── ValueObject/             # 6 VOs mit Validation
-│   │   ├── Event/                   # DomainEvent + 13 konkrete Events
-│   │   ├── Repository/              # 6 Repository-Interfaces
-│   │   └── Exception/               # 8 Domain Exceptions
-│   │
-│   ├── Application/                 # Use Cases
-│   │   ├── Command/                 # 12 Commands + Handler, CommandResult
-│   │   └── Query/                   # Query DTOs, Handler, Read Models,
-│   │                                #   Read-Model-Interfaces
-│   │
-│   ├── Infrastructure/              # External Concerns
-│   │   ├── Auth/                    # KeycloakService, AuthMiddleware
-│   │   ├── Cache/                   # FileCache, RedisCache (PSR-16)
-│   │   ├── DI/                      # Container, PsrContainer (PSR-11)
-│   │   ├── EventStore/              # PdoEventStore
-│   │   ├── Logging/                 # LoggerFactory (PSR-3 / Monolog)
-│   │   └── Persistence/             # Repository-Implementierungen
-│   │
-│   └── Presentation/                # HTTP Layer
-│       ├── Controller/              # 7 Controller (inkl. Admin + Health)
-│       ├── Http/                    # Request, JsonResponse
-│       └── Router/                  # Router.php (FastRoute Setup)
-│
-├── docker/                          # Dockerfile.php, Caddyfile, PHP-Configs
-├── keycloak/                        # realm-export.json
-├── frontend/                        # Vue.js 3 SPA
-│
-├── public/
-│   ├── index.php                    # Application Entry Point
-│   └── .htaccess                    # Apache Config
-│
-└── tests/
-    └── Unit/
-        ├── Domain/
-        ├── Application/
-        ├── Infrastructure/
-        └── Presentation/
-```
+## 4. Klassenlandkarte
 
-## 🔍 Code Qualität
+153 Dateien unter `src/`, eine Klasse pro Datei, PSR-4 1:1 zur Namespace-Struktur.
+Namespace-Wurzel ist historisch `BettingGame\`, trotz Lotto-Domäne.
 
-### Konventionen
+### Domain (`src/Domain/`)
 
-- **Eine Klasse pro Datei**, Dateiname = Klassenname (PSR-4, 1:1 zur Namespace-Struktur).
-  Zwei Ausnahmen: `PsrContainer.php` und `FileCache.php` enthalten jeweils zusätzlich ihre
-  Exception-Klassen.
-- `declare(strict_types=1);` in allen 111 Dateien unter `src/`
-- `final` Klassen als Standard, Vererbung nur als Ausnahme
-- Immutable Value Objects mit Validierung im Konstruktor
-- Exception-Hierarchie unter `DomainException`:
+| Verzeichnis | Inhalt |
+|---|---|
+| `Model/` | 7 Aggregate — `TippYear`, `BetPeriod`, `BetRow`, `Ticket`, `Draw`, `Fee`, `Participant` — plus das Trait `RecordsEvents` |
+| `ValueObject/` | `LottoNumbers`, `Superzahl`, `DateRange`, `EvenSplit`, `WinningClass`, `TippYearStatus`, `ParticipantId`, `Email`, `DisplayName` |
+| `Event/` | `DomainEvent` + 14 konkrete Events |
+| `Repository/` | 10 Interfaces + `RecordedEvent` |
+| `Service/` | `WinningsDistribution` |
+| `Exception/` | 7 Klassen unter `DomainException` |
+
+**Value Objects sind immutable und validieren im Konstruktor.** `LottoNumbers` nimmt genau
+sechs verschiedene Zahlen aus 1–49 und speichert sie aufsteigend; `Superzahl` 0–9. Ein
+Aggregat kann damit gar nicht erst in einen ungültigen Zustand geraten.
+
+`EvenSplit` teilt Geldbeträge **in ganzen Cent** und legt den Rest auf den ersten Anteil.
+In Fließkomma zu teilen und je Anteil zu runden erzeugt oder vernichtet Geld: 100,00 € auf
+drei ergibt dreimal 33,33 € und ein Cent verschwindet. Betrifft die Jahresausschüttung
+(B-13) und die Verteilung eines Scheingewinns auf die Reihen (B-09).
+
+`WinningsDistribution` liegt im **Domain-Service**, weil zwei Aufrufer dieselbe Rechnung
+brauchen: der Command-Handler beim Eintragen der Gewinne und der `DrawProjector` beim
+Neuaufbau. `ticket_row_match` steht in keinem Event — der Projektor muss die Zeilen neu
+rechnen, und zwar mit derselben Logik.
+
+### Exception-Hierarchie
 
 ```
 DomainException
-├── InvalidArgumentException          (Validierung)
-├── EntityNotFoundException           (nicht gefunden)
-├── ConcurrencyException              (Version Conflicts)
-├── BusinessRuleViolationException
-│   ├── DeadlinePassedException
-│   └── DuplicatePredictionException
-└── UnauthorizedAccessException
+├── InvalidArgumentException          → 400
+├── EntityNotFoundException           → 404
+├── ConcurrencyException              → 409
+├── BusinessRuleViolationException    → 409
+│   └── DuplicateEntryException       → 409
+└── UnauthorizedAccessException       → 403
 ```
 
-### Static Analysis
+`DuplicateEntryException` gibt es, weil Regeln wie „eine Reihe pro Teilnehmer und Periode"
+im Schema stehen, nicht im Code. Ohne sie müsste die Application-Schicht `PDOException`
+fangen und SQLSTATE lesen, um zu erkennen, dass eine *Fachregel* abgelehnt hat.
 
-Konfiguration: [phpstan.neon](phpstan.neon) — **Level 10** (Maximum), Ziel `src`.
+### Application (`src/Application/`)
+
+| Verzeichnis | Inhalt |
+|---|---|
+| `Command/` | 9 Commands + Handler, `CommandResult` |
+| `Query/` | 10 Queries + Handler, `QueryResult` |
+| `Projection/` | `ProjectionManager`, `Projector`, `ProjectionStatus` |
+
+Handler kennen kein HTTP: sie nehmen ein DTO, arbeiten über Repository-Interfaces und
+werfen Domänen-Ausnahmen.
+
+| Story | Command-Handler | Query-Handler |
+|---|---|---|
+| B-01 … B-04 | — | `GetBetRow`, `GetMemberships`, `GetParticipantFees`, `GetPayoutShare` |
+| B-05 | — | `GetDraws` |
+| B-06 | `AssignBetRow` | — |
+| B-07 | `RecordFeePayment` | `GetFees` |
+| B-08 / B-09 | `RecordDraw`, `RecordDrawWinnings` | — |
+| B-10 / B-14 | `CreateTippYear`, `CreateBetPeriod` | `GetTippYears`, `GetBetPeriods` |
+| B-11 … B-13 | `AddMember`, `SubmitTicket`, `DistributePayout` | — |
+| OPS-01 / OPS-03 | — | `GetCommandStatus`, `GetAuditTrail` |
+
+### Infrastructure (`src/Infrastructure/`)
+
+| Verzeichnis | Inhalt |
+|---|---|
+| `Auth/` | `TokenVerifier`, `JwkSet`, `KeycloakKeys`, `StaticKeys`, `KeycloakService`, `AuthMiddleware`, `CurlFetcher` |
+| `Cache/` | `FileCache`, `RedisCache` (PSR-16) |
+| `Config/` | `Config` — typisierter Zugriff auf das Config-Array |
+| `DI/` | `Container` (PHP-DI), `PsrContainer` (PSR-11) |
+| `EventStore/` | `PdoEventStore` |
+| `Persistence/` | `Db` + 9 Repositories, `EventSourcedRepository` als Basis |
+| `Projection/` | 7 Projektoren, einer je Read Model |
+| `Logging/` | `LoggerFactory` (Monolog, PSR-3) |
+
+Welches Aggregat welche Projektionen schreibt:
+
+| Aggregat | Repository | Projektionen |
+|---|---|---|
+| `TippYear` | `TippYearRepository` | `tipp_year`, `membership`, `payout`, `payout_share` |
+| `BetPeriod` | `BetPeriodRepository` | `bet_period` |
+| `BetRow` | `BetRowRepository` | `bet_row` |
+| `Ticket` | `TicketRepository` | `ticket`, `ticket_row` |
+| `Draw` | `DrawRepository` | `draw`, `ticket_draw_result`, `ticket_row_match` |
+| `Fee` | `FeeRepository` | `fee` |
+| `Participant` | `ParticipantRepository` | `participant` |
+
+**Zwei Entscheidungen, die man beim Lesen sonst übersieht:**
+
+Ein neues Aggregat wird mit einem reinen `INSERT` geschrieben, ein geladenes mit `UPDATE` —
+kein `ON DUPLICATE KEY UPDATE`. Das trifft *jeden* Unique Key und würde bei einer zweiten
+Tippreihe für dieselbe Periode die vorhandene stillschweigend überschreiben, statt den
+`409` auszulösen, den B-06 verlangt.
+
+Append und Projektionsschreiben laufen in **einer** Transaktion. Sonst bliebe nach einer
+vom Unique Key abgelehnten Reihe ein `bet_row.assigned`-Event im Store stehen, das keine
+Zeile beschreibt.
+
+### Presentation (`src/Presentation/`)
+
+| Verzeichnis | Inhalt |
+|---|---|
+| `Controller/` | 9 Controller |
+| `Http/` | `Kernel`, `Request`, `JsonResponse`, `Input`, `Authorization`, `ErrorMapper`, `InvalidInputException` |
+| `Router/` | `Router` (FastRoute) |
+
+### Support (`src/Support/`)
+
+`Row` — typisierter Zugriff auf eine Datenbankzeile. Zusammen mit `Http\Input` (für
+Request-Bodies) ist das der Grund, warum PHPStan Level 10 ohne Casts durchgeht: `mixed` aus
+externen Quellen wird an genau zwei Stellen geprüft statt überall geraten.
+
+---
+
+## 5. Betrieb
+
+| Story | Umsetzung |
+|---|---|
+| OPS-01 | `GET /commands/{commandId}` — Verarbeitungsstand aus `command_log` |
+| OPS-02 | Header `Idempotency-Key` auf allen Command-Routen |
+| OPS-03 | `GET /admin/audit/{type}/{id}` — Event-Historie eines Aggregats |
+| OPS-04 | `GET /admin/projections`, `POST /admin/projections/{name}/rebuild` |
+
+**Der Idempotency-Key wird beansprucht, *bevor* der Command läuft.** Erst prüfen und dann
+ausführen ließe ein Fenster, in dem zwei parallele Wiederholungen beide durchkommen — genau
+die Doppelbuchung, gegen die der Schlüssel existiert. Der Unique Key auf der Spalte
+entscheidet das Rennen. Ein Retry liefert die gespeicherte Antwort mit ihrem ursprünglichen
+Statuscode und dem Header `Idempotent-Replay: true`.
+
+Die `commandId` der Antwort ist der Primärschlüssel im `command_log`: der Handler erzeugt
+eine eigene, der Kernel überschreibt sie mit der protokollierten, damit
+`GET /commands/{id}` sie auch findet.
+
+**Ein Neuaufbau ist kein Command.** `POST /admin/projections/{name}/rebuild` ist bewusst
+*nicht* mit `'command' => true` markiert — er ändert keinen Domänenzustand und gehört nicht
+in die Command-Historie.
+
+**Ein Neuaufbau zieht nach unten durch.** Die Read Models hängen über
+`ON DELETE CASCADE` zusammen: `participant` zu leeren leert auch `membership`, `bet_row`
+und `fee`. Ein Rebuild baut die abhängigen Projektionen deshalb mit auf — sonst blieben sie
+leer und niemand merkte es. Die Antwort listet alle tatsächlich neu aufgebauten.
+
+---
+
+## 6. Authentifizierung
+
+Die Identität kommt aus dem Token — also hängt jede Regel oben daran, dass das Token
+wirklich von Keycloak stammt. Geprüft wird in dieser Reihenfolge:
+
+| Prüfung | Wogegen |
+|---|---|
+| `alg` gegen eine Allowlist | `alg: none`; HS256 mit dem öffentlichen Schlüssel als „Secret" |
+| Signatur gegen den Public Key aus dem JWKS | gefälschte und nachträglich geänderte Tokens |
+| `exp`, `nbf`, `iat` (mit Leeway) | abgelaufene Tokens, Uhrendrift |
+| `iss` exakt | ein gültig signiertes Token des falschen Realms |
+| `aud`, wenn konfiguriert | ein Token für einen anderen Client |
+
+Die Allowlist **kann nur asymmetrische Verfahren enthalten** — der Konstruktor lehnt alles
+andere ab. Beide klassischen Fälschungen scheitern damit an derselben Stelle, und ein
+`HS256` in der Konfiguration fällt beim Start auf statt auf dem Request, der damit
+gefälscht worden wäre.
+
+Der Schlüssel kommt **immer aus dem Key Set, nie aus dem Token**. Eine unbekannte `kid`
+löst genau einen gedrosselten Refetch aus. Nicht erreichbares Keycloak ist **503, nicht
+401**. Ein zuletzt bekanntes Key Set überlebt einen Ausfall — Signaturschlüssel rotieren im
+Monatsrhythmus, Tokens laufen binnen einer Stunde ab.
+
+Details und Konfiguration: [KEYCLOAK.md](KEYCLOAK.md).
+
+---
+
+## 7. Tests
+
+| Suite | Dateien | Testmethoden | Voraussetzung |
+|---|---|---|---|
+| `tests/Unit` | 19 | 181 | keine |
+| `tests/Integration` | 16 | 157 | MariaDB |
+
+- Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist
+  (`IntegrationTestCase::setUpBeforeClass()`). „Alle Tests grün" ohne laufende Datenbank
+  heißt deshalb nicht, dass die Persistenz geprüft wurde.
+- Repositories werden **nicht** gegen eine gemockte PDO getestet. Sie sind fast vollständig
+  SQL — Unique Keys, Joins, Upserts; ein Mock würde nur bestätigen, dass wir die Strings
+  geschrieben haben, die wir geschrieben haben.
+- Auch Handler laufen mit **echten** Repositories: welche Zeilen eine Query liefert, welcher
+  Unique Key greift und ob eine Projektion konsistent endet, kann nur eine Datenbank
+  beantworten.
+- `HttpTestCase` / `ApplicationTestCase` fahren die volle Kette Kernel → Controller →
+  Handler → Repository.
+- `tests/Support/SigningKey.php` erzeugt Tokens für die Auth-Tests — keine echte Keycloak
+  nötig.
 
 ```bash
-composer phpstan  # PHPStan Level 10, aktuell fehlerfrei
+make test-db-start && make test-integration && make test-db-stop
 ```
 
-**Checks:**
-- Type Safety
-- Null Safety
-- Dead Code
-- Unused Variables
-- Invalid Type Casting
+---
 
-### Code Style
-```bash
-composer cs-check  # PSR-12 Standard
-```
+## 8. Codequalität
 
-**Enforces:**
-- Consistent Formatting
-- Naming Conventions
-- Import Organization
-- Documentation
+- **PHPStan Level 10** auf `src`, `treatPhpDocTypesAsCertain: false`, fehlerfrei.
+  `array<string, mixed>` aus externen Quellen wird explizit geprüft (`is_int`, `is_string`,
+  `assert(… instanceof …)`), nie blind gecastet. Kein `@phpstan-ignore` ohne Not.
+- **PSR-12**, geprüft über `phpcs` auf `src tests public config`.
+- `declare(strict_types=1);` in jeder Datei unter `src/` und `tests/`.
+- `final` als Standard; `EventSourcedRepository` ist eine der wenigen `abstract`-Basen.
+- Kommentare erklären **warum**, nicht was. Klassen-Docblocks nennen die Story-ID.
 
-### Tests
-```bash
-composer test         # Run Tests
-composer test-coverage # Generate Coverage
-```
+---
 
-## 🚀 Performance Benchmarks
+## 9. Offene Punkte
 
-> ⚠️ **Hinweis:** Die folgenden Zahlen sind Schätzwerte aus der Entwurfsphase und wurden
-> nicht auf diesem Stand gemessen. Es existiert kein Benchmark-Setup im Repository.
+**Fachlich**
 
-**Geschwindigkeitsvergleich** (Richtwerte, Standard-Hardware):
+- **Zwei Lücken in der HTTP-Oberfläche der Basis.** Der Lebenszyklus des Tippjahres
+  (`planned → running → closed → distributed`) ist im Aggregat vollständig durchgesetzt,
+  aber `TippYear::start()` und `close()` haben **keine Route und keinen Command** — sie
+  werden nur aus Tests aufgerufen. Ebenso gibt es keinen Endpunkt, der einen `Participant`
+  anlegt (Selbstregistrierung ist E1-01). Über HTTP allein lässt sich ein Tippjahr damit
+  anlegen, aber nicht in `running` bringen — und ohne das nimmt es keinen Tippschein an.
+  Beides muss derzeit vorbereitet werden, siehe [QUICKSTART.md](QUICKSTART.md).
+- E1 (Selbstverwaltung) und E2 (Sportwetten) sind spezifiziert, aber nicht implementiert.
+  Die E2-Artefakte liegen als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml)
+  und [database/schema-e2-sports.sql](database/schema-e2-sports.sql) bereit.
+- Das [frontend/](frontend/) bedient noch die alte Prediction-Domäne und passt zu keinem
+  Backend-Endpunkt mehr. Es ist Altbestand, keine Vorlage — siehe [FRONTEND.md](FRONTEND.md).
 
-| Operation | Zeit | Memory |
-|-----------|------|--------|
-| Submit Prediction | ~5ms | 2MB |
-| Get Predictions (10) | ~3ms | 1.5MB |
-| EventStore Append | ~2ms | 1MB |
-| Projection Update | ~1ms | 0.5MB |
+**Technisch**
 
-**Optimierungen:**
-- OPcache: ~50% schneller
-- DI Container Compilation: ~30% schneller
-- Prepared Statements: ~20% schneller
-- FastRoute: ~40% schneller als Standard Routers
+- **Cache:** PSR-16 ist implementiert und wird produktiv nur von `KeycloakKeys` genutzt
+  (JWKS-Cache). Read Models werden nicht gecacht.
+- **Logging:** PSR-3 ist verdrahtet, aber nur `AuthMiddleware` schreibt. Command- und
+  Query-Handler loggen nicht.
+- **`event_publisher`** existiert als Outbox-Tabelle; es gibt keinen Publisher, der sie
+  leert. Ereignisse verlassen das System nicht.
+- **`snapshot`** existiert; es wird kein Snapshot geschrieben oder gelesen. Bei den
+  aktuellen Streamlängen ist das kein Problem.
+- Die Tabelle `user` stammt aus der Zeit vor Keycloak und wird von keinem Projektor mehr
+  beschrieben.
+- Kein Rate Limiting, keine Metriken, kein Tracing.
 
-## 📊 Datenbank Performance
+**Bewusst nicht getan**
 
-**Indizes für schnelle Queries:**
-```sql
--- Prediction Lookup
-INDEX idx_participant (participant_id)
-INDEX idx_event (event_id)
-UNIQUE KEY uk_participant_event (participant_id, event_id)
-
--- Event Store
-INDEX idx_aggregate (aggregate_type, aggregate_id)
-INDEX idx_occurred_at (occurred_at)
-INDEX idx_correlation_id (correlation_id)
-```
-
-**Query Performance:**
-- Event Store Append: O(1)
-- Stream Retrieval: O(n) mit n = Anzahl Events
-- Projection Query: O(1) - Direct Lookup
-- Leaderboard: O(n log n) - Sorted
-
-## 🔐 Security
-
-**Implemented:**
-- SQL Injection Prevention (Prepared Statements)
-- XSS Prevention (JSON Responses, keine HTML)
-- CSRF nicht relevant (stateless API)
-- Input Validation (Value Objects)
-- Authorization Checks (Participant ownership)
-
-**Bereits vorhanden:**
-- CORS Configuration (in `docker/Caddyfile`, für Production anpassen)
-- Security Headers (in `docker/Caddyfile`)
-
-**TODO für Production:**
-- Echte JWT Validation aktivieren (Klassen vorhanden, siehe „Offene Punkte")
-- Rate Limiting
-- HTTPS Only
-
-## 🎯 Offene Punkte / Nächste Schritte
-
-**Für Production-Readiness:**
-
-1. ~~**JWT/OIDC Integration verdrahten**~~ ✅
-   - Erledigt. `public/index.php` reicht an `Kernel` weiter, der `AuthMiddleware` vor jede
-     nicht-öffentliche Route hängt; `TokenVerifier` prüft die Signatur gegen den
-     JWKS-Endpunkt des Realms. Siehe [KEYCLOAK.md](KEYCLOAK.md).
-
-2. **Fehlende Infrastruktur-Klassen** ⚠️
-   - `Infrastructure\Persistence\PredictionRepository` wird in `Container.php` referenziert,
-     die Datei existiert aber nicht.
-   - Für die neuen Admin-/Leaderboard-Interfaces (`BettingGameRepositoryInterface`,
-     `ResultRepositoryInterface`, `AdminPredictionReadModelRepositoryInterface`, …) fehlen
-     Implementierungen und Container-Bindings.
-
-3. **Event Publishing**
-   - Message Queue Integration (RabbitMQ/Kafka)
-   - Async Projection Updates
-   - Event Handlers für Notifications
-
-4. **Monitoring**
-   - ✅ Logging Framework (Monolog, PSR-3) – implementiert
-   - Metrics (Prometheus)
-   - Tracing (Jaeger)
-
-5. **Caching**
-   - ✅ PSR-16 Cache mit File- und Redis-Backend – implementiert
-   - Read Models tatsächlich cachen (Repositories nutzen den Cache noch nicht)
-   - Event Store Snapshots
-
-## 📚 Zusätzliche Ressourcen
-
-**In diesem Repository:**
-- [README.md](README.md) – Überblick und API-Referenz
-- [QUICKSTART.md](QUICKSTART.md) – Schnelleinstieg
-- [DOCKER.md](DOCKER.md) – Docker-Stack und Troubleshooting
-- [KEYCLOAK.md](KEYCLOAK.md) – Authentifizierung
-- [FRONTEND.md](FRONTEND.md) – Vue.js SPA
-- [PSR.md](PSR.md) – PSR-Standards
-- [CHANGELOG.md](CHANGELOG.md) – Änderungshistorie
-- `betting_game_api.yaml` – OpenAPI 3.0 Spezifikation
-- `betting_game_er_extended.mermaid` – ER-Diagramm mit Event Sourcing
-- `database/schema.sql` – Komplettes DB Schema
-- `docker/architecture.mermaid` – Diagramm des Docker-Stacks
-
-**Externe Links:**
-- Event Sourcing: https://martinfowler.com/eaaDev/EventSourcing.html
-- CQRS: https://martinfowler.com/bliki/CQRS.html
-- Onion Architecture: https://jeffreypalermo.com/2008/07/the-onion-architecture-part-1/
-- PHP-DI: https://php-di.org/
-- FastRoute: https://github.com/nikic/FastRoute
-
-## 🎉 Zusammenfassung
-
-**Was wurde erreicht:**
-
-✅ Vollständige OpenAPI Implementation
-✅ Event Sourcing mit EventStore
-✅ CQRS Pattern konsequent umgesetzt
-✅ Onion Architecture (4 Layer)
-✅ Domain Validation mit Value Objects
-✅ Interface-basierte Dependencies
-✅ Dependency Injection (PHP-DI)
-✅ FastRoute für Performance
-✅ 109 Unit Tests in 12 Testklassen
-✅ Erweitertes ER-Diagramm mit Event Sourcing
-✅ MariaDB Schema mit Indexierung
-✅ Docker Setup für einfachen Start
-✅ Makefile für Developer Experience
-✅ Comprehensive Documentation
-
-**Performance:**
-- Minimale Dependencies (7 Packages)
-- Compiled DI Container
-- Fast Routing
-- Optimized Database Queries
-- Event Store mit Snapshotting
-
-**Code Qualität:**
-- PHPStan Level 8
-- PSR-12 Compliant
-- Strict Types überall
-- Immutable Value Objects
-- Final Classes by Default
-
-Dieses Projekt ist ein vollständiges Beispiel für moderne PHP-Architektur mit Event Sourcing und
-eine gute Grundlage für weitere Features. **Für einen Production-Einsatz fehlen die unter
-„Offene Punkte" genannten Bausteine** – allen voran die tatsächliche Token-Validierung im
-Entry Point und die fehlenden Repository-Implementierungen.
+- Kein Framework. Die Kosten wären Autoload- und Bootstrap-Overhead für Bausteine, die hier
+  aus je einer Klasse bestehen.
+- Keine PSR-7/PSR-15-Umstellung. `Request`/`JsonResponse` sind klein und tun, was sie
+  sollen; sinnvoll wäre der Wechsel nur zusammen, siehe [PSR.md](PSR.md).
+- Keine gemessenen Performance-Zahlen. Es gibt kein Benchmark-Setup im Repository, und
+  geschätzte Zahlen in einer Architekturdoku sind schlimmer als keine.

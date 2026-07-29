@@ -1,448 +1,335 @@
-# Betting Game API
+# Lotterie-Tippgemeinschaft — API
 
-High-performance betting game management API with Event Sourcing, CQRS, and Onion Architecture.
+Backend-API zur Verwaltung einer **Tippgemeinschaft für Lotto 6 aus 49**.
+PHP 8.3, kein Framework, Onion Architecture mit Event Sourcing und CQRS, MariaDB,
+Authentifizierung über Keycloak (OIDC).
 
-## 📚 Documentation
+**Ausbaustufe Basis:** Teilnehmer lesen ausschließlich ihre eigenen Daten, der
+Administrator bucht alles. Die Ausbaustufen E1 (Selbstverwaltung) und E2 (Sportwetten)
+sind spezifiziert, aber nicht implementiert — siehe [USER_STORIES.md](USER_STORIES.md).
 
-| Document | Contents |
-|----------|----------|
-| [QUICKSTART.md](QUICKSTART.md) | Getting started, first API calls, test data |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Layers, patterns, file structure, open issues |
-| [DOCKER.md](DOCKER.md) | Docker stack, configuration, troubleshooting |
-| [KEYCLOAK.md](KEYCLOAK.md) | Authentication, demo users, tokens |
-| [FRONTEND.md](FRONTEND.md) | Vue.js SPA – views, routes, API client |
-| [PSR.md](PSR.md) | PSR standards: status and usage |
-| [CHANGELOG.md](CHANGELOG.md) | History of the larger rebuilds |
+## Dokumentation
 
-Machine-readable specs: `betting_game_api.yaml` (OpenAPI 3.0),
-`betting_game_er_extended.mermaid` (ER diagram), `database/schema.sql`.
+| Dokument | Inhalt |
+|---|---|
+| [USER_STORIES.md](USER_STORIES.md) | **Fachliche Referenz.** Domäne, Stories, Akzeptanzkriterien, Umsetzungsstand |
+| [AGENTS.md](AGENTS.md) | Arbeitsanleitung für Entwickler und KI-Agenten |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Schichten, Muster, Klassenlandkarte, offene Punkte |
+| [KEYCLOAK.md](KEYCLOAK.md) | Authentifizierung, Demo-Benutzer, Tokens |
+| [DOCKER.md](DOCKER.md) | Docker-Stack, Konfiguration, Troubleshooting |
+| [QUICKSTART.md](QUICKSTART.md) | Erste Schritte, ein Tippjahr von Hand durchspielen |
+| [PSR.md](PSR.md) | PSR-Standards: Stand und Verwendung |
+| [CHANGELOG.md](CHANGELOG.md) | Chronik der größeren Umbauten |
 
-## 🏗️ Architecture
+Maschinenlesbar: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3, v2.2.0),
+[betting_game_er_extended.mermaid](betting_game_er_extended.mermaid),
+[database/schema.sql](database/schema.sql).
 
-### Onion Architecture Layers
+## Die Domäne in fünf Sätzen
 
-```
-┌─────────────────────────────────────┐
-│      Presentation Layer             │  ← HTTP Controllers, Routing
-├─────────────────────────────────────┤
-│      Application Layer              │  ← Commands, Queries, Handlers
-├─────────────────────────────────────┤
-│      Domain Layer (Core)            │  ← Entities, Value Objects, Events
-├─────────────────────────────────────┤
-│      Infrastructure Layer           │  ← EventStore, Repositories, DB
-└─────────────────────────────────────┘
-```
+- Ein **Tippjahr** (`TippYear`) ist ein frei definierter Zeitraum, kein Kalenderjahr.
+- Es zerfällt in überlappungsfreie **Tippperioden** (`BetPeriod`) — deren Länge ist
+  Konfiguration, keine Annahme im Code. Eine Periode über das ganze Jahr ist zulässig.
+- Jeder Teilnehmer hat **pro Periode genau eine Tippreihe** (`BetRow`) aus sechs Zahlen.
+- Monatlich reicht die Gemeinschaft einen gemeinsamen **Tippschein** (`Ticket`) ein: einen
+  Snapshot aller gültigen Reihen. Er erzeugt je Teilnehmer eine **Gebühr** (`Fee`).
+- **Ziehungen** (`Draw`) erzeugen Gewinne für den Schein als Ganzes; sie werden über das
+  Jahr gesammelt und am Jahresende **gleichmäßig auf alle Teilnehmer** ausgeschüttet.
 
-### Key Design Patterns
+## Architektur
 
-- **CQRS (Command Query Responsibility Segregation)**: Separate read and write models
-- **Event Sourcing**: All state changes captured as immutable events
-- **Domain-Driven Design**: Rich domain models with business logic
-- **Dependency Injection**: Loose coupling via interfaces
-- **Repository Pattern**: Abstraction over data access
-
-### Project Structure
+### Schichten
 
 ```
-betting-game/
-├── src/
-│   ├── Domain/              # Core business logic (no dependencies)
-│   │   ├── Model/           # Entities with business rules
-│   │   ├── ValueObject/     # Immutable value objects with validation
-│   │   ├── Event/           # Domain events for Event Sourcing
-│   │   ├── Repository/      # Repository interfaces
-│   │   └── Exception/       # Domain exceptions
-│   ├── Application/         # Use cases and orchestration
-│   │   ├── Command/         # Write operations (CQRS)
-│   │   └── Query/           # Read operations (CQRS)
-│   ├── Infrastructure/      # External concerns
-│   │   ├── Auth/            # Keycloak service + auth middleware
-│   │   ├── Cache/           # PSR-16 cache (File, Redis)
-│   │   ├── DI/              # Dependency Injection container
-│   │   ├── EventStore/      # Event Store implementation
-│   │   ├── Logging/         # PSR-3 logger factory (Monolog)
-│   │   └── Persistence/     # Repository implementations
-│   └── Presentation/        # HTTP layer
-│       ├── Controller/      # API controllers
-│       ├── Http/            # HTTP helpers
-│       └── Router/          # Fast routing
-├── tests/
-│   └── Unit/                # Unit tests (12 files, 109 test methods)
-├── config/                  # Configuration files
-├── database/                # SQL schema
-├── docker/                  # Dockerfile, Caddyfile, PHP configs
-├── keycloak/                # Realm export (users, clients, roles)
-├── frontend/                # Vue.js 3 SPA
-└── public/                  # Web root
-    └── index.php            # Application entry point
+Presentation    Controller, Router, Kernel, HTTP-Helfer
+     ↓
+Application     Commands + Handler, Queries + Handler, Projection-Manager
+     ↓
+Domain          Aggregate, Value Objects, Events, Repository-Interfaces
+     ↑
+Infrastructure  implementiert die Domain-Interfaces (PDO, EventStore, Auth, Cache)
 ```
 
-## 🚀 Features
+`src/Domain/` hat keine Abhängigkeit nach außen — kein PDO, kein HTTP, keine PSR-Pakete.
+Die Abhängigkeit zeigt immer nach innen; Infrastructure erfüllt die Interfaces, die die
+Domäne vorgibt.
 
-- ✅ Event Sourcing with full audit trail
-- ✅ CQRS for optimized reads and writes
-- ✅ Optimistic locking for concurrency control
-- ✅ Domain validation with Value Objects
-- ✅ Fast routing with FastRoute
-- ✅ Minimal dependencies (7 production packages)
-- ✅ 109 unit tests across 12 test classes
-- ✅ OpenAPI 3.0 compliant
-- ✅ **Keycloak Authentication** (OAuth2/OIDC) — end to end, frontend and backend
-- ✅ **JWT Token Validation** (Backend) — signature verified against the realm's JWKS, see [KEYCLOAK.md](KEYCLOAK.md)
-- ✅ **Role-Based Access Control** (RBAC) — enforced by the `Kernel` before the controller runs
-- ✅ **One class per file** (111 files, PSR-4 compliant)
-- ✅ **PSR-3: Logger Interface** (Monolog)
-- ✅ **PSR-11: Container Interface** (DI Container)
-- ✅ **PSR-16: Simple Cache** (File/Redis)
-- ✅ **Vue.js 3 Frontend** (Keycloak-Integrated)
+### Request-Fluss
 
-## 📦 Dependencies
-
-### Production
-- `php: ^8.3` - Latest PHP with performance improvements
-- `nikic/fast-route: ^1.3` - Fast HTTP routing
-- `php-di/php-di: ^7.0` - Dependency Injection
-- `ramsey/uuid: ^4.7` - UUID generation
-- `psr/log: ^3.0` - PSR-3 logger interface
-- `psr/container: ^2.0` - PSR-11 container interface
-- `psr/simple-cache: ^3.0` - PSR-16 cache interface
-- `monolog/monolog: ^3.5` - PSR-3 implementation
-
-### Development
-- `phpunit/phpunit: ^11.0` - Unit testing
-- `phpstan/phpstan: ^1.10` - Static analysis
-- `squizlabs/php_codesniffer: ^3.8` - Code style
-
-## 🔧 Installation
-
-### Requirements
-- PHP 8.3 or higher
-- MariaDB 11.3+ or MySQL 8.0+
-- Composer 2.x
-- Docker & Docker Compose (for containerized setup)
-
-### Setup with Docker (Recommended)
-
-The project uses a modern Docker stack:
-- **PHP-FPM 8.3** (Alpine-based for minimal footprint)
-- **Caddy 2.7** (Modern web server with automatic HTTPS)
-- **MariaDB 11.3** (Latest stable version)
-- **PHPMyAdmin** (Database management)
-- **Frontend** (Vue.js 3 build served by Nginx)
-- **Keycloak 23.0** + **PostgreSQL 16** (Identity provider and its database)
-
-1. **Start containers**
-```bash
-make start
-# or
-docker-compose up -d
+```
+public/index.php          Globals → Request-Objekt, Container bauen
+  └─ Kernel::handle()     src/Presentation/Http/Kernel.php
+       ├─ Router          FastRoute
+       ├─ AuthMiddleware  außer bei 'public' => true; JWT gegen das JWKS des Realms geprüft
+       ├─ Authorization   bei 'role' => 'admin'
+       ├─ command_log     bei 'command' => true (Idempotency-Key, OPS-01/OPS-02)
+       ├─ Controller      Input::* validiert, Command/Query-DTO, Handler
+       └─ ErrorMapper     Domain-Exception → HTTP-Status
 ```
 
-2. **Install dependencies**
-```bash
-make composer-install
-# or
-docker-compose exec php composer install
-```
+Der `Kernel` ist ohne Webserver testbar; `index.php` ist nur die Brücke zu den PHP-Globals.
+Eine Route ist **per Default authentifiziert** — ein vergessenes Flag macht sie nicht
+versehentlich öffentlich.
 
-3. **Access the application**
-- Frontend: http://localhost:3000
-- API: http://localhost:8080
-- PHPMyAdmin: http://localhost:8081 (root/secret)
-- Keycloak: http://localhost:8090 — Admin Console http://localhost:8090/admin (admin/admin)
+### Event Sourcing und CQRS
 
-### Manual Setup (Without Docker)
+- **Schreibweg:** Handler lädt das Aggregat → Domänenlogik → das Aggregat zeichnet Events
+  auf → das Repository schreibt Events **und** Projektion in **einer** Transaktion unter
+  Optimistic Locking.
+- **Leseweg:** Query-Handler lesen direkt die Projektionstabellen. Keine Events, keine
+  Joins über den Event Store.
+- **Zwei Wege zu denselben Tabellen:** Repositories schreiben ihre Projektion *synchron*
+  beim Speichern. Die sieben Projektoren in `src/Infrastructure/Projection/` sind der
+  zweite Weg — sie spielen das Event-Log nach (`POST /admin/projections/{name}/rebuild`).
+  Dass beide dieselben Zeilen erzeugen, prüft
+  [ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) über alle
+  13 Read-Model-Tabellen hinweg.
+- **Ehrlich zur Asynchronität:** Die API beschreibt Commands als asynchron (`202`), die
+  Implementierung schreibt synchron. Bei Ankunft der `202` ist der Command bereits
+  `completed`, `projectionsUpToDate` ist immer `true`.
 
-1. **Install dependencies**
-```bash
-composer install
-```
+### Fehlerabbildung
 
-2. **Configure database**
-```bash
-# Copy and edit configuration
-cp .env.example .env
+Handler werfen Domänen-Ausnahmen und kennen kein HTTP.
+[ErrorMapper](src/Presentation/Http/ErrorMapper.php) ist die einzige Übersetzungsstelle:
 
-# Edit database credentials in .env
-# config/config.php reads all values from environment variables
-```
+| Ausnahme | Status |
+|---|---|
+| `UnauthorizedAccessException` | 403 |
+| `EntityNotFoundException` | 404 |
+| `InvalidArgumentException`, `InvalidInputException` | 400 |
+| `ConcurrencyException` | 409 |
+| `BusinessRuleViolationException` (inkl. `DuplicateEntryException`) | 409 |
+| alles andere | 500 (Meldung nur im Debug-Modus) |
 
-3. **Create database and tables**
-```bash
-mysql -u root -p < database/schema.sql
-```
+Ein abgelehnter Unique Key ist eine Geschäftsregel, die Nein sagt — kein Datenbankfehler.
+`EventSourcedRepository` übersetzt SQLSTATE 23000 deshalb in `DuplicateEntryException`.
 
-4. **Configure web server**
+## Endpunkte
 
-**Using Docker (Caddy)**
-Caddy is pre-configured in `docker/Caddyfile` - no additional setup needed!
+22 Routen. Die Story-IDs verweisen auf [USER_STORIES.md](USER_STORIES.md).
 
-**Using Apache (Manual)**
-```apache
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.php [L]
-```
+### Teilnehmer — nur lesend
 
-**Nginx**
-```nginx
-location / {
-    try_files $uri $uri/ /index.php?$query_string;
-}
-```
+| Endpunkt | Story |
+|---|---|
+| `GET /participants/{id}/bet-row` | B-01 eigene Tippreihe |
+| `GET /participants/{id}/memberships` | B-02 eigene Teilnahmen |
+| `GET /participants/{id}/fees` | B-03 eigene Gebühren |
+| `GET /participants/{id}/payout-share` | B-04 eigener Anteil an der Jahresausschüttung |
+| `GET /tipp-years/{id}/draws` | B-05 Gewinn des Tippscheins je Ziehung |
 
-5. **Set permissions**
-```bash
-chmod -R 755 public/
-chmod -R 775 var/
-```
+Die Identität kommt aus dem Token, nie aus dem Pfad. `Authorization::requireSelf()` lehnt
+fremde `participantId` mit `403` ab — auch für einen Admin, der dafür eigene Endpunkte hat.
 
-## 🧪 Testing
+### Administrator
 
-### Run all tests
-```bash
-composer test
-```
+| Endpunkt | Story |
+|---|---|
+| `PUT /admin/participants/{id}/bet-row` | B-06 Tippreihe zuordnen |
+| `GET /admin/fees` | B-07 Gebührenlage |
+| `PUT /admin/fees/{feeId}/payment` | B-07 Zahlungsstatus setzen |
+| `POST /admin/draws` | B-08 Ziehung eintragen |
+| `PUT /admin/draws/{drawId}/winnings` | B-09 Gewinne einer Ziehung eintragen |
+| `GET` / `POST /admin/tipp-years` | B-10 Tippjahre |
+| `GET` / `POST /admin/tipp-years/{id}/bet-periods` | B-14 Tippperioden |
+| `POST /admin/tipp-years/{id}/members` | B-11 Teilnehmer aufnehmen |
+| `POST /admin/tipp-years/{id}/tickets` | B-12 Tippschein einreichen |
+| `POST /admin/tipp-years/{id}/payout` | B-13 Jahresausschüttung buchen |
 
-### Run with coverage
-```bash
-composer test-coverage
-```
+### Betrieb
 
-### Static analysis
-```bash
-composer phpstan
-```
+| Endpunkt | Story |
+|---|---|
+| `GET /commands/{commandId}` | OPS-01 Verarbeitungsstand eines Commands |
+| `GET /admin/audit/{type}/{id}` | OPS-03 Event-Historie eines Aggregats |
+| `GET /admin/projections` | OPS-04 Projektionen überwachen |
+| `POST /admin/projections/{name}/rebuild` | OPS-04 Projektion neu aufbauen |
 
-### Code style check
-```bash
-composer cs-check
-```
+`GET /commands/{commandId}` ist bewusst nicht admin-geschützt: wer den Command abgesetzt
+hat, darf nachsehen, und die UUID kann niemand raten.
 
-## 📊 Database Schema
+### Öffentlich
 
-### Core Tables (Projections)
-- `user`, `participant` - User management
-- `betting_game`, `game_type`, `event` - Game and event data
-- `game_participation` - Participant ↔ game assignment
-- `prediction`, `result` - Participant predictions and actual results
-- `point_configuration`, `prize_distribution` - Scoring rules
-- `participant_score` - Score calculations
-- `fee` - Payment tracking
+`GET /health` — der einzige Endpunkt ohne Authentifizierung. Ein Health Check hinter einem
+Token kann einem Load Balancer nicht sagen, ob der Dienst läuft. Er steht deshalb auch
+nicht in der OpenAPI-Spezifikation (19 Pfade, 21 Operationen).
 
-### Event Sourcing Tables
-- `event_store` - Immutable event log (source of truth)
-- `event_stream` - Stream metadata with version tracking
-- `snapshot` - Aggregate snapshots for performance
-- `projection_state` - Projection rebuild tracking
-- `event_publisher` - Outbox for publishing events downstream
+## Authentifizierung
 
-## 🔐 Authentication
-
-The API expects an OIDC/JWT bearer token:
+Die API erwartet ein Bearer-Token von Keycloak:
 
 ```http
-Authorization: Bearer <jwt-token>
+Authorization: Bearer <jwt>
 ```
 
-**Token should contain:**
-- `participant_id` - For participant endpoints
-- `realm_access.roles` containing `admin` - For admin endpoints
+Geprüft wird in dieser Reihenfolge: `alg` gegen eine Allowlist, die nur asymmetrische
+Verfahren enthalten kann → Signatur gegen den Public Key aus dem JWKS des Realms →
+`exp`/`nbf`/`iat` mit Leeway → `iss` exakt → `aud`, wenn konfiguriert.
 
-The signature is verified against the realm's published public key, so those claims are
-statements by Keycloak rather than by the caller. An unreachable Keycloak answers **503**, not
-401 — see [KEYCLOAK.md](KEYCLOAK.md) for the full list of checks and the configuration.
+- `participant_id` (Custom Claim) — für die Teilnehmer-Endpunkte
+- `realm_access.roles` enthält `admin` — für die Admin-Endpunkte
 
-## 📡 API Endpoints
+Weil die Signatur geprüft wird, sind das Aussagen von Keycloak und nicht des Aufrufers.
+Ein **nicht erreichbares Keycloak beantwortet die API mit 503, nicht mit 401** — ein
+Schlüsselproblem ist kein ungültiges Token. Details: [KEYCLOAK.md](KEYCLOAK.md).
 
-### Participant Endpoints
+Es gibt bewusst kein JWT-Shared-Secret. Tokens sind RS256; eine Anwendung, die zusätzlich
+HS256 akzeptiert, lässt sich mit dem Schlüssel angreifen, den sie selbst veröffentlicht.
 
-**Predictions**
-- `GET /participants/{id}/predictions` - Get own predictions
-- `GET /participants/{id}/predictions/{predictionId}` - Get a single prediction
-- `POST /participants/{id}/events/{eventId}/predictions` - Submit prediction
-- `PUT /participants/{id}/predictions/{predictionId}` - Update prediction
+## Beispiele
 
-**Scores**
-- `GET /participants/{id}/scores` - Get scores and prizes
+Token holen (Demo-Benutzer aus dem Realm-Export):
 
-**Participation**
-- `GET /participants/{id}/participations` - Get game participations
-- `POST /participants/{id}/games/{gameId}/participation` - Join game
-- `DELETE /participants/{id}/games/{gameId}/participation` - Leave game
-
-### Admin Endpoints
-
-**Predictions**
-- `GET /admin/predictions` - View all predictions
-
-**Games**
-- `GET /admin/games` - List all games
-- `POST /admin/games` - Create new game
-- `POST /admin/games/{id}/end` - End game
-
-**Results**
-- `POST /admin/events/{id}/results` - Record event result
-
-### Public Endpoints
-
-- `GET /health` - Health check (no authentication)
-
-## 🎯 Example Usage
-
-### Submit a Prediction
 ```bash
-curl -X POST http://localhost:8080/participants/1/events/100/predictions \
-  -H "Authorization: Bearer <token>" \
+TOKEN=$(curl -s -X POST http://localhost:8090/realms/betting-game/protocol/openid-connect/token \
+  -d client_id=betting-game-frontend -d grant_type=password \
+  -d username=admin -d password=admin123 | jq -r .access_token)
+```
+
+Tippjahr anlegen (Command, antwortet `202`):
+
+```bash
+curl -X POST http://localhost:8080/admin/tipp-years \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "predictionData": {
-      "homeScore": 2,
-      "awayScore": 1
-    }
-  }'
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"name":"Tippjahr 2026","startDate":"2026-01-01","endDate":"2026-12-31","ticketCostPerRow":1.20}'
 ```
 
-**Response:**
 ```json
 {
-  "commandId": "cmd-123",
+  "commandId": "8f14e45f-ceea-467a-9575-6a1d3a6bd0e1",
   "status": "accepted",
-  "resourceId": "pred-uuid",
-  "timestamp": "2024-01-01T10:00:00+00:00"
+  "resourceId": 1,
+  "timestamp": "2026-07-29T10:00:00+00:00"
 }
 ```
 
-### Get Predictions
+Tippreihe zuordnen:
+
 ```bash
-curl -X GET http://localhost:8080/participants/1/predictions \
-  -H "Authorization: Bearer <token>"
+curl -X PUT http://localhost:8080/admin/participants/2/bet-row \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"betPeriodId":1,"numbers":[3,7,12,25,38,44]}'
 ```
 
-**Response:**
-```json
-{
-  "predictions": [
-    {
-      "predictionId": "pred-uuid",
-      "participantId": 1,
-      "eventId": 100,
-      "eventName": "Team A vs Team B",
-      "predictionData": {"homeScore": 2, "awayScore": 1},
-      "submittedAt": "2024-01-01T10:00:00",
-      "deadline": "2024-01-01T18:00:00",
-      "status": "submitted",
-      "isEditable": true
-    }
-  ],
-  "totalCount": 1
-}
-```
+Eigene Reihe lesen (mit dem Token des Teilnehmers, dessen `participant_id` 2 ist):
 
-## ⚡ Performance Optimizations
-
-1. **FastRoute** - Compiled route matching (no regex overhead)
-2. **Optimistic Locking** - Version-based concurrency control
-3. **Event Snapshots** - Avoid replaying large event streams
-4. **Read Models** - Pre-computed projections for fast queries
-5. **Minimal Dependencies** - Reduced autoload overhead
-6. **Opcode Caching** - Enabled in production
-
-### Production Deployment
-
-```php
-// config/config.php
-return [
-    'production' => true,  // Enable DI container compilation
-    'debug' => false,
-];
-```
-
-## 🧩 Event Sourcing Flow
-
-1. **Command** arrives (e.g., SubmitPredictionCommand)
-2. **Handler** loads aggregate from EventStore
-3. **Domain logic** executes, generates events
-4. **Events** appended to EventStore
-5. **Projections** updated asynchronously
-6. **Response** returned to client
-
-### Event Types
-
-- `prediction.submitted` - New prediction created
-- `prediction.updated` - Prediction modified
-- `prediction.evaluated` - Score calculated
-
-## 📝 Code Quality
-
-- **PSR-12** coding standard
-- **PHPStan Level 8** static analysis
-- **Strict types** enabled everywhere
-- **Final classes** by default (inheritance by exception)
-- **Immutable value objects**
-
-## 🔍 Monitoring
-
-Track projection health:
-```sql
-SELECT * FROM projection_state;
-```
-
-Check event processing lag:
-```sql
-SELECT 
-    MAX(event_store_id) as latest_event,
-    last_processed_position,
-    (MAX(event_store_id) - last_processed_position) as lag
-FROM event_store, projection_state
-WHERE projection_name = 'prediction_read_model';
-```
-
-## 📄 License
-
-MIT License (a `LICENSE` file has not been added to the repository yet).
-
-## 👥 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-### Development Guidelines
-
-- Write tests for all new features (run `composer test-coverage` to check coverage)
-- Follow PSR-12 coding standards
-- Add domain validation in Value Objects
-- Use strict types everywhere
-- Document complex business logic
-- Update OpenAPI spec for new endpoints
-
-## 🐛 Troubleshooting
-
-### Database Connection Issues
 ```bash
-# Test connection
-php -r "new PDO('mysql:host=localhost;dbname=betting_game', 'user', 'pass');"
+curl http://localhost:8080/participants/2/bet-row -H "Authorization: Bearer $TOKEN"
 ```
 
-### Permission Denied
+Ein Retry mit bekanntem `Idempotency-Key` liefert die gespeicherte Antwort mit ihrem
+ursprünglichen Statuscode und dem Header `Idempotent-Replay: true`.
+
+Ein vollständiger Durchlauf vom leeren Tippjahr bis zur Ausschüttung steht in
+[QUICKSTART.md](QUICKSTART.md).
+
+## Datenmodell
+
+20 Tabellen in [database/schema.sql](database/schema.sql).
+
+**Read Model (13, aus Events aufgebaut):** `participant`, `tipp_year`, `membership`,
+`bet_period`, `bet_row`, `ticket`, `ticket_row`, `draw`, `ticket_draw_result`,
+`ticket_row_match`, `fee`, `payout`, `payout_share`.
+
+**Event Sourcing (5):** `event_store` (unveränderliches Event-Log, Source of Truth),
+`event_stream` (Stream-Metadaten mit Version), `snapshot`, `projection_state`,
+`event_publisher` (Outbox, vorbereitet).
+
+**Betrieb (1):** `command_log` — Command-Historie und Idempotency-Keys.
+
+Die Tabelle `user` stammt aus der Zeit vor Keycloak und wird von keinem Projektor mehr
+beschrieben; Identitäten liegen im Realm.
+
+## Installation
+
+### Mit Docker (Normalfall)
+
 ```bash
-# Fix permissions
-sudo chown -R www-data:www-data /var/www/betting-game
+docker-compose up -d
+docker-compose exec php composer install
+curl http://localhost:8080/health
 ```
 
-### Event Store Version Conflicts
-Check for concurrent modifications:
-```sql
-SELECT * FROM event_stream WHERE stream_id = 'pred-uuid';
+| Dienst | URL | Zugang |
+|---|---|---|
+| API (Caddy) | http://localhost:8080 | Bearer-Token |
+| PHPMyAdmin | http://localhost:8081 | root / secret |
+| Keycloak | http://localhost:8090 | Admin Console `/admin`, admin / admin |
+| MariaDB | localhost:3306 | root / secret, DB `betting_game` |
+| Frontend (Altbestand) | http://localhost:3000 | siehe unten |
+
+Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import
+(`docker-compose logs -f keycloak`). Der Stack ist in [DOCKER.md](DOCKER.md) beschrieben.
+
+### Ohne Docker
+
+Voraussetzungen: PHP 8.3 mit `pdo_mysql`, MariaDB 11.3 oder MySQL 8.0, Composer 2.
+
+```bash
+composer install
+mysql -u root -p -e "CREATE DATABASE betting_game CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -p betting_game < database/schema.sql
+cp .env.example .env          # config/config.php liest alles aus Umgebungsvariablen
+php -S localhost:8080 -t public
 ```
 
-## 📞 Support
+Für Apache oder Nginx muss jeder Pfad auf `public/index.php` zeigen; im Docker-Stack
+erledigt das die `docker/Caddyfile`.
 
-For issues and questions:
-- GitHub Issues: [Create an issue]
-- Documentation: [API Docs]
-- Email: support@bettinggame.com
+## Tests und Codequalität
+
+```bash
+docker-compose exec php vendor/bin/phpunit --testdox
+docker-compose exec php vendor/bin/phpstan analyse
+docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
+```
+
+Ohne Docker stehen dieselben Ziele als `make test`, `make phpstan`, `make cs-check`
+bereit — sie setzen ein PHP im PATH voraus. `make all-tests` fasst alle drei zusammen.
+
+| Suite | Umfang | Voraussetzung |
+|---|---|---|
+| `tests/Unit` | 19 Dateien, 181 Testmethoden — Domänenlogik, Value Objects, JWT, HTTP-Helfer | keine |
+| `tests/Integration` | 16 Dateien, 157 Testmethoden — Repositories, Command-Flows, HTTP-Kette, Projektions-Rebuild | MariaDB |
+
+Die Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist.
+Eine grüne Suite ohne laufende Datenbank sagt deshalb nichts über die Persistenz aus.
+Testdatenbank starten: `make test-db-start`, wieder entfernen: `make test-db-stop`.
+
+- **PHPStan Level 10** auf `src`, fehlerfrei (`phpstan.neon`, `treatPhpDocTypesAsCertain: false`)
+- **PSR-12**, `declare(strict_types=1);` in jeder Datei
+- 153 Dateien unter `src/`, eine Klasse pro Datei
+
+## Abhängigkeiten
+
+**Produktion** — sieben Pakete, kein Framework:
+
+| Paket | Zweck |
+|---|---|
+| `nikic/fast-route: ^1.3` | kompiliertes Routing |
+| `php-di/php-di: ^7.0` | DI-Container, in Production kompiliert |
+| `ramsey/uuid: ^4.7` | Command-IDs |
+| `monolog/monolog: ^3.5` | PSR-3-Implementierung |
+| `psr/log`, `psr/container`, `psr/simple-cache` | Interface-Pakete |
+
+Dazu `ext-pdo` und `ext-json`. **Entwicklung:** `phpunit/phpunit: ^11.0`,
+`phpstan/phpstan: ^2.1`, `squizlabs/php_codesniffer: ^3.8`.
+
+## Altbestand im Repository
+
+Der Kurswechsel auf die Lotterie-Domäne (`f1d0771`) hat nicht alles mitgenommen:
+
+| Was | Stand |
+|---|---|
+| [frontend/](frontend/), [FRONTEND.md](FRONTEND.md) | Vue-SPA des alten Sportwetten-Tippspiels. Ruft Predictions/Scores/Games auf — Endpunkte, die es nicht mehr gibt. Nicht als Vorlage verwenden |
+| [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | Bewusst aufgehoben für Ausbaustufe E2 |
+| `docker/Caddyfile.minimal`, `Caddyfile.alternative`, `php-fpm.conf.minimal` | Reste aus dem Troubleshooting; aktiv sind nur die aus `docker-compose.yml` gemounteten |
+
+## Lizenz
+
+MIT. Eine `LICENSE`-Datei liegt dem Repository noch nicht bei.

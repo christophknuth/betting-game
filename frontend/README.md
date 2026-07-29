@@ -1,17 +1,27 @@
-# Betting Game Frontend
+# Betting Game Frontend (Altbestand)
 
-Vue.js 3 Frontend für die Betting Game API.
+Vue.js 3 Frontend für das **Sportwetten-Tippspiel**, das dieses Projekt vor dem Kurswechsel
+auf die Lotterie-Tippgemeinschaft war.
 
+> ## ⛔ Passt nicht mehr zum Backend
+>
+> Predictions, Scores und Games gibt es in der API nicht mehr — alle fachlichen Requests
+> dieser SPA enden in `404`. Nur Login und Logout über Keycloak funktionieren weiter.
+> Hintergrund und was ein neues Frontend bedienen müsste:
+> [`../FRONTEND.md`](../FRONTEND.md). Aktuelle Endpunkte: [`../README.md`](../README.md).
+>
+> Nichts hier als Vorlage für neue Arbeit übernehmen.
+>
 > Ausführliche Dokumentation (Views, Routen, API-Client, Design System, Troubleshooting):
 > [`../FRONTEND.md`](../FRONTEND.md). Authentifizierung: [`../KEYCLOAK.md`](../KEYCLOAK.md).
 
 ## 🚀 Features
 
 - ✅ **Keycloak Login** - OAuth2/OIDC mit PKCE und Token-Auto-Refresh
-- ✅ **Predictions Management** - Erstellen, Bearbeiten, Anzeigen von Predictions
-- ✅ **Scores Dashboard** - Übersicht über Points und Prize Money
-- ✅ **Games Participation** - Games beitreten und verlassen
-- ✅ **Admin-Bereich** - Games, Predictions und Ergebnisse (Rolle `admin`)
+- ⛔ **Predictions Management** - Erstellen, Bearbeiten, Anzeigen — Endpunkte entfallen
+- ⛔ **Scores Dashboard** - Points und Prize Money — Endpunkte entfallen
+- ⛔ **Games Participation** - Beitreten und Verlassen — Endpunkte entfallen
+- ⛔ **Admin-Bereich** - Games, Predictions, Ergebnisse — Endpunkte entfallen
 - ✅ **Responsive Design** - Mobile-friendly UI
 - ✅ **Vue 3 Composition API** - Moderne Vue.js Features
 - ✅ **Pinia State Management** - Für Auth und globalen State

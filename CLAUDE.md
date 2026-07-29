@@ -42,10 +42,10 @@ der Administrator schreibt alles.
 
 ## Beim Arbeiten beachten
 
-- **Veraltete Doku.** README.md, ARCHITECTURE.md, DEMO.md, FRONTEND.md und `frontend/`
-  beschreiben noch das alte Sportwetten-Tippspiel (Predictions, Scores, Games). Sie sind
-  keine verlässliche Quelle — die Tabelle in [AGENTS.md](AGENTS.md) Abschnitt 2 sagt, was
-  gilt. Nichts daraus als Vorlage übernehmen.
+- **Altbestand.** `frontend/` und [FRONTEND.md](FRONTEND.md) beschreiben das alte
+  Sportwetten-Tippspiel (Predictions, Scores, Games) und passen zu keinem Endpunkt mehr.
+  Nichts daraus als Vorlage übernehmen. Die übrige Doku ist seit dem 2026-07-29
+  nachgezogen — die Tabelle in [AGENTS.md](AGENTS.md) Abschnitt 2 sagt, was gilt.
 - **PHPStan Level 10 und PSR-12 sind erfüllt.** Änderungen müssen das bleiben lassen.
 - **Kommentare erklären das Warum.** Der Bestand ist durchgehend so geschrieben; siehe
   AGENTS.md Abschnitt 6. Neuen Code im selben Ton kommentieren, nicht die Signatur nacherzählen.

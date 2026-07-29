@@ -4,7 +4,7 @@ Arbeitsdokument: Welche fachlichen Anforderungen bildet das System ab, über wel
 Endpunkt, auf welchen Tabellen — und was davon ist bereits implementiert.
 
 Abgeleitet aus [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid).
-Stand: 2026-07-28.
+Stand: 2026-07-29.
 
 ## Die Domäne
 
@@ -238,7 +238,7 @@ Repository-Struktur, HTTP-Schicht und Testgerüst bleiben unverändert.
 
 | Baustein | Anmerkung |
 |---|---|
-| [Db.php](src/Infrastructure/Persistence/Db.php), [Row.php](src/Infrastructure/Persistence/Row.php) | Typisierter PDO-Zugriff — domänenneutral |
+| [Db.php](src/Infrastructure/Persistence/Db.php), [Row.php](src/Support/Row.php) | Typisierter PDO-Zugriff — domänenneutral |
 | [Input.php](src/Presentation/Http/Input.php), [JsonResponse.php](src/Presentation/Http/JsonResponse.php), [Request.php](src/Presentation/Http/Request.php) | HTTP-Schicht — domänenneutral |
 | [Router.php](src/Presentation/Router/Router.php) | Struktur bleibt, nur die Routen ändern sich |
 | [Container.php](src/Infrastructure/DI/Container.php), [Config.php](src/Infrastructure/Config/Config.php) | Verdrahtung |
@@ -272,9 +272,9 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 
 | Bereich | Auswirkung |
 |---|---|
-| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 305 (151 Unit, 154 Integration) |
-| [demo/](demo/) | Zeigt Prediction/Result — wird auf Tippreihe/Ziehung umgestellt |
-| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.1, 21 Operationen). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
+| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 338 Testmethoden (181 Unit, 157 Integration) |
+| `demo/` | Die Nur-Lese-Demo für Prediction/Result ist mit dem Kurswechsel entfallen und nicht ersetzt worden |
+| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.2.0, 19 Pfade, 21 Operationen; `/health` steht bewusst nicht darin). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
 | PHPStan Level 10, PSR-12 | Unverändert gültig |
 
 ---
@@ -312,8 +312,15 @@ nutzbar, nicht die Fachlogik.
 | B-14 | `POST`/`GET /admin/tipp-years/{id}/bet-periods` | `CreateBetPeriodHandler` | `GetBetPeriodsHandler` |
 
 Handler geben `CommandResult` bzw. `QueryResult` zurück; Commands antworten mit `202`, Queries
-mit `200`. Die `commandId` ist noch nicht mit `EventStore.causation_id` verknüpft — das kommt
-mit dem Command Log (OPS-01/OPS-02).
+mit `200`. Die `commandId` der Antwort ist inzwischen der Primärschlüssel im `command_log`
+(OPS-01) — mit `EventStore.causation_id` ist sie weiterhin nicht verknüpft.
+
+**Zwei Lücken.** Der Lebenszyklus des Tippjahres (`planned → running → closed`) ist im
+Aggregat vollständig durchgesetzt, hat aber **weder Command noch Route**: `TippYear::start()`
+und `close()` werden nur aus Tests aufgerufen. Ebenso gibt es keinen Endpunkt, der einen
+`Participant` anlegt — Selbstregistrierung ist E1-01. Über HTTP allein lässt sich ein
+Tippjahr damit anlegen, aber nicht in `running` bringen, und ohne das nimmt es keinen
+Tippschein an. Für einen Durchstich siehe [QUICKSTART.md](QUICKSTART.md), Schritte 3 und 5.
 
 ## HTTP-Schicht
 
@@ -405,8 +412,9 @@ beschreibt.
 
 ## Tests
 
-305 Tests (151 Unit, 154 Integration). Die Integrationstests brauchen eine Datenbank und
-überspringen sich selbst, wenn keine erreichbar ist — `make test` bleibt also auch ohne grün.
+338 Testmethoden (181 Unit in 19 Dateien, 157 Integration in 16 Dateien). Die
+Integrationstests brauchen eine Datenbank und überspringen sich selbst, wenn keine
+erreichbar ist — `make test` bleibt also auch ohne grün.
 
 Die Handler werden mit **echten** Repositories gegen eine echte Datenbank getestet. Mit
 gemockten Repositories bliebe kaum etwas übrig: welche Zeilen eine Query liefert, welcher
