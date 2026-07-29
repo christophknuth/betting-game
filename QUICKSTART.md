@@ -24,9 +24,9 @@ Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import:
 Das Schema wird beim ersten Start der Datenbank automatisch aus
 [database/schema.sql](database/schema.sql) geladen. Neu einspielen: `make db-reset`.
 
-> Der Container `frontend` auf Port 3000 ist **Altbestand** aus dem alten
-> Sportwetten-Tippspiel und passt zu keinem Endpunkt dieser API mehr. Für die Basis wird er
-> nicht gebraucht: `docker-compose stop frontend`.
+> Dieser Durchstich läuft bewusst über `curl`. Dieselben Schritte gibt es auch als
+> Oberfläche im Container `frontend` auf Port 3000 ([FRONTEND.md](FRONTEND.md)); wer sie
+> nicht braucht, hält ihn an: `docker-compose stop frontend`.
 
 ## 2. Token holen
 

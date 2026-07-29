@@ -1,7 +1,7 @@
 import axios from 'axios'
 import * as keycloakService from './keycloak'
 
-const api = axios.create({
+const client = axios.create({
   baseURL: '/api',
   headers: {
     'Content-Type': 'application/json'
@@ -9,15 +9,14 @@ const api = axios.create({
 })
 
 // Add auth token to requests
-api.interceptors.request.use(
+client.interceptors.request.use(
   async config => {
-    // Get token from Keycloak
     if (keycloakService.isAuthenticated()) {
       try {
         // Update token if needed (refresh)
         await keycloakService.updateToken(5)
         const token = keycloakService.getToken()
-        
+
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
@@ -25,96 +24,162 @@ api.interceptors.request.use(
         console.error('Failed to get token:', error)
       }
     }
-    
+
     return config
   },
   error => Promise.reject(error)
 )
 
 // Handle auth errors
-api.interceptors.response.use(
+client.interceptors.response.use(
   response => response,
   error => {
+    // Only 401 means the token was rejected. A 503 says the API could not reach
+    // Keycloak at all - throwing the token away and logging in again would send
+    // the user to the very service we already know is down.
     if (error.response?.status === 401) {
-      // Redirect to Keycloak login
       keycloakService.login()
     }
     return Promise.reject(error)
   }
 )
 
+/**
+ * Drops empty query parameters instead of sending `?status=`.
+ *
+ * The API reads an absent parameter as "no filter" and an empty one as a filter
+ * for the empty string, so a blank select must not reach the URL at all.
+ */
+const query = (values = {}) => ({
+  params: Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  )
+})
+
+/**
+ * The Idempotency-Key header (OPS-02) that makes a command repeatable.
+ *
+ * The key is passed in rather than minted here: only the caller knows whether a
+ * second call is a retry of the same intent or a new command. See
+ * `composables/useCommand.js`, which owns that decision.
+ */
+const command = (idempotencyKey) =>
+  idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}
+
 export default {
-  // Predictions
-  getPredictions(participantId, params = {}) {
-    return api.get(`/participants/${participantId}/predictions`, { params })
+  health() {
+    return client.get('/health')
   },
 
-  getPrediction(participantId, predictionId) {
-    return api.get(`/participants/${participantId}/predictions/${predictionId}`)
+  // --- Participant, read only (B-01 to B-04) ---
+
+  getBetRow(participantId, betPeriodId = null) {
+    return client.get(`/participants/${participantId}/bet-row`, query({ betPeriodId }))
   },
 
-  submitPrediction(participantId, eventId, predictionData) {
-    return api.post(`/participants/${participantId}/events/${eventId}/predictions`, {
-      predictionData
-    })
+  getMemberships(participantId, tippYearId = null) {
+    return client.get(`/participants/${participantId}/memberships`, query({ tippYearId }))
   },
 
-  updatePrediction(participantId, predictionId, predictionData) {
-    return api.put(`/participants/${participantId}/predictions/${predictionId}`, {
-      predictionData
-    })
+  getFees(participantId, filters = {}) {
+    return client.get(`/participants/${participantId}/fees`, query(filters))
   },
 
-  // Scores
-  getScores(participantId, bettingGameId = null) {
-    const params = bettingGameId ? { bettingGameId } : {}
-    return api.get(`/participants/${participantId}/scores`, { params })
+  getPayoutShare(participantId, tippYearId = null) {
+    return client.get(`/participants/${participantId}/payout-share`, query({ tippYearId }))
   },
 
-  // Participations
-  getParticipations(participantId, status = null) {
-    const params = status ? { status } : {}
-    return api.get(`/participants/${participantId}/participations`, { params })
+  // --- Tipp year, shared result (B-05) ---
+
+  getDraws(tippYearId, filters = {}) {
+    return client.get(`/tipp-years/${tippYearId}/draws`, query(filters))
   },
 
-  joinGame(participantId, bettingGameId, acceptTerms = true) {
-    return api.post(`/participants/${participantId}/games/${bettingGameId}/participation`, {
-      acceptTerms
-    })
+  // --- Operations (OPS-01) ---
+
+  // Not admin-only: whoever issued the command may look up what became of it.
+  getCommandStatus(commandId) {
+    return client.get(`/commands/${commandId}`)
   },
 
-  leaveGame(participantId, bettingGameId) {
-    return api.delete(`/participants/${participantId}/games/${bettingGameId}/participation`)
-  },
-
-  // Admin endpoints (if needed)
   admin: {
-    getAllPredictions(params = {}) {
-      return api.get('/admin/predictions', { params })
+    // --- Bet rows (B-06) ---
+
+    assignBetRow(participantId, data, idempotencyKey) {
+      return client.put(
+        `/admin/participants/${participantId}/bet-row`,
+        data,
+        command(idempotencyKey)
+      )
     },
 
-    getAllGames(params = {}) {
-      return api.get('/admin/games', { params })
+    // --- Fees (B-07) ---
+
+    getFees(filters = {}) {
+      return client.get('/admin/fees', query(filters))
     },
 
-    createGame(gameData) {
-      return api.post('/admin/games', gameData)
+    recordFeePayment(feeId, data, idempotencyKey) {
+      return client.put(`/admin/fees/${feeId}/payment`, data, command(idempotencyKey))
     },
 
-    endGame(bettingGameId, data = {}) {
-      return api.post(`/admin/games/${bettingGameId}/end`, data)
+    // --- Draws (B-08, B-09) ---
+
+    recordDraw(data, idempotencyKey) {
+      return client.post('/admin/draws', data, command(idempotencyKey))
     },
 
-    recordResult(eventId, resultData) {
-      return api.post(`/admin/events/${eventId}/results`, resultData)
+    recordDrawWinnings(drawId, data, idempotencyKey) {
+      return client.put(`/admin/draws/${drawId}/winnings`, data, command(idempotencyKey))
     },
 
-    calculateScores(eventId) {
-      return api.post(`/admin/events/${eventId}/scores/calculate`)
+    // --- Tipp year (B-10 to B-14) ---
+
+    getTippYears(status = null) {
+      return client.get('/admin/tipp-years', query({ status }))
     },
 
-    awardScore(participantId, data) {
-      return api.post(`/admin/participants/${participantId}/scores`, data)
+    createTippYear(data, idempotencyKey) {
+      return client.post('/admin/tipp-years', data, command(idempotencyKey))
+    },
+
+    getBetPeriods(tippYearId) {
+      return client.get(`/admin/tipp-years/${tippYearId}/bet-periods`)
+    },
+
+    createBetPeriod(tippYearId, data, idempotencyKey) {
+      return client.post(
+        `/admin/tipp-years/${tippYearId}/bet-periods`,
+        data,
+        command(idempotencyKey)
+      )
+    },
+
+    addMember(tippYearId, data, idempotencyKey) {
+      return client.post(`/admin/tipp-years/${tippYearId}/members`, data, command(idempotencyKey))
+    },
+
+    submitTicket(tippYearId, data, idempotencyKey) {
+      return client.post(`/admin/tipp-years/${tippYearId}/tickets`, data, command(idempotencyKey))
+    },
+
+    distributePayout(tippYearId, data, idempotencyKey) {
+      return client.post(`/admin/tipp-years/${tippYearId}/payout`, data, command(idempotencyKey))
+    },
+
+    // --- Operations (OPS-03, OPS-04) ---
+
+    getAuditTrail(aggregateType, aggregateId) {
+      return client.get(`/admin/audit/${aggregateType}/${aggregateId}`)
+    },
+
+    getProjections() {
+      return client.get('/admin/projections')
+    },
+
+    // Not a command: a rebuild changes no domain state, so it carries no key.
+    rebuildProjection(name) {
+      return client.post(`/admin/projections/${name}/rebuild`)
     }
   }
 }

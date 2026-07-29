@@ -6,6 +6,49 @@ fest, was wann und warum geändert wurde.
 
 ---
 
+## Frontend auf die Lotto-Domäne umgestellt (2026-07-29)
+
+**Die SPA rief Endpunkte auf, die es seit dem Kurswechsel nicht mehr gab.** Predictions,
+Scores und Games — jeder fachliche Request lief in einen `404`, nur Login und Logout
+funktionierten. Das war seit `f1d0771` so und in [FRONTEND.md](FRONTEND.md) als Altbestand
+dokumentiert, statt behoben zu sein.
+
+- **Ersetzt:** `services/api.js` (eine Methode je Route in
+  [Router.php](src/Presentation/Router/Router.php)), `router/index.js`, `App.vue` und alle
+  neun Views. Die acht Prediction-/Score-/Game-Views sind gelöscht.
+- **Neu:** je eine Ansicht für B-01 bis B-14 sowie OPS-01/03/04 — fünf lesende
+  Teilnehmeransichten, fünf Adminansichten. Die Zuordnung Ansicht → Endpunkt steht in
+  [FRONTEND.md](FRONTEND.md).
+- **Geblieben:** `stores/auth.js` und `services/keycloak.js`. Die Anmeldung war das
+  einzige, was vorher noch funktionierte, und sie ist domänenneutral.
+
+**Der Idempotency-Key wird jetzt benutzt, statt nur zu existieren.** `useCommand`
+behält den Schlüssel genau dann, wenn *keine* Antwort kam — dann und nur dann ist unklar,
+ob der Server geschrieben hat, und eine Wiederholung mit demselben Schlüssel bekommt das
+gespeicherte Ergebnis statt einer zweiten Buchung. Sobald irgendein Status zurückkommt,
+ist der Schlüssel verbraucht: Ein fehlgeschlagener Schlüssel bleibt serverseitig vergeben,
+und ihn nach einem `400` weiterzuverwenden würde einen behebbaren Eingabefehler dauerhaft
+in ein `409` verwandeln.
+
+**Zwei Dinge, die die Oberfläche sichtbar macht statt zu verstecken:**
+
+- Ein Token ohne `participant_id`-Claim bekommt in den Teilnehmeransichten einen Hinweis,
+  keine leere Seite. `Authorization::requireSelf()` lässt dort auch einen Administrator
+  nicht durch — das ist Absicht, kein Fehler.
+- Ein `404` in einer Leseansicht ist ein Leerzustand, kein Fehler: „für diese Periode ist
+  keine Reihe hinterlegt“ ist eine Antwort.
+
+Ein `503` führt bewusst **nicht** zur Anmeldung: Keycloak ist dann nicht erreichbar, und
+den Benutzer dorthin zu schicken hieße, ihn zu dem Dienst zu schicken, von dem wir gerade
+wissen, dass er nicht antwortet. Nur `401` wirft ihn zum Login.
+
+Geprüft über `docker-compose build frontend` (Vite-Build, 119 Module, fehlerfrei). Die SPA
+hat weiterhin **keine automatisierten Tests**, und `npm run lint` ist ohne
+ESLint-Konfiguration nicht lauffähig — beides steht in [FRONTEND.md](FRONTEND.md) unter
+„Offene Punkte“.
+
+---
+
 ## Arbeitsanleitung für Agenten (2026-07-29, `de9215b`)
 
 [AGENTS.md](AGENTS.md) als werkzeugneutrale Projektanleitung, [CLAUDE.md](CLAUDE.md) für
@@ -140,8 +183,9 @@ ein Verzeichnis, das es nicht mehr gab, und ist mit der Doku-Aktualisierung vom 
 gelöscht worden. Die alte OpenAPI-Spezifikation liegt als
 [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit.
 
-**Nicht mitgegangen:** [frontend/](frontend/) bedient weiterhin Predictions, Scores und
-Games und passt zu keinem Endpunkt mehr – siehe [FRONTEND.md](FRONTEND.md).
+**Nicht mitgegangen:** [frontend/](frontend/) bediente weiterhin Predictions, Scores und
+Games und passte zu keinem Endpunkt mehr. Nachgezogen am 2026-07-29, siehe den obersten
+Eintrag.
 
 ---
 

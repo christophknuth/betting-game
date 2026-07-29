@@ -261,7 +261,7 @@ curl http://localhost:8080/health
 | PHPMyAdmin | http://localhost:8081 | root / secret |
 | Keycloak | http://localhost:8090 | Admin Console `/admin`, admin / admin |
 | MariaDB | localhost:3306 | root / secret, DB `betting_game` |
-| Frontend (Altbestand) | http://localhost:3000 | siehe unten |
+| Frontend (Vue-SPA) | http://localhost:3000 | Login über Keycloak, siehe [FRONTEND.md](FRONTEND.md) |
 
 Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import
 (`docker-compose logs -f keycloak`). Der Stack ist in [DOCKER.md](DOCKER.md) beschrieben.
@@ -326,7 +326,6 @@ Der Kurswechsel auf die Lotterie-Domäne (`f1d0771`) hat nicht alles mitgenommen
 
 | Was | Stand |
 |---|---|
-| [frontend/](frontend/), [FRONTEND.md](FRONTEND.md) | Vue-SPA des alten Sportwetten-Tippspiels. Ruft Predictions/Scores/Games auf — Endpunkte, die es nicht mehr gibt. Nicht als Vorlage verwenden |
 | [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | Bewusst aufgehoben für Ausbaustufe E2 |
 | `docker/Caddyfile.minimal`, `Caddyfile.alternative`, `php-fpm.conf.minimal` | Reste aus dem Troubleshooting; aktiv sind nur die aus `docker-compose.yml` gemounteten |
 

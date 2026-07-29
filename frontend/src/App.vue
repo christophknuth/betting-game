@@ -1,21 +1,28 @@
 <template>
   <div class="app">
-    <nav class="navbar" v-if="authStore.isAuthenticated">
+    <nav v-if="authStore.isAuthenticated" class="navbar">
       <div class="container">
-        <h1 class="logo">🎯 Betting Game</h1>
+        <h1 class="logo">🎲 Tippgemeinschaft</h1>
+
         <div class="nav-links">
-          <router-link to="/predictions">My Predictions</router-link>
-          <router-link to="/scores">Scores</router-link>
-          <router-link to="/games">Games</router-link>
+          <router-link to="/bet-row">Meine Reihe</router-link>
+          <router-link to="/memberships">Teilnahmen</router-link>
+          <router-link to="/fees">Gebühren</router-link>
+          <router-link to="/payout-share">Gewinnanteil</router-link>
+          <router-link to="/draws">Ziehungen</router-link>
+
           <template v-if="authStore.isAdmin()">
             <span class="nav-divider">|</span>
-            <router-link to="/admin/games">Admin Games</router-link>
-            <router-link to="/admin/predictions">Admin Predictions</router-link>
-            <router-link to="/admin/results">Admin Results</router-link>
+            <router-link to="/admin/tipp-years">Tippjahre</router-link>
+            <router-link to="/admin/bet-rows">Reihen</router-link>
+            <router-link to="/admin/draws">Ziehungen&nbsp;⚙</router-link>
+            <router-link to="/admin/fees">Gebühren&nbsp;⚙</router-link>
+            <router-link to="/admin/operations">Betrieb</router-link>
           </template>
+
           <div class="user-menu">
             <span class="username">{{ authStore.displayName }}</span>
-            <button @click="logout" class="btn-logout">Logout</button>
+            <button class="btn-logout" @click="logout">Abmelden</button>
           </div>
         </div>
       </div>
@@ -48,7 +55,7 @@ const logout = () => {
 
 .navbar {
   background: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -57,22 +64,25 @@ const logout = () => {
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0.75rem 20px;
   display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
   justify-content: space-between;
   align-items: center;
-  height: 60px;
 }
 
 .logo {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   color: #2563eb;
   margin: 0;
+  white-space: nowrap;
 }
 
 .nav-links {
   display: flex;
-  gap: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
   align-items: center;
 }
 
@@ -80,6 +90,7 @@ const logout = () => {
   text-decoration: none;
   color: #666;
   font-weight: 500;
+  font-size: 0.9375rem;
   transition: color 0.2s;
 }
 
@@ -97,7 +108,7 @@ const logout = () => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding-left: 2rem;
+  padding-left: 1rem;
   border-left: 1px solid #e5e7eb;
 }
 
@@ -107,7 +118,7 @@ const logout = () => {
 }
 
 .btn-logout {
-  padding: 0.5rem 1rem;
+  padding: 0.375rem 0.875rem;
   background: #ef4444;
   color: white;
   border: none;

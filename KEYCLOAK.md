@@ -19,10 +19,8 @@ docker-compose logs -f keycloak    # warten auf "Keycloak 23.0.x started", dann 
 make composer-install
 ```
 
-> ⛔ Alles zum Frontend in diesem Dokument betrifft die **Altbestand-SPA** aus dem
-> Sportwetten-Tippspiel. Login und Logout funktionieren dort weiterhin, die fachlichen
-> Ansichten nicht — siehe [FRONTEND.md](FRONTEND.md). Wer nur die API testen will, holt
-> sich das Token mit dem Snippet unter [Testen](#testen) und lässt den Container aus.
+> Wer nur die API testen will, holt sich das Token mit dem Snippet unter
+> [Testen](#testen) und lässt den Frontend-Container aus.
 
 Das Frontend läuft danach als Container auf Port 3000. Für Entwicklung mit Hot Reload
 stattdessen den Vite-Dev-Server nutzen:

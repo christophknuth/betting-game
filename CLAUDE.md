@@ -42,10 +42,12 @@ der Administrator schreibt alles.
 
 ## Beim Arbeiten beachten
 
-- **Altbestand.** `frontend/` und [FRONTEND.md](FRONTEND.md) beschreiben das alte
-  Sportwetten-Tippspiel (Predictions, Scores, Games) und passen zu keinem Endpunkt mehr.
-  Nichts daraus als Vorlage übernehmen. Die übrige Doku ist seit dem 2026-07-29
-  nachgezogen — die Tabelle in [AGENTS.md](AGENTS.md) Abschnitt 2 sagt, was gilt.
+- **Doku-Stand.** Die Dokumentation ist seit dem 2026-07-29 nachgezogen — die Tabelle in
+  [AGENTS.md](AGENTS.md) Abschnitt 2 sagt, was gilt.
+- **Das Frontend hat kein PHP.** `frontend/` ist eine Vue-3-SPA gegen die Lotto-Endpunkte
+  ([FRONTEND.md](FRONTEND.md)). Dort gelten PHPStan und PSR-12 nicht; geprüft wird sie über
+  den Build: `docker-compose build frontend` führt `npm run build` aus. `npm run lint` hat
+  keine ESLint-Konfiguration und schlägt fehl.
 - **PHPStan Level 10 und PSR-12 sind erfüllt.** Änderungen müssen das bleiben lassen.
 - **Kommentare erklären das Warum.** Der Bestand ist durchgehend so geschrieben; siehe
   AGENTS.md Abschnitt 6. Neuen Code im selben Ton kommentieren, nicht die Signatur nacherzählen.
