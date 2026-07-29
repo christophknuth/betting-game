@@ -76,11 +76,25 @@
             <td>#{{ year.tippYearId }}</td>
             <td>{{ year.name }}</td>
             <td>{{ formatDate(year.startDate) }} – {{ formatDate(year.endDate) }}</td>
+            <!-- B-18: jeder Übergang ist erlaubt, deshalb ein Dropdown und
+                 keine Schaltflächenreihe für den je nächsten Schritt. -->
             <td>
-              <span
-                class="badge"
+              <select
+                :value="year.status"
+                class="status-select"
                 :class="year.status"
-              >{{ statusLabel(year.status) }}</span>
+                :disabled="statusCommands[year.tippYearId]?.pending"
+                :aria-label="`Status von ${year.name}`"
+                @change="changeStatus(year, $event)"
+              >
+                <option
+                  v-for="status in TIPP_YEAR_STATUSES"
+                  :key="status"
+                  :value="status"
+                >
+                  {{ statusLabel(status) }}
+                </option>
+              </select>
             </td>
             <td class="numeric">
               {{ formatAmount(year.ticketCostPerRow) }}
@@ -110,10 +124,19 @@
       </table>
     </div>
 
+    <div
+      v-if="statusError"
+      class="state error"
+    >
+      {{ statusError }}
+    </div>
+
     <p class="state note">
-      Ein über HTTP angelegtes Tippjahr steht auf <code>planned</code> und nimmt in diesem
-      Zustand keinen Tippschein an. Der Lebenszyklus (<code>start</code>, <code>close</code>)
-      ist im Aggregat durchgesetzt, hat aber in der Basisversion bewusst keinen Endpunkt.
+      Der Status ist frei wählbar, auch rückwärts — ein zu früh geschlossenes Jahr muss
+      sich wieder öffnen lassen, und diese Korrektur gehört in die Event-Historie statt in
+      die Datenbank. <strong>Laufen darf immer nur ein Tippjahr.</strong> Nur ein
+      <code>running</code> Jahr nimmt Tippscheine an; ausgeschüttet wird nur aus
+      <code>closed</code> heraus.
     </p>
   </div>
 
@@ -435,7 +458,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
-import { formatAmount, formatDate, statusLabel } from '@/support/format'
+import { TIPP_YEAR_STATUSES, formatAmount, formatDate, statusLabel } from '@/support/format'
 
 const years = useQuery()
 const periods = useQuery()
@@ -465,6 +488,38 @@ const payout = reactive({ confirm: false, note: '' })
 
 const loadYears = () => years.load(() => api.admin.getTippYears())
 const loadPeriods = () => periods.load(() => api.admin.getBetPeriods(selectedId.value))
+
+// --- B-18: Statuswechsel ---
+
+const statusCommands = reactive({})
+const statusError = ref(null)
+
+// One command state per year so the idempotency keys cannot get mixed up - a
+// key left over from one year must not answer the change of another.
+const commandFor = (tippYearId) => (statusCommands[tippYearId] ??= useCommand())
+
+async function changeStatus(year, event) {
+  const status = event.target.value
+  statusError.value = null
+
+  const command = commandFor(year.tippYearId)
+  const accepted = await command.run(
+    key => api.admin.changeTippYearStatus(year.tippYearId, { status }, key)
+  )
+
+  if (!accepted) {
+    statusError.value = command.error
+
+    // Put the dropdown back by hand. Vue will not do it: the model never
+    // changed, so from its side there is nothing to patch - only the DOM is
+    // showing a status the server just refused.
+    event.target.value = year.status
+
+    return
+  }
+
+  await loadYears()
+}
 
 function select(tippYearId) {
   selectedId.value = tippYearId
@@ -545,6 +600,39 @@ onMounted(loadYears)
 </script>
 
 <style scoped>
+/* Sieht aus wie das Badge, das hier vorher stand - ist aber bedienbar. */
+.status-select {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.status-select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.status-select.running {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-select.planned {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-select.closed,
+.status-select.distributed {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 .section-title {
   color: var(--gray-900);
   font-size: 1.25rem;

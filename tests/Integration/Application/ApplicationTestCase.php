@@ -6,6 +6,8 @@ namespace BettingGame\Tests\Integration\Application;
 
 use BettingGame\Application\Command\AddMemberHandler;
 use BettingGame\Application\Command\AssignBetRowHandler;
+use BettingGame\Application\Command\ChangeTippYearStatusCommand;
+use BettingGame\Application\Command\ChangeTippYearStatusHandler;
 use BettingGame\Application\Command\CreateBetPeriodHandler;
 use BettingGame\Application\Command\CreateTippYearHandler;
 use BettingGame\Application\Command\DistributePayoutHandler;
@@ -22,6 +24,7 @@ use BettingGame\Application\Query\GetParticipantFeesHandler;
 use BettingGame\Application\Query\GetPayoutShareHandler;
 use BettingGame\Application\Query\GetTippYearsHandler;
 use BettingGame\Application\Projection\ProjectionManager;
+use BettingGame\Domain\ValueObject\TippYearStatus;
 use BettingGame\Infrastructure\Persistence\BetPeriodRepository;
 use BettingGame\Infrastructure\Persistence\BetRowRepository;
 use BettingGame\Infrastructure\Persistence\CommandLogRepository;
@@ -138,6 +141,11 @@ abstract class ApplicationTestCase extends IntegrationTestCase
         return new DistributePayoutHandler($this->tippYears, $this->draws);
     }
 
+    protected function changeTippYearStatusHandler(): ChangeTippYearStatusHandler
+    {
+        return new ChangeTippYearStatusHandler($this->tippYears);
+    }
+
     // --- Queries ---
 
     protected function getBetRow(): GetBetRowHandler
@@ -182,22 +190,25 @@ abstract class ApplicationTestCase extends IntegrationTestCase
 
     /**
      * Moves a tipp year into `running`, which is the only status that accepts
-     * tickets. There is no command for it yet - the lifecycle transitions are
-     * not part of the base version's endpoints.
+     * tickets.
+     *
+     * Deliberately through the handler rather than the aggregate: that way
+     * every test that needs a running year also exercises the command behind
+     * B-18, including the rule that only one year runs at a time.
      */
     protected function startTippYear(int $tippYearId): void
     {
-        $year = $this->tippYears->find($tippYearId);
-        self::assertNotNull($year);
-        $year->start();
-        $this->tippYears->save($year);
+        $this->changeTippYearStatus($tippYearId, TippYearStatus::RUNNING);
     }
 
     protected function closeTippYear(int $tippYearId): void
     {
-        $year = $this->tippYears->find($tippYearId);
-        self::assertNotNull($year);
-        $year->close();
-        $this->tippYears->save($year);
+        $this->changeTippYearStatus($tippYearId, TippYearStatus::CLOSED);
+    }
+
+    protected function changeTippYearStatus(int $tippYearId, string $status): void
+    {
+        $this->changeTippYearStatusHandler()
+            ->handle(new ChangeTippYearStatusCommand($tippYearId, $status));
     }
 }

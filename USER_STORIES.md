@@ -119,14 +119,48 @@ abzuarbeiten.
 | **B-11** | Als **Administrator** möchte ich einen Teilnehmer in ein Tippjahr aufnehmen. | `POST /admin/tipp-years/{id}/members` | **Membership** | 🟢 ♻️ |
 | **B-12** | Als **Administrator** möchte ich den monatlichen Tippschein erfassen, damit Gebühren entstehen und Ziehungen zugeordnet werden können. | `POST /admin/tipp-years/{id}/tickets` | **Ticket**, **TicketRow**, **Fee** je Teilnehmer | 🟢 |
 | **B-13** | Als **Administrator** möchte ich die Jahresausschüttung buchen, damit jeder Teilnehmer seinen Anteil erhält. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | 🟢 |
+| **B-18** | Als **Administrator** möchte ich den Status eines Tippjahres setzen, damit ich es starten, beenden und eine falsche Buchung korrigieren kann. | `PUT /admin/tipp-years/{id}/status` | **TippYear** | 🟢 |
 
 **Akzeptanzkriterien:**
 
+- B-18: **jeder** Übergang zwischen `planned`, `running`, `closed` und `distributed` ist erlaubt, auch rückwärts — ein zu früh geschlossenes Jahr muss sich wieder öffnen lassen, und die Korrektur gehört in die Event-Historie statt in ein manuelles `UPDATE`
+- B-18: **höchstens ein Tippjahr ist gleichzeitig `running`.** `409` mit Nennung des blockierenden Jahres. Durchgesetzt über den Unique Key `tipp_year.running_marker`, nicht über die Prüfung im Handler — die dient nur der Fehlermeldung und hält gegen Nebenläufigkeit nicht
+- B-18: `400` bei unbekanntem Status, `409` beim Setzen des bereits gesetzten Status (ein Event, das keine Änderung beschreibt, gehört nicht in die Historie), `404` bei unbekanntem Tippjahr
 - B-14: Perioden müssen innerhalb des Tippjahres liegen und sich untereinander nicht überlappen. Eine einzige Periode über das ganze Jahr ist zulässig und ergibt „eine Reihe pro Jahr"
 - B-12: bündelt die Reihen aller Teilnehmer mit aktiver **Membership**, deren **BetPeriod** den `period_start` des Tippscheins enthält; `total_cost = row_count × draw_count × ticket_cost_per_row`; erzeugt je Teilnehmer eine **Fee** über `total_cost / row_count`
 - B-12: die Reihen werden als Snapshot in **TicketRow** kopiert — eine spätere Korrektur der **BetRow** verändert eingereichte Scheine nicht
 - B-13: `total_winnings` = Summe aller **TicketDrawResult** des Jahres; `share_per_participant = total_winnings / participant_count`; Rundungsdifferenz geht auf den ersten Anteil
 - B-13: `409`, wenn das Tippjahr nicht `closed` ist oder bereits eine Ausschüttung existiert
+
+## Jahreswechsel — spezifiziert, noch nicht implementiert
+
+Beide Stories bauen auf B-18 auf und gehören zusammen: B-19 legt fest, *was* als Nächstes
+läuft, B-20 macht den Wechsel unbeaufsichtigt.
+
+| ID | Story | Endpunkt | Datenmodell | Status |
+|---|---|---|---|---|
+| **B-19** | Als **Administrator** möchte ich einem laufenden Tippjahr einen Nachfolger zuordnen, damit feststeht, welches Jahr als Nächstes läuft. | `PUT /admin/tipp-years/{id}/successor` | **TippYear**, neue Spalte `successor_id` | 🔵 |
+| **B-20** | Als **Betreiber** möchte ich, dass ein abgelaufenes Tippjahr automatisch beendet und der konfigurierte Nachfolger gestartet wird, damit der Wechsel nicht von einer manuellen Buchung abhängt. | kein Endpunkt — geplanter Lauf | **TippYear** | 🔵 |
+
+**Akzeptanzkriterien:**
+
+- B-19: der Nachfolger muss `planned` sein und darf nicht das Jahr selbst sein; sein Zeitraum muss **nach** dem des laufenden Jahres liegen
+- B-19: ein Tippjahr ist Nachfolger von höchstens einem anderen — durchzusetzen über einen Unique Key auf `successor_id`, nicht über eine Prüfung im Handler
+- B-19: der Nachfolger ist überschreibbar und entfernbar, solange der Wechsel nicht stattgefunden hat
+- B-20: „abgelaufen" heißt `end_date < heute` **und** Status `running`
+- B-20: der Lauf setzt das Jahr auf `closed` und, falls ein Nachfolger konfiguriert ist, diesen auf `running` — beides über denselben Weg wie B-18, damit die Regel „nur ein laufendes Jahr" und die Event-Historie gleich bleiben
+- B-20: der Lauf ist **idempotent** und muss ein zweites Mal folgenlos durchlaufen; er läuft möglicherweise mehrfach parallel, entscheiden muss deshalb der Unique Key
+- B-20: ausgeschüttet wird **nicht** automatisch. B-13 verlangt eine ausdrückliche Bestätigung und ist nicht rücknehmbar — das bleibt eine menschliche Entscheidung
+- B-20: der Lauf schreibt in die Command-Historie wie jeder andere Schreibvorgang, damit im Nachhinein erkennbar ist, dass eine Automatik gebucht hat und nicht ein Administrator
+
+**Offene Entwurfsfragen:**
+
+- Wo läuft B-20? Ein Cron im `php`-Container ist das Naheliegende; ein Endpunkt, den ein
+  externer Scheduler anstößt, wäre testbarer und im Betrieb sichtbarer.
+- Was passiert mit einem abgelaufenen Jahr **ohne** Nachfolger? Vorschlag: schließen und
+  nichts starten — dann steht der Betrieb still und fällt auf, statt still weiterzulaufen.
+- Was, wenn der Nachfolger noch keine Tippperioden hat? Dann nimmt er zwar Tippscheine an,
+  aber keine Reihe ist gültig. Vermutlich sollte B-20 in dem Fall nicht starten.
 
 ## Querschnitt
 
@@ -309,6 +343,7 @@ nutzbar, nicht die Fachlogik.
 | B-11 | `POST /admin/tipp-years/{id}/members` | `AddMemberHandler` | — |
 | B-12 | `POST /admin/tipp-years/{id}/tickets` | `SubmitTicketHandler` | — |
 | B-13 | `POST /admin/tipp-years/{id}/payout` | `DistributePayoutHandler` | — |
+| B-18 | `PUT /admin/tipp-years/{id}/status` | `ChangeTippYearStatusHandler` | — |
 | B-14 | `POST`/`GET /admin/tipp-years/{id}/bet-periods` | `CreateBetPeriodHandler` | `GetBetPeriodsHandler` |
 
 Handler geben `CommandResult` bzw. `QueryResult` zurück; Commands antworten mit `202`, Queries

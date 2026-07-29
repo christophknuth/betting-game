@@ -63,6 +63,14 @@ export function parseNumbers(input) {
   return { numbers: [...numbers].sort((a, b) => a - b), error: null }
 }
 
+/**
+ * The tipp year lifecycle, in its intended order.
+ *
+ * The order is a reading aid, not a rule: B-18 allows every transition, because
+ * a year closed too early has to be reopenable.
+ */
+export const TIPP_YEAR_STATUSES = ['planned', 'running', 'closed', 'distributed']
+
 const STATUS_LABELS = {
   // Tipp year
   planned: 'geplant',

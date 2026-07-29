@@ -108,6 +108,85 @@ final class ApiTest extends HttpTestCase
         self::assertSame([], $response->data()['tippYears']);
     }
 
+    // --- B-18: der Lebenszyklus des Tippjahres über HTTP ---
+
+    public function testAnAdminMovesATippYearThroughItsLifecycle(): void
+    {
+        $admin = $this->token(1, ['admin']);
+        $tippYearId = $this->givenATippYear($admin);
+
+        foreach (['running', 'closed', 'planned'] as $status) {
+            $response = $this->send('PUT', "/admin/tipp-years/$tippYearId/status", $admin, [
+                'status' => $status,
+            ]);
+
+            self::assertSame(202, $response->statusCode(), "moving to $status");
+        }
+
+        $years = $this->send('GET', '/admin/tipp-years', $admin)->data()['tippYears'];
+        self::assertIsArray($years);
+        self::assertSame('planned', $years[0]['status']);
+    }
+
+    public function testASecondRunningTippYearIs409(): void
+    {
+        $admin = $this->token(1, ['admin']);
+        $first = $this->givenATippYear($admin);
+        $second = $this->givenATippYear($admin, 'Tippjahr 2027', '2027-01-01', '2027-12-31');
+
+        self::assertSame(202, $this->send('PUT', "/admin/tipp-years/$first/status", $admin, [
+            'status' => 'running',
+        ])->statusCode());
+
+        $response = $this->send('PUT', "/admin/tipp-years/$second/status", $admin, [
+            'status' => 'running',
+        ]);
+
+        self::assertSame(409, $response->statusCode());
+        self::assertStringContainsString('still running', (string) $response->data()['message']);
+    }
+
+    public function testAnUnknownStatusIs400(): void
+    {
+        $admin = $this->token(1, ['admin']);
+        $tippYearId = $this->givenATippYear($admin);
+
+        $response = $this->send('PUT', "/admin/tipp-years/$tippYearId/status", $admin, [
+            'status' => 'paused',
+        ]);
+
+        self::assertSame(400, $response->statusCode());
+    }
+
+    public function testChangingTheStatusRejectsANonAdmin(): void
+    {
+        $response = $this->send('PUT', '/admin/tipp-years/1/status', $this->token(7), [
+            'status' => 'running',
+        ]);
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    private function givenATippYear(
+        string $admin,
+        string $name = 'Tippjahr 2026',
+        string $start = '2026-01-01',
+        string $end = '2026-12-31'
+    ): int {
+        $response = $this->send('POST', '/admin/tipp-years', $admin, [
+            'name' => $name,
+            'startDate' => $start,
+            'endDate' => $end,
+            'ticketCostPerRow' => 1.20,
+        ]);
+
+        self::assertSame(202, $response->statusCode());
+        $id = $response->data()['resourceId'];
+        self::assertIsInt($id);
+
+        return $id;
+    }
+
     public function testATokenWithoutAParticipantClaimCannotReachOwnData(): void
     {
         self::assertSame(403, $this->send('GET', '/participants/7/bet-row', $this->token(null))->statusCode());

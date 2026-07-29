@@ -587,6 +587,60 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailableError'
 
+  /admin/tipp-years/{tippYearId}/status:
+    put:
+      tags:
+        - Admin - Tippjahr
+      summary: Status eines Tippjahres setzen (B-18)
+      description: |
+        Setzt den Status eines Tippjahres (CQRS Command).
+
+        **Jeder** Übergang ist erlaubt, auch rückwärts. Das ist Absicht: Ein zu früh
+        geschlossenes Jahr muss sich wieder öffnen lassen, und diese Korrektur gehört in
+        die Event-Historie statt in ein manuelles `UPDATE`, das niemand mehr sieht.
+
+        Es bleibt eine Regel, und sie spannt über Aggregate: **höchstens ein Tippjahr ist
+        gleichzeitig `running`.** Sonst wäre nicht mehr eindeutig, zu welchem Jahr eine
+        Ziehung gehört, und sie zählte auf zwei Ausschüttungen. Ein zweites laufendes Jahr
+        wird mit `409` abgelehnt, unter Nennung des blockierenden Jahres.
+
+        Den bereits gesetzten Status erneut zu setzen ist ebenfalls `409` — ein Event, das
+        keine Änderung beschreibt, gehört nicht in die Historie.
+
+        Nur ein `running` Jahr nimmt Tippscheine an (B-12); ausgeschüttet wird nur aus
+        `closed` heraus (B-13).
+      operationId: changeTippYearStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TippYearIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeTippYearStatusCommand'
+      responses:
+        '202':
+          description: Statuswechsel akzeptiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
   /admin/tipp-years/{tippYearId}/bet-periods:
     get:
       tags:
@@ -1511,6 +1565,18 @@ components:
           type: number
           format: decimal
           description: Preis einer Reihe je Ziehung
+
+    ChangeTippYearStatusCommand:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [planned, running, closed, distributed]
+          description: |
+            Der Zielstatus. Jeder Übergang ist erlaubt; abgelehnt wird nur ein zweites
+            laufendes Tippjahr und das Setzen des bereits gesetzten Status.
 
     AddMemberCommand:
       type: object

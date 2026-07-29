@@ -75,6 +75,7 @@ abstract class HttpTestCase extends ApplicationTestCase
                 $this->addMember(),
                 $this->submitTicket(),
                 $this->distributePayout(),
+                $this->changeTippYearStatusHandler(),
                 $this->getTippYears(),
                 $this->getBetPeriods()
             ),

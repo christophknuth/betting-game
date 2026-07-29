@@ -111,6 +111,14 @@ final class Router
                 'role' => 'admin',
                 'command' => true,
             ]);
+            // B-18. Every transition is allowed; that at most one year runs is
+            // enforced by the handler and, under concurrency, by a unique key.
+            $r->addRoute('PUT', '/admin/tipp-years/{tippYearId:\d+}/status', [
+                'controller' => 'AdminTippYearController',
+                'method' => 'changeStatus',
+                'role' => 'admin',
+                'command' => true,
+            ]);
             $r->addRoute('GET', '/admin/tipp-years/{tippYearId:\d+}/bet-periods', [
                 'controller' => 'AdminTippYearController',
                 'method' => 'listBetPeriods',

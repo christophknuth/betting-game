@@ -3,8 +3,8 @@
 Wie die Anwendung aufgebaut ist und warum. Die Fachlichkeit steht in
 [USER_STORIES.md](USER_STORIES.md), die Arbeitsanleitung in [AGENTS.md](AGENTS.md).
 
-Stand: Ausbaustufe Basis, vollständig implementiert — 17 fachliche Stories, 4 Betriebsstories,
-22 Routen.
+Stand: Ausbaustufe Basis, vollständig implementiert — 18 fachliche Stories, 4 Betriebsstories,
+23 Routen.
 
 ---
 
@@ -134,7 +134,7 @@ sinnvoll — dort schlägt ein Retry nach, was der erste Versuch erzeugt hat.
 
 ## 4. Klassenlandkarte
 
-153 Dateien unter `src/`, eine Klasse pro Datei, PSR-4 1:1 zur Namespace-Struktur.
+155 Dateien unter `src/`, eine Klasse pro Datei, PSR-4 1:1 zur Namespace-Struktur.
 Namespace-Wurzel ist historisch `BettingGame\`, trotz Lotto-Domäne.
 
 ### Domain (`src/Domain/`)
@@ -352,13 +352,10 @@ make test-db-start && make test-integration && make test-db-stop
 
 **Fachlich**
 
-- **Zwei Lücken in der HTTP-Oberfläche der Basis.** Der Lebenszyklus des Tippjahres
-  (`planned → running → closed → distributed`) ist im Aggregat vollständig durchgesetzt,
-  aber `TippYear::start()` und `close()` haben **keine Route und keinen Command** — sie
-  werden nur aus Tests aufgerufen. Ebenso gibt es keinen Endpunkt, der einen `Participant`
-  anlegt (Selbstregistrierung ist E1-01). Über HTTP allein lässt sich ein Tippjahr damit
-  anlegen, aber nicht in `running` bringen — und ohne das nimmt es keinen Tippschein an.
-  Beides muss derzeit vorbereitet werden, siehe [QUICKSTART.md](QUICKSTART.md).
+- **Eine Lücke in der HTTP-Oberfläche der Basis.** Es gibt keinen Endpunkt, der einen
+  `Participant` anlegt (Selbstregistrierung ist E1-01); Teilnehmer müssen vorbereitet
+  werden, siehe [QUICKSTART.md](QUICKSTART.md). Der Lebenszyklus des Tippjahres ist seit
+  B-18 über `PUT /admin/tipp-years/{id}/status` erreichbar.
 - E1 (Selbstverwaltung) und E2 (Sportwetten) sind spezifiziert, aber nicht implementiert.
   Die E2-Artefakte liegen als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml)
   und [database/schema-e2-sports.sql](database/schema-e2-sports.sql) bereit.

@@ -16,6 +16,7 @@ use BettingGame\Application\Command\SubmitTicketCommand;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
+use BettingGame\Domain\Exception\InvalidArgumentException;
 use BettingGame\Domain\Model\Fee;
 
 /**
@@ -336,6 +337,79 @@ final class CommandRulesTest extends ApplicationTestCase
         $this->expectException(BusinessRuleViolationException::class);
         $this->expectExceptionMessageMatches('/no members/');
         $this->distributePayout()->handle(new DistributePayoutCommand($this->tippYearId, true));
+    }
+
+    // --- B-18: der Lebenszyklus des Tippjahres ---
+
+    public function testOnlyOneTippYearRunsAtATime(): void
+    {
+        $this->startTippYear($this->tippYearId);
+
+        $other = $this->createTippYear()->handle(
+            new CreateTippYearCommand('Tippjahr 2027', '2027-01-01', '2027-12-31', 1.20)
+        );
+        self::assertNotNull($other->resourceId);
+
+        $this->expectException(BusinessRuleViolationException::class);
+        $this->expectExceptionMessageMatches('/is still running/');
+        $this->startTippYear($other->resourceId);
+    }
+
+    public function testAnotherYearMayRunOnceTheFirstOneLeavesRunning(): void
+    {
+        $this->startTippYear($this->tippYearId);
+        $this->closeTippYear($this->tippYearId);
+
+        $other = $this->createTippYear()->handle(
+            new CreateTippYearCommand('Tippjahr 2027', '2027-01-01', '2027-12-31', 1.20)
+        );
+        self::assertNotNull($other->resourceId);
+
+        $this->startTippYear($other->resourceId);
+
+        $running = $this->tippYears->findRunning();
+        self::assertNotNull($running);
+        self::assertSame($other->resourceId, $running->id());
+    }
+
+    /**
+     * The rule is about *other* years. Re-running the one that already runs is
+     * refused for a different reason, and it must not be mistaken for the
+     * single-running rule.
+     */
+    public function testTheRunningYearIsNotBlockedByItself(): void
+    {
+        $this->startTippYear($this->tippYearId);
+
+        $this->expectException(BusinessRuleViolationException::class);
+        $this->expectExceptionMessageMatches('/already running/');
+        $this->startTippYear($this->tippYearId);
+    }
+
+    public function testAYearMayBeReopenedAfterBeingClosed(): void
+    {
+        $this->startTippYear($this->tippYearId);
+        $this->closeTippYear($this->tippYearId);
+
+        // B-18 allows every path on purpose: a year closed a week too early has
+        // to be reopenable, and that correction belongs in the event history.
+        $this->startTippYear($this->tippYearId);
+
+        $year = $this->tippYears->find($this->tippYearId);
+        self::assertNotNull($year);
+        self::assertTrue($year->status()->isRunning());
+    }
+
+    public function testAnUnknownStatusIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->changeTippYearStatus($this->tippYearId, 'paused');
+    }
+
+    public function testChangingTheStatusOfAnUnknownYearIsNotFound(): void
+    {
+        $this->expectException(EntityNotFoundException::class);
+        $this->changeTippYearStatus(9999, 'running');
     }
 
     private function givenAnOpenFee(): int

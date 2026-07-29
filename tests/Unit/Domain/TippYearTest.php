@@ -91,12 +91,82 @@ final class TippYearTest extends TestCase
         self::assertInstanceOf(TippYearStatusChanged::class, $events[0]);
     }
 
-    public function testAPlannedYearCannotBeClosedDirectly(): void
+    /**
+     * B-18: every path is allowed, including the ones a forward-only state
+     * machine would forbid. A year closed too early has to be reopenable, and
+     * that correction belongs in the event history rather than in a manual
+     * UPDATE nobody can see afterwards.
+     *
+     * @dataProvider allowedTransitions
+     */
+    public function testEveryTransitionIsAllowed(string $from, string $to): void
     {
         $year = $this->year();
 
+        // A fresh year is already planned, and moving it there again is the one
+        // thing changeStatusTo() refuses.
+        if ($from !== TippYearStatus::PLANNED) {
+            $year->changeStatusTo(new TippYearStatus($from));
+        }
+
+        $year->releaseEvents();
+
+        $year->changeStatusTo(new TippYearStatus($to));
+
+        self::assertSame($to, $year->status()->value());
+
+        $events = $year->releaseEvents();
+        self::assertCount(1, $events);
+        self::assertInstanceOf(TippYearStatusChanged::class, $events[0]);
+        self::assertSame($from, $events[0]->toArray()['from_status']);
+        self::assertSame($to, $events[0]->toArray()['to_status']);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function allowedTransitions(): iterable
+    {
+        $all = [
+            TippYearStatus::PLANNED,
+            TippYearStatus::RUNNING,
+            TippYearStatus::CLOSED,
+            TippYearStatus::DISTRIBUTED,
+        ];
+
+        foreach ($all as $from) {
+            foreach ($all as $to) {
+                if ($from !== $to) {
+                    yield "$from -> $to" => [$from, $to];
+                }
+            }
+        }
+    }
+
+    public function testChangingToTheSameStatusIsRefused(): void
+    {
+        $year = $this->year();
+
+        // Not pedantry: the event would claim a change that did not happen, and
+        // the audit trail is the one place that must not say that.
         $this->expectException(BusinessRuleViolationException::class);
-        $year->close();
+        $year->changeStatusTo(new TippYearStatus(TippYearStatus::PLANNED));
+    }
+
+    public function testAYearReopenedAfterAPrematureDistributionCanBeDistributedAgain(): void
+    {
+        $year = $this->closedYear();
+        $year->changeStatusTo(new TippYearStatus(TippYearStatus::DISTRIBUTED));
+
+        // Set back to closed, the distribution becomes bookable again - which
+        // is what makes an accidental jump to `distributed` recoverable.
+        $year->changeStatusTo(new TippYearStatus(TippYearStatus::CLOSED));
+        $year->releaseEvents();
+
+        $year->distribute(100.0, 2, 50.0, [
+            ['participant_id' => 1, 'amount' => 50.0],
+            ['participant_id' => 2, 'amount' => 50.0],
+        ]);
+
+        self::assertTrue($year->status()->isDistributed());
     }
 
     public function testAddingAMemberRecordsAnEvent(): void
