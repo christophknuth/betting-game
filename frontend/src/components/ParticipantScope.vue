@@ -14,6 +14,12 @@
       dessen Daten gezeigt werden dürften — auch für einen Administrator nicht, der
       dafür die Admin-Ansichten hat.
     </p>
+    <p v-if="!authStore.roles.length">
+      <strong>Das Token trägt auch keine Rollen.</strong> Dann liegt es nicht am
+      Benutzer, sondern am Realm: Der Client <code>betting-game-frontend</code> hat
+      vermutlich keine Client Scopes zugewiesen. Siehe <code>KEYCLOAK.md</code>,
+      Abschnitt „Ein Client Scope im Realm-Export löscht die eingebauten“.
+    </p>
   </div>
 </template>
 

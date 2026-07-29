@@ -24,6 +24,17 @@ export function apiMessage(error) {
 
   const { status, data } = error.response
 
+  // The API says on purpose *that* it rejected a token, never why - naming the
+  // failed check would describe the validation rules to the next forger. That
+  // leaves the operator with nothing to go on, so the likeliest cause is added
+  // here, on the client, where it gives nothing away.
+  if (status === 401) {
+    return 'Die API hat das Token abgelehnt. Ist die Anmeldung gerade erst erfolgt, '
+      + 'liegt es meist nicht am Token: Dann erwartet die API einen anderen '
+      + 'iss-Claim, als Keycloak ausstellt (KEYCLOAK_ISSUER gegen die URL prüfen, '
+      + 'unter der der Browser Keycloak erreicht).'
+  }
+
   if (typeof data?.message === 'string' && data.message !== '') {
     return data.message
   }

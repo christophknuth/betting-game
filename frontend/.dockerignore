@@ -1,0 +1,12 @@
+# Wird im Build-Stage selbst per `npm install` erzeugt. Die Kopie vom Host
+# einzuschleusen wäre nicht nur langsam, sondern falsch: Sie enthält Symlinks
+# und plattformabhängige Binaries (esbuild), die zum Linux-Image nicht passen.
+node_modules
+
+# Ergebnis des Builds, nicht seine Eingabe
+dist
+
+# .env bleibt bewusst drin: Vite backt die VITE_-Variablen beim Build ein.
+# Ohne die Datei fiele der Build auf die Defaults in services/keycloak.js zurück.
+
+*.log
