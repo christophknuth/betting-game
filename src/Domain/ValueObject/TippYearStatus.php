@@ -11,7 +11,16 @@ use BettingGame\Domain\Exception\InvalidArgumentException;
  *
  *   planned -> running -> closed -> distributed
  *
- * Only a closed year can be distributed, and distribution is final.
+ * That is the intended course, not an enforced one: the administrator may move
+ * a year to any status, including backwards, because a year closed too early
+ * has to be reopenable (see TippYear::changeStatusTo). Two rules survive that,
+ * and neither lives here:
+ *
+ *   - at most one year is `running`      (unique key on tipp_year)
+ *   - at most one distribution per year  (unique key on payout)
+ *
+ * Both are keys rather than checks, because a check cannot hold against two
+ * concurrent requests.
  */
 final class TippYearStatus
 {

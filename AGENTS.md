@@ -154,7 +154,7 @@ Ein abgelehnter Unique Key ist eine Geschäftsregel, die Nein sagt — kein Date
 ## 4. Verzeichnisstruktur
 
 ```
-src/                              153 Dateien, eine Klasse pro Datei
+src/                              155 Dateien, eine Klasse pro Datei
 ├── Domain/                       KERN — keine Abhängigkeiten nach außen
 │   ├── Model/                    Aggregate: TippYear, BetPeriod, BetRow, Ticket,
 │   │                             Draw, Fee, Participant + RecordsEvents-Trait
@@ -290,10 +290,10 @@ Neue Kommentare in dieser Form schreiben. Klassen-Docblocks nennen die Story-ID 
 
 | Suite | Umfang | Voraussetzung |
 |---|---|---|
-| `tests/Unit` | 19 Dateien — Domänenlogik, Value Objects, Auth/JWT, HTTP-Helfer | keine |
-| `tests/Integration` | 16 Dateien — Repositories, Command-Flows, HTTP-Kette, Projektions-Rebuild | MariaDB |
+| `tests/Unit` | 19 Dateien, 213 Testmethoden — Domänenlogik, Value Objects, Auth/JWT, HTTP-Helfer | keine |
+| `tests/Integration` | 16 Dateien, 167 Testmethoden — Repositories, Command-Flows, HTTP-Kette, Projektions-Rebuild | MariaDB |
 
-Insgesamt ~338 Testmethoden.
+Insgesamt 380 Testmethoden.
 
 - Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist
   (`IntegrationTestCase::setUpBeforeClass()`). Die Suite bleibt damit auch ohne DB grün —
@@ -359,12 +359,18 @@ Projektionstabellen, Route ohne `command`-Flag, Controller-Methode mit
 - **Ein Neuaufbau ist kein Command.** `POST /admin/projections/{name}/rebuild` ist bewusst
   *nicht* mit `'command' => true` markiert — er ändert keinen Domänenzustand und gehört
   nicht in die Command-Historie.
-- **Der Lebenszyklus des Tippjahres hat keine Route.** `TippYear::start()` und `close()`
-  sind im Aggregat durchgesetzt, aber weder Command noch Endpunkt — sie werden nur aus
-  Tests aufgerufen. Ein über HTTP angelegtes Tippjahr steht auf `planned` und nimmt in
-  diesem Zustand keinen Tippschein an. Dasselbe gilt für das Anlegen eines `Participant`
-  (Selbstregistrierung ist E1-01). Wer sich wundert, warum ein Durchstich bei B-12
-  scheitert: das ist der Grund, nicht ein Fehler im Handler.
+- **Ein neues Tippjahr steht auf `planned` und nimmt keinen Tippschein an.** Es muss erst
+  über `PUT /admin/tipp-years/{id}/status` auf `running` (B-18). Wer sich wundert, warum
+  ein Durchstich bei B-12 scheitert: das ist der Grund, nicht ein Fehler im Handler.
+- **Das Anlegen eines `Participant` hat weiterhin keine Route.** Selbstregistrierung ist
+  E1-01; für einen Durchstich muss der Teilnehmer vorbereitet werden.
+- **Beim Tippjahr ist jeder Statusübergang erlaubt, auch rückwärts.** Das ist Absicht: ein
+  zu früh geschlossenes Jahr muss sich wieder öffnen lassen, und diese Korrektur gehört in
+  die Event-Historie statt in ein manuelles `UPDATE`. Die eine Regel, die bleibt, spannt
+  über Aggregate und steht deshalb nicht im Modell: **höchstens ein Jahr ist `running`.**
+  `ChangeTippYearStatusHandler` prüft das für die Fehlermeldung, entscheiden tut der
+  Unique Key auf `tipp_year.running_marker` — eine generierte Spalte, die außerhalb von
+  `running` `NULL` ist, weil gleiche `NULL`s in einem Unique Key nicht kollidieren.
 - **Volumes überleben jede Schema- und Realm-Änderung.** Zweimal derselbe Fallstrick,
   zweimal am 2026-07-29 aufgeschlagen:
 

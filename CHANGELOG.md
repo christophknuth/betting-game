@@ -6,6 +6,50 @@ fest, was wann und warum geändert wurde.
 
 ---
 
+## Lebenszyklus des Tippjahres über HTTP (B-18, 2026-07-29)
+
+**`TippYear::start()` und `close()` waren im Aggregat durchgesetzt, hatten aber weder
+Command noch Route** — sie wurden nur aus Tests aufgerufen. Ein über die API angelegtes
+Tippjahr blieb damit auf `planned` und nahm keinen Tippschein an; jeder Durchstich
+scheiterte an B-12, ohne dass ein Handler defekt gewesen wäre.
+
+- `PUT /admin/tipp-years/{id}/status` mit `ChangeTippYearStatusCommand` und -`Handler`.
+- Im Frontend ist die Statusspalte der Tippjahrliste vom Badge zum Dropdown geworden.
+
+**Jeder Übergang ist erlaubt, auch rückwärts.** `TippYear::changeStatus()` hatte eine
+Allowlist je Ziel; die ist weg. Ein zu früh geschlossenes Jahr, ein versehentlich
+gestartetes, eine zu früh gebuchte Ausschüttung — solche Korrekturen fallen an, und ein
+nur vorwärts gerichteter Graph verhindert sie nicht, sondern verlagert sie in ein
+manuelles `UPDATE`, das keine Spur in der Event-Historie hinterlässt. Abgelehnt wird nur
+noch der Wechsel auf den bereits gesetzten Status: Ein Event, das keine Änderung
+beschreibt, gehört nicht in eine Historie.
+
+**Höchstens ein Tippjahr läuft gleichzeitig.** Sonst wäre nicht mehr eindeutig, zu welchem
+Jahr eine Ziehung gehört, und sie zählte auf zwei Ausschüttungen. Die Regel spannt über
+Aggregate und steht deshalb nicht im Modell:
+
+- `ChangeTippYearStatusHandler` prüft sie und nennt das blockierende Jahr beim Namen.
+- Entscheiden tut sie der Unique Key `uk_single_running_year` auf `tipp_year`. Er liegt
+  auf einer generierten Spalte, die außerhalb von `running` `NULL` ist — gleiche `NULL`s
+  kollidieren in einem Unique Key nicht, gleiche Einsen schon. Damit trägt der Key die
+  Regel, ohne die übrigen Zustände einzuschränken.
+
+Die Prüfung im Handler ist ausdrücklich **nicht** die Absicherung: Zwei gleichzeitige
+Requests lesen beide „nichts läuft" und kämen beide durch. Sie existiert für die
+Fehlermeldung, der Key für die Wahrheit.
+
+Nachgemessen am laufenden Stack: Ein `UPDATE` direkt auf der Datenbank, am Handler vorbei,
+scheitert mit `Duplicate entry '1' for key 'uk_single_running_year'`. Ein
+Projektions-Neuaufbau spielt die Statuswechsel nach, ohne die Regel zu verletzen, und
+reproduziert den Zustand exakt.
+
+Zwei Stories für den Jahreswechsel sind in [USER_STORIES.md](USER_STORIES.md)
+spezifiziert, aber **nicht** implementiert: B-19 (Nachfolger zuordnen) und B-20
+(abgelaufenes Jahr automatisch beenden und den Nachfolger starten), samt der offenen
+Entwurfsfragen dazu.
+
+---
+
 ## Die Datenbank enthielt noch das Sportwetten-Schema (2026-07-29)
 
 **Jede authentifizierte Query endete in einem `500`.** Nachdem Realm und `iss` in Ordnung

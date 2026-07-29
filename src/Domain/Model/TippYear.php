@@ -113,14 +113,48 @@ final class TippYear
         return new DateRange($this->startDate, $this->endDate);
     }
 
+    /**
+     * Moves the year to another status. Every path is allowed.
+     *
+     * Deliberately not a fixed state machine. Which year runs is an operational
+     * decision, and the administrator has to be able to correct one: a year
+     * closed a week too early, one started by mistake, one whose distribution
+     * was booked before the last draw was in. A graph that only goes forwards
+     * would not prevent those corrections - it would push them into the
+     * database, where they leave no event behind and nobody can see them.
+     *
+     * The one rule left here is that something has to change. Recording
+     * "running -> running" would put an event in the history saying nothing
+     * happened.
+     *
+     * That at most one year runs at a time is *not* decided here: it spans
+     * aggregates, and this one cannot see the others. It belongs to
+     * ChangeTippYearStatusHandler and, under concurrency, to the unique key on
+     * `tipp_year.running_marker`.
+     */
+    public function changeStatusTo(TippYearStatus $to): void
+    {
+        if ($this->status->value() === $to->value()) {
+            throw new BusinessRuleViolationException(
+                sprintf('This tipp year is already %s', $to->value())
+            );
+        }
+
+        $from = $this->status->value();
+        $this->status = $to;
+        $this->version++;
+
+        $this->recordEvent(new TippYearStatusChanged((string) $this->id, $from, $to->value()));
+    }
+
     public function start(): void
     {
-        $this->changeStatus(TippYearStatus::RUNNING, [TippYearStatus::PLANNED]);
+        $this->changeStatusTo(new TippYearStatus(TippYearStatus::RUNNING));
     }
 
     public function close(): void
     {
-        $this->changeStatus(TippYearStatus::CLOSED, [TippYearStatus::RUNNING]);
+        $this->changeStatusTo(new TippYearStatus(TippYearStatus::CLOSED));
     }
 
     public function addMember(int $participantId): void
@@ -178,24 +212,6 @@ final class TippYear
     public function acceptsTickets(): bool
     {
         return $this->status->acceptsTickets();
-    }
-
-    /**
-     * @param list<string> $allowedFrom
-     */
-    private function changeStatus(string $to, array $allowedFrom): void
-    {
-        if (!in_array($this->status->value(), $allowedFrom, true)) {
-            throw new BusinessRuleViolationException(
-                sprintf('Cannot go from %s to %s', $this->status->value(), $to)
-            );
-        }
-
-        $from = $this->status->value();
-        $this->status = new TippYearStatus($to);
-        $this->version++;
-
-        $this->recordEvent(new TippYearStatusChanged((string) $this->id, $from, $to));
     }
 
     public function id(): int

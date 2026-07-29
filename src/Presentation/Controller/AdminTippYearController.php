@@ -6,6 +6,8 @@ namespace BettingGame\Presentation\Controller;
 
 use BettingGame\Application\Command\AddMemberCommand;
 use BettingGame\Application\Command\AddMemberHandler;
+use BettingGame\Application\Command\ChangeTippYearStatusCommand;
+use BettingGame\Application\Command\ChangeTippYearStatusHandler;
 use BettingGame\Application\Command\CreateBetPeriodCommand;
 use BettingGame\Application\Command\CreateBetPeriodHandler;
 use BettingGame\Application\Command\CreateTippYearCommand;
@@ -25,7 +27,7 @@ use BettingGame\Presentation\Http\Request;
 
 /**
  * The tipp year and everything the administrator sets up around it:
- * B-10, B-14, B-11, B-12 and B-13.
+ * B-10, B-14, B-11, B-12, B-13 and B-18.
  */
 final class AdminTippYearController
 {
@@ -35,9 +37,27 @@ final class AdminTippYearController
         private AddMemberHandler $addMember,
         private SubmitTicketHandler $submitTicket,
         private DistributePayoutHandler $distributePayout,
+        private ChangeTippYearStatusHandler $changeTippYearStatus,
         private GetTippYearsHandler $tippYears,
         private GetBetPeriodsHandler $betPeriods
     ) {
+    }
+
+    /**
+     * B-18
+     *
+     * @param array<string, string> $params
+     */
+    public function changeStatus(Request $request, array $params): JsonResponse
+    {
+        $body = $request->jsonBody();
+
+        return JsonResponse::accepted(
+            $this->changeTippYearStatus->handle(new ChangeTippYearStatusCommand(
+                Input::pathInt($params, 'tippYearId'),
+                Input::string($body, 'status')
+            ))->toArray()
+        );
     }
 
     /** @param array<string, string> $params */

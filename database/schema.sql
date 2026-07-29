@@ -76,6 +76,13 @@ CREATE TABLE tipp_year (
     ticket_cost_per_row DECIMAL(10, 2) NOT NULL COMMENT 'Cost of one row per draw',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INT DEFAULT 0 COMMENT 'Optimistic locking',
+    -- 1 waehrend das Jahr laeuft, sonst NULL. Gleiche NULLs kollidieren in
+    -- einem Unique Key nicht, gleiche Einsen schon - damit traegt der Key
+    -- unten die Regel "hoechstens ein laufendes Tippjahr", ohne die uebrigen
+    -- Zustaende einzuschraenken.
+    running_marker TINYINT GENERATED ALWAYS AS (IF(status = 'running', 1, NULL)) STORED,
+    UNIQUE KEY uk_single_running_year (running_marker)
+        COMMENT 'Enforces: at most one tipp year is running at a time',
     INDEX idx_status (status),
     INDEX idx_period (start_date, end_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

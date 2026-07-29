@@ -206,6 +206,7 @@ final class Container
             // Command handlers - autowired from the repository interfaces above
             Command\AddMemberHandler::class => \DI\autowire(),
             Command\AssignBetRowHandler::class => \DI\autowire(),
+            Command\ChangeTippYearStatusHandler::class => \DI\autowire(),
             Command\CreateBetPeriodHandler::class => \DI\autowire(),
             Command\CreateTippYearHandler::class => \DI\autowire(),
             Command\DistributePayoutHandler::class => \DI\autowire(),

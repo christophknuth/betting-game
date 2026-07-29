@@ -107,7 +107,7 @@ Ein abgelehnter Unique Key ist eine Geschäftsregel, die Nein sagt — kein Date
 
 ## Endpunkte
 
-22 Routen. Die Story-IDs verweisen auf [USER_STORIES.md](USER_STORIES.md).
+23 Routen. Die Story-IDs verweisen auf [USER_STORIES.md](USER_STORIES.md).
 
 ### Teilnehmer — nur lesend
 
@@ -132,6 +132,7 @@ fremde `participantId` mit `403` ab — auch für einen Admin, der dafür eigene
 | `POST /admin/draws` | B-08 Ziehung eintragen |
 | `PUT /admin/draws/{drawId}/winnings` | B-09 Gewinne einer Ziehung eintragen |
 | `GET` / `POST /admin/tipp-years` | B-10 Tippjahre |
+| `PUT /admin/tipp-years/{id}/status` | B-18 Status setzen — jeder Übergang, aber nur ein laufendes Jahr |
 | `GET` / `POST /admin/tipp-years/{id}/bet-periods` | B-14 Tippperioden |
 | `POST /admin/tipp-years/{id}/members` | B-11 Teilnehmer aufnehmen |
 | `POST /admin/tipp-years/{id}/tickets` | B-12 Tippschein einreichen |
@@ -153,7 +154,7 @@ hat, darf nachsehen, und die UUID kann niemand raten.
 
 `GET /health` — der einzige Endpunkt ohne Authentifizierung. Ein Health Check hinter einem
 Token kann einem Load Balancer nicht sagen, ob der Dienst läuft. Er steht deshalb auch
-nicht in der OpenAPI-Spezifikation (19 Pfade, 21 Operationen).
+nicht in der OpenAPI-Spezifikation (20 Pfade, 22 Operationen).
 
 ## Authentifizierung
 
@@ -294,8 +295,8 @@ bereit — sie setzen ein PHP im PATH voraus. `make all-tests` fasst alle drei z
 
 | Suite | Umfang | Voraussetzung |
 |---|---|---|
-| `tests/Unit` | 19 Dateien, 181 Testmethoden — Domänenlogik, Value Objects, JWT, HTTP-Helfer | keine |
-| `tests/Integration` | 16 Dateien, 157 Testmethoden — Repositories, Command-Flows, HTTP-Kette, Projektions-Rebuild | MariaDB |
+| `tests/Unit` | 19 Dateien, 213 Testmethoden — Domänenlogik, Value Objects, JWT, HTTP-Helfer | keine |
+| `tests/Integration` | 16 Dateien, 167 Testmethoden — Repositories, Command-Flows, HTTP-Kette, Projektions-Rebuild | MariaDB |
 
 Die Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist.
 Eine grüne Suite ohne laufende Datenbank sagt deshalb nichts über die Persistenz aus.
@@ -303,7 +304,7 @@ Testdatenbank starten: `make test-db-start`, wieder entfernen: `make test-db-sto
 
 - **PHPStan Level 10** auf `src`, fehlerfrei (`phpstan.neon`, `treatPhpDocTypesAsCertain: false`)
 - **PSR-12**, `declare(strict_types=1);` in jeder Datei
-- 153 Dateien unter `src/`, eine Klasse pro Datei
+- 155 Dateien unter `src/`, eine Klasse pro Datei
 
 ## Abhängigkeiten
 

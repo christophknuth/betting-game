@@ -46,7 +46,7 @@ keinen Endpunkt gibt. Selbstverwaltung ist E1 und nicht implementiert.
 | AdminBetRowsView | `/admin/bet-rows` | `PUT /admin/participants/{id}/bet-row` | B-06 |
 | AdminFeesView | `/admin/fees` | `GET /admin/fees`, `PUT /admin/fees/{id}/payment` | B-07 |
 | AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09 |
-| AdminTippYearsView | `/admin/tipp-years` | Tippjahre, Perioden, Mitglieder, Scheine, Ausschüttung | B-10 – B-14 |
+| AdminTippYearsView | `/admin/tipp-years` | Tippjahre, Status, Perioden, Mitglieder, Scheine, Ausschüttung | B-10 – B-14, B-18 |
 | AdminOperationsView | `/admin/operations` | `GET /commands/{id}`, `GET /admin/audit/…`, `GET/POST /admin/projections…` | OPS-01, OPS-03, OPS-04 |
 
 `/` leitet auf `/bet-row` um. Eine Catch-all-Route fängt unbekannte Pfade ab — darunter
@@ -285,9 +285,11 @@ Automatisierte Tests existieren nicht. Manuelle Checkliste:
 - [ ] Session bleibt nach Reload erhalten (Silent SSO)
 - [ ] `/admin/*` nur mit Admin-Rolle erreichbar
 - [ ] Token ohne `participant_id`: Teilnehmeransichten zeigen den Hinweis, keinen Fehler
-- [ ] Tippjahr anlegen → Periode anlegen → Mitglied aufnehmen → Reihe zuordnen →
-      Tippschein einreichen → Ziehung eintragen → Gewinn nachtragen → Gebühr buchen
-      (der Durchstich aus [QUICKSTART.md](QUICKSTART.md))
+- [ ] Tippjahr anlegen → auf `running` setzen → Periode anlegen → Mitglied aufnehmen →
+      Reihe zuordnen → Tippschein einreichen → Ziehung eintragen → Gewinn nachtragen →
+      Gebühr buchen (der Durchstich aus [QUICKSTART.md](QUICKSTART.md))
+- [ ] Status-Dropdown: zweites Jahr auf `running` → `409`, und das Dropdown springt auf
+      den alten Wert zurück statt eine Lüge stehenzulassen
 - [ ] Tippschein auf ein Tippjahr im Status `planned`: `409` mit lesbarer Meldung
 - [ ] Ausschüttung ohne Häkchen: Button bleibt gesperrt
 - [ ] Gebühr ohne Zahlen im System: Leerzustand statt Fehler
@@ -324,7 +326,7 @@ docker-compose logs frontend
   `AdminBetRowsView` und beim Aufnehmen — die Basisversion hat keinen Endpunkt, der
   Teilnehmer auflistet. `GET /admin/fees` liefert `displayName` mit, deshalb steht dort
   der Name.
-- **Kein Endpunkt für den Lebenszyklus des Tippjahres.** `start()` und `close()` sind im
-  Aggregat durchgesetzt, aber weder Command noch Route. Ein über die Oberfläche angelegtes
-  Tippjahr bleibt `planned` und nimmt keinen Tippschein an; die Ansicht sagt das dazu.
+- **Kein Endpunkt, der einen Teilnehmer anlegt.** Selbstregistrierung ist E1-01; bis dahin
+  müssen Teilnehmer vorbereitet werden, und die Oberfläche kann in `AdminBetRowsView` nur
+  nach einer ID fragen.
 - Danach erst: TypeScript, Dark Mode, Mehrsprachigkeit.

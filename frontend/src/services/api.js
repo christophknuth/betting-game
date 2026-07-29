@@ -159,6 +159,11 @@ export default {
       return client.post('/admin/tipp-years', data, command(idempotencyKey))
     },
 
+    // B-18. Every transition is allowed; only one year may be running.
+    changeTippYearStatus(tippYearId, data, idempotencyKey) {
+      return client.put(`/admin/tipp-years/${tippYearId}/status`, data, command(idempotencyKey))
+    },
+
     getBetPeriods(tippYearId) {
       return client.get(`/admin/tipp-years/${tippYearId}/bet-periods`)
     },
