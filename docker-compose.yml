@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   php:
     build:
@@ -18,6 +16,18 @@ services:
       - DB_DATABASE=betting_game
       - DB_USERNAME=root
       - DB_PASSWORD=secret
+      # Erreichbarkeit: aus dem Netz heraus heißt Keycloak "keycloak:8080".
+      # Von hier holt die API das JWKS.
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=betting-game
+      # Identität: Das Token wird für einen Browser ausgestellt, und der spricht
+      # mit dem veröffentlichten Port. Genau diese URL steht im iss-Claim, und
+      # der wird exakt verglichen (hash_equals in TokenVerifier).
+      #
+      # Ohne diese Zeile fällt der erwartete issuer auf KEYCLOAK_URL zurück,
+      # jedes Browser-Token gilt als "issued by" der falschen Instanz, und die
+      # API antwortet mit 401 auf ein völlig intaktes Token.
+      - KEYCLOAK_ISSUER=http://localhost:8090/realms/betting-game
     depends_on:
       - db
     networks:

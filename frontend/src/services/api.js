@@ -13,7 +13,7 @@ client.interceptors.request.use(
   async config => {
     if (keycloakService.isAuthenticated()) {
       try {
-        // Update token if needed (refresh)
+        // Refreshes only if the token expires within the next 5 seconds.
         await keycloakService.updateToken(5)
         const token = keycloakService.getToken()
 
@@ -21,7 +21,12 @@ client.interceptors.request.use(
           config.headers.Authorization = `Bearer ${token}`
         }
       } catch (error) {
-        console.error('Failed to get token:', error)
+        // The refresh token is gone too - the session really has ended, and
+        // this is the one place that can tell. Sending the user to log in
+        // again here is what keeps the response interceptor below from having
+        // to guess at it.
+        console.error('Token refresh failed, session has ended:', error)
+        keycloakService.login()
       }
     }
 
@@ -37,9 +42,20 @@ client.interceptors.response.use(
     // Only 401 means the token was rejected. A 503 says the API could not reach
     // Keycloak at all - throwing the token away and logging in again would send
     // the user to the very service we already know is down.
-    if (error.response?.status === 401) {
+    //
+    // And even a 401 only warrants a login when we have no session. If Keycloak
+    // considers us logged in and the API still rejects the token, logging in
+    // again produces the *same* token: the SPA sends the user to Keycloak,
+    // Keycloak sees its session and sends them straight back, and the next
+    // request starts the round again - a redirect loop in which the actual
+    // error is visible for a fraction of a second.
+    //
+    // That case is a configuration fault, most likely an `iss` the API does not
+    // expect, and it has to stay on screen where someone can read it.
+    if (error.response?.status === 401 && !keycloakService.isAuthenticated()) {
       keycloakService.login()
     }
+
     return Promise.reject(error)
   }
 )

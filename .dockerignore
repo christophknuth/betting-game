@@ -40,6 +40,21 @@ var/cache/
 var/log/
 .phpunit.result.cache
 
+# Frontend
+# Das PHP-Image kopiert den gesamten Kontext (COPY . /var/www/html) und braucht
+# davon nichts: Die SPA hat ein eigenes Image mit eigenem Kontext (./frontend).
+#
+# Ohne diesen Eintrag bricht der Build unter Windows ab, sobald jemand im
+# frontend/ ein `npm install` laufen lässt: npm legt die Einträge in
+# node_modules/.bin als Symlinks an, und für die findet der Windows-Client
+# keinen Dateimodus, den er in das Kontext-Tar schreiben könnte
+# ("unknown file mode ?rw-rw-rw-").
+frontend/
+
+# Node - falls anderswo im Baum doch einmal node_modules auftaucht.
+# Ein Muster ohne ** greift nur auf oberster Ebene.
+**/node_modules
+
 # Composer
 vendor/
 composer.lock

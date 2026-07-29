@@ -189,6 +189,69 @@ VITE_API_URL=http://localhost:8080
 ```
 
 `participant_id` wird aus den User-Attributen ins Token gemappt – kein separater Lookup nötig.
+Der Mapper hängt **direkt am Client** `betting-game-frontend` (`protocolMappers`), nicht an
+einem eigenen Client Scope. Warum, steht gleich darunter.
+
+### Ein Client Scope im Realm-Export löscht die eingebauten
+
+> Diese Falle hat den Realm zwischen dem Kurswechsel und dem 2026-07-29 unbrauchbar
+> gemacht. Wer den Export anfasst, muss sie kennen.
+
+Enthält ein Realm-Export einen **Top-Level-Block `clientScopes`**, versteht Keycloak ihn
+als *die vollständige Liste* der Client Scopes des Realms — und legt die eingebauten
+(`profile`, `email`, `roles`, `web-origins`, `acr`) dann **nicht** an.
+
+Der Export dieses Projekts definierte genau einen Scope (`participant_id`). Die Folge:
+
+- Der Realm hatte nur `participant_id` und `offline_access`.
+- Die `defaultClientScopes` des Frontend-Clients verwiesen auf fünf Scopes, die es nicht
+  gab. Keycloak verwirft solche Verweise **stillschweigend** — der Client stand am Ende
+  mit *null* zugewiesenen Scopes da.
+- Ausgestellte Token trugen daraufhin weder `participant_id` noch `preferred_username`
+  noch `realm_access.roles`.
+
+Und damit war die gesamte Autorisierung wirkungslos, ohne dass irgendwo ein Fehler stand:
+
+| Wirkung | Folge |
+|---|---|
+| kein `participant_id` | B-01 bis B-04 antworten mit `403`, das Frontend zeigt den Hinweis in `ParticipantScope` |
+| kein `realm_access.roles` | **alle** Adminrouten `403`, im Frontend fehlt die Admin-Navigation |
+| kein `preferred_username` | `bookedBy` fällt auf `'admin'` zurück, die Anzeige auf `'User'` |
+
+**Regel:** Einen eigenen Mapper an den Client hängen, nicht über einen Client Scope. Wer
+doch einen Scope braucht, muss die eingebauten im Export mit auflisten — sonst nimmt er
+sie weg.
+
+Nachsehen lässt sich der Ist-Zustand nur an der laufenden Instanz, nicht am Export:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8090/realms/master/protocol/openid-connect/token \
+  -d "grant_type=password&client_id=admin-cli&username=admin&password=admin" | jq -r .access_token)
+
+# Muss profile, email, roles, web-origins und acr enthalten
+curl -s -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8090/admin/realms/betting-game/client-scopes | jq -r '.[].name'
+```
+
+### Änderungen am Export wirken erst nach einem Neuimport
+
+`--import-realm` importiert **nur, wenn der Realm noch nicht existiert**. Er liegt im
+Volume `betting-game_keycloak_db_data` und überlebt jedes `docker-compose restart`, jedes
+`up -d` und jedes `down` ohne `-v`. Eine Änderung an `realm-export.json` bleibt bis dahin
+wirkungslos:
+
+```bash
+docker-compose stop keycloak keycloak-db
+docker-compose rm -f keycloak keycloak-db
+docker volume rm betting-game_keycloak_db_data     # oder: podman volume rm …
+docker-compose up -d keycloak
+docker-compose logs -f keycloak                    # warten auf "Keycloak 23.0.x started"
+```
+
+Das löscht **nur** Keycloak, nicht die Anwendungsdatenbank — `db_data` bleibt unberührt.
+Wer den Realm nicht neu aufbauen will, setzt dieselbe Änderung von Hand in der Admin
+Console: *Clients → betting-game-frontend → Client scopes* bzw. *→ Dedicated scopes →
+Add mapper*.
 
 ### Lebensdauer
 
@@ -298,15 +361,58 @@ cat frontend/.env              # VITE_KEYCLOAK_URL=http://localhost:8090
 Nach Änderungen an `.env` den Dev-Server neu starten. Prüfen, ob die Redirect-URI des
 Clients zur aufgerufenen URL passt.
 
+**Endlosschleife zwischen Frontend und Keycloak-Login**
+
+Symptom: Nach dem Login blitzt kurz „Invalid or expired token" auf, dann geht es zur
+Keycloak-Anmeldung und sofort wieder zurück — endlos.
+
+Fast immer ist es **nicht** das Token, sondern der `iss`-Claim. Keycloak stellt das Token
+für einen Browser aus und schreibt die URL hinein, unter der der Browser es geholt hat
+(`http://localhost:8090/realms/betting-game`). Die API vergleicht `iss` **exakt**
+(`hash_equals` in `TokenVerifier`) und erwartet ohne `KEYCLOAK_ISSUER` den Wert aus
+`KEYCLOAK_URL` — also den *internen* Hostnamen `http://keycloak:8080/realms/betting-game`.
+Ein intaktes Token wird damit abgelehnt.
+
+Zwei Adressen für denselben Dienst, zwei verschiedene Aufgaben — deshalb hat der Issuer
+eine eigene Variable, und deshalb setzt `docker-compose.yml` beide:
+
+| Variable | Wert | Wofür |
+|---|---|---|
+| `KEYCLOAK_URL` | `http://keycloak:8080` | **Erreichbarkeit** — von hier holt die API das JWKS |
+| `KEYCLOAK_ISSUER` | `http://localhost:8090/realms/betting-game` | **Identität** — was im Token steht |
+
+Nachsehen, was tatsächlich drinsteht:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8090/realms/betting-game/protocol/openid-connect/token \
+  -d "grant_type=password&client_id=betting-game-frontend&username=testuser&password=test123" \
+  | jq -r .access_token)
+
+echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '.iss, .participant_id, .realm_access.roles'
+docker-compose exec php printenv KEYCLOAK_ISSUER
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/participants/2/bet-row
+```
+
+Beide `iss`-Werte müssen zeichengleich sein. Nach einer Änderung an den Variablen
+`docker-compose up -d php` — ein `restart` übernimmt geänderte `environment`-Einträge nicht.
+
+Dass die Schleife entsteht und nicht einfach ein Fehler stehenbleibt, war zusätzlich ein
+Fehler im Client: Der Response-Interceptor schickte bei *jedem* `401` zur Anmeldung.
+Keycloak hat aber eine gültige Sitzung, gibt dasselbe Token zurück, und das Spiel beginnt
+von vorn. Er meldet jetzt nur noch an, wenn gar keine Sitzung besteht — andernfalls bleibt
+die Meldung stehen.
+
 **Backend validiert Token nicht**
 
 ```bash
-docker-compose exec php cat /var/www/html/config/config.php | grep keycloak
-docker-compose exec php curl http://keycloak:8080/realms/betting-game
+docker-compose exec php printenv | grep KEYCLOAK
+docker-compose exec php curl -s http://keycloak:8080/realms/betting-game | head -c 200
 ```
 
 Beachte: Das Backend spricht Keycloak unter dem internen Hostnamen `keycloak:8080` an,
-das Frontend unter `localhost:8090`.
+das Frontend unter `localhost:8090`. Ist Keycloak gar nicht erreichbar, antwortet die API
+mit `503`, nicht mit `401` — ein Schlüsselproblem ist kein ungültiges Token.
 
 **Token abgelaufen** – das Frontend erneuert automatisch; manuell:
 `await keycloakService.updateToken(5)`.
@@ -318,8 +424,9 @@ das Frontend unter `localhost:8090`.
 3. Externe PostgreSQL-Instanz statt Container-Datenbank
 4. Realm sichern:
    `docker-compose exec keycloak /opt/keycloak/bin/kc.sh export --file /tmp/realm-backup.json`
-5. `KEYCLOAK_ISSUER` explizit setzen, wenn Keycloak hinter einem Reverse Proxy steht: der
-   `iss`-Claim trägt die *öffentliche* URL und muss exakt stimmen
+5. `KEYCLOAK_ISSUER` auf die öffentliche URL setzen. Das gilt nicht erst hinter einem
+   Reverse Proxy — es gilt überall dort, wo Browser und API Keycloak unter verschiedenen
+   Adressen erreichen, also auch im lokalen Compose-Stack
 6. `KEYCLOAK_AUDIENCE` setzen, sobald die Mapper des Clients eine verlässliche `aud`
    liefern — die Prüfung ist bewusst aus, weil sie mit dem falschen Wert alle aussperrt
 

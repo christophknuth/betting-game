@@ -365,6 +365,35 @@ Projektionstabellen, Route ohne `command`-Flag, Controller-Methode mit
   diesem Zustand keinen Tippschein an. Dasselbe gilt für das Anlegen eines `Participant`
   (Selbstregistrierung ist E1-01). Wer sich wundert, warum ein Durchstich bei B-12
   scheitert: das ist der Grund, nicht ein Fehler im Handler.
+- **Volumes überleben jede Schema- und Realm-Änderung.** Zweimal derselbe Fallstrick,
+  zweimal am 2026-07-29 aufgeschlagen:
+
+  | Datei | Wird gelesen | Volume |
+  |---|---|---|
+  | `database/schema.sql` | nur bei **leerem** Datenverzeichnis (`docker-entrypoint-initdb.d`) | `db_data` |
+  | `keycloak/realm-export.json` | nur wenn der Realm **noch nicht existiert** (`--import-realm`) | `keycloak_db_data` |
+
+  Eine Änderung an einer der beiden Dateien wirkt nach `restart`, `up -d` und `down` ohne
+  `-v` **gar nicht**. Der Stack läuft dann mit dem Stand von damals weiter, ohne dass
+  irgendwo ein Fehler steht — nach dem Kurswechsel stand monatelang das alte
+  Sportwetten-Schema in der Datenbank, und jede Lotto-Query endete in einem `500`.
+  Prüfen lässt sich das nur an der laufenden Instanz:
+
+  ```bash
+  docker-compose exec -T db mariadb -uroot -psecret -N \
+    -e "SELECT table_name FROM information_schema.tables WHERE table_schema='betting_game';"
+  ```
+
+  Neu einspielen geht ohne Volume-Löschung — `schema.sql` beginnt mit `DROP TABLE IF
+  EXISTS` für alle Tabellen. Liegt noch ein fremdes Schema in der Datenbank, greift die
+  Reihenfolge der `DROP`s nicht, weil sie auf den *neuen* Fremdschlüsselgraphen ausgelegt
+  ist; dann die Prüfung für die Sitzung abschalten:
+
+  ```bash
+  (echo "SET FOREIGN_KEY_CHECKS=0;"; cat database/schema.sql) \
+    | docker-compose exec -T db mariadb -uroot -psecret betting_game
+  ```
+
 - **Nicht anfassen:** `vendor/`, `coverage/`, `.phpunit.cache/`, `var/` — generiert.
 - **Doppelte Konfigurationsdateien** in `docker/` (`Caddyfile.minimal`,
   `Caddyfile.alternative`, `php-fpm.conf.minimal`) sind Reste aus dem Troubleshooting;

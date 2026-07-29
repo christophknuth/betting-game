@@ -6,6 +6,115 @@ fest, was wann und warum geändert wurde.
 
 ---
 
+## Die Datenbank enthielt noch das Sportwetten-Schema (2026-07-29)
+
+**Jede authentifizierte Query endete in einem `500`.** Nachdem Realm und `iss` in Ordnung
+waren, kam der nächste Fehler derselben Familie zum Vorschein: In `betting_game` standen
+`prediction`, `betting_game`, `game_participation`, `participant_score` und `result` —
+und keine einzige Lotto-Tabelle. Eine Query gegen `bet_period` warf eine `PDOException`,
+die nicht in der Domain-Hierarchie steht und deshalb als `500` herauskam.
+
+`database/schema.sql` ist unter `/docker-entrypoint-initdb.d/` gemountet, und dieses
+Verzeichnis wird **nur bei leerem Datenverzeichnis** ausgeführt. Das Volume `db_data`
+stammte von vor dem Kurswechsel — seit `f1d0771` lief der Stack also auf dem Schema der
+alten Domäne, ohne dass das irgendwo aufgefallen wäre.
+
+Eingespielt, ohne das Volume zu löschen: `schema.sql` beginnt mit `DROP TABLE IF EXISTS`
+für alle Tabellen. Die Reihenfolge dieser `DROP`s ist allerdings auf den *neuen*
+Fremdschlüsselgraphen ausgelegt und scheitert an fremden Constraints — mit
+`SET FOREIGN_KEY_CHECKS=0` für die Sitzung läuft sie durch.
+
+Verifiziert:
+
+| Aufruf | Ergebnis |
+|---|---|
+| `GET /health` | `200`, `"domain":"lotto-syndicate"` |
+| `GET /participants/2/bet-row` (eigene Daten) | `404` „No tipp year covers 2026-07-29" |
+| `GET /participants/1/bet-row` (fremde Daten) | `403` „You may only access your own data" (B-16) |
+| `GET /admin/tipp-years` ohne Admin-Rolle | `403` „Admin access required" (B-17) |
+| `GET /admin/tipp-years` mit Admin-Rolle | `200`, `{"tippYears":[]}` |
+| `GET /admin/projections` | `200`, alle 7 Projektionen `upToDate` |
+
+`AGENTS.md` Abschnitt 9 hält den Fallstrick fest — er gilt für `db_data` und
+`keycloak_db_data` gleichermaßen: **beide Volumes überleben jede Änderung an der Datei,
+aus der sie einmal befüllt wurden.**
+
+Zurückgeblieben sind zehn verwaiste Tabellen der alten Domäne (`prediction`, `user`,
+`game_type` …). Sie stören nicht, weil kein Code sie anfasst, und sind noch zu entfernen.
+
+---
+
+## Redirect-Schleife nach dem Login (2026-07-29)
+
+**Nach der Anmeldung blitzte „Invalid or expired token" auf, dann ging es zur
+Keycloak-Anmeldung und sofort wieder zurück — endlos.** Zwei Fehler, die sich gegenseitig
+verdeckt haben.
+
+**Der `iss`-Claim passte nicht.** Keycloak stellt das Token für einen Browser aus und
+schreibt die URL hinein, unter der dieser es geholt hat:
+`http://localhost:8090/realms/betting-game`. `TokenVerifier` vergleicht `iss` exakt
+(`hash_equals`) und erwartete ohne `KEYCLOAK_ISSUER` den Wert aus `KEYCLOAK_URL` — also den
+*internen* Hostnamen `http://keycloak:8080/realms/betting-game`. Das `php`-Service in
+`docker-compose.yml` setzte **gar keine** `KEYCLOAK_*`-Variablen, obwohl `config/config.php`
+im Kommentar genau auf diesen Unterschied hinweist. Jedes intakte Token war damit
+ungültig. Gesetzt sind jetzt beide Adressen, für ihre je eigene Aufgabe:
+`KEYCLOAK_URL` für die Erreichbarkeit des JWKS, `KEYCLOAK_ISSUER` für die Identität im
+Token.
+
+**Der Client machte daraus eine Schleife.** Der Response-Interceptor schickte bei *jedem*
+`401` zur Anmeldung. Keycloak hat aber eine gültige Sitzung, liefert dasselbe Token
+zurück, und der nächste Request beginnt von vorn — der eigentliche Fehler war für den
+Bruchteil einer Sekunde sichtbar. Angemeldet wird jetzt nur noch, wenn gar keine Sitzung
+besteht; ein `401` mit bestehender Sitzung ist ein Konfigurationsfehler und bleibt stehen.
+Den Fall „Sitzung wirklich abgelaufen" behandelt jetzt der Request-Interceptor an der
+Stelle, an der er ihn erkennen kann: wenn `updateToken` fehlschlägt.
+
+Weil die API bewusst nicht sagt, *warum* sie ein Token ablehnt, nennt `errors.js` bei
+einem `401` die wahrscheinlichste Ursache — auf dem Client, wo das nichts preisgibt.
+
+---
+
+## Realm-Export machte die Autorisierung wirkungslos (2026-07-29)
+
+**Kein Token dieses Realms trug jemals `participant_id`, `realm_access.roles` oder
+`preferred_username`.** Aufgefallen an der Meldung „Dieses Token trägt keinen
+`participant_id`-Claim" in der Oberfläche — die Ursache lag tiefer und betraf das Backend
+genauso.
+
+Der Export definierte einen Top-Level-Block `clientScopes` mit dem einen Scope
+`participant_id`. Keycloak liest so einen Block als *die vollständige Liste* der Client
+Scopes des Realms und legt die eingebauten (`profile`, `email`, `roles`, `web-origins`,
+`acr`) dann gar nicht erst an. Die `defaultClientScopes` des Frontend-Clients verwiesen
+damit auf fünf Scopes, die es nicht gab — und Keycloak verwirft solche Verweise
+stillschweigend. Der Client stand am Ende mit **null** zugewiesenen Scopes da.
+
+Nachgemessen am laufenden Realm, nicht am Export:
+
+```
+GET /admin/realms/betting-game/client-scopes
+  → offline_access, participant_id          (statt zusätzlich profile, email, roles, …)
+GET /admin/realms/.../clients/{id}/default-client-scopes
+  → []
+```
+
+**Die Auswirkung war nicht kosmetisch.** Ohne `realm_access.roles` liefert
+`Authorization::requireAdmin()` für jeden `403`, ohne `participant_id` gilt dasselbe für
+B-01 bis B-04. Die gesamte Rechteprüfung war wirkungslos — nicht zu lax, sondern
+vollständig zu: Keine Route mit Identitäts- oder Rollenbezug war benutzbar. Ein Fehler
+stand nirgends, weil aus Sicht jeder einzelnen Komponente alles korrekt war.
+
+- Der Block `clientScopes` ist entfernt, damit Keycloak seine eingebauten Scopes anlegt.
+- Der `participant_id`-Mapper hängt jetzt **direkt am Client** (`protocolMappers`). Ein
+  Mapper am Client kann nicht ins Leere verweisen; ein Scope-Verweis kann es.
+- `KEYCLOAK.md` beschreibt die Falle, den Prüfbefehl am laufenden Realm und den
+  Neuimport.
+
+**Die Änderung wirkt erst nach einem Neuimport.** `--import-realm` importiert nur, wenn
+der Realm noch nicht existiert, und er liegt im Volume `betting-game_keycloak_db_data`.
+Befehle in [KEYCLOAK.md](KEYCLOAK.md).
+
+---
+
 ## ESLint für das Frontend (2026-07-29)
 
 **Das Lint-Skript stand in der `package.json`, ohne dass es eine Konfiguration gab** — es
