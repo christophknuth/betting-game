@@ -19,6 +19,11 @@ docker-compose logs -f keycloak    # warten auf "Keycloak 23.0.x started", dann 
 make composer-install
 ```
 
+> ⛔ Alles zum Frontend in diesem Dokument betrifft die **Altbestand-SPA** aus dem
+> Sportwetten-Tippspiel. Login und Logout funktionieren dort weiterhin, die fachlichen
+> Ansichten nicht — siehe [FRONTEND.md](FRONTEND.md). Wer nur die API testen will, holt
+> sich das Token mit dem Snippet unter [Testen](#testen) und lässt den Container aus.
+
 Das Frontend läuft danach als Container auf Port 3000. Für Entwicklung mit Hot Reload
 stattdessen den Vite-Dev-Server nutzen:
 
@@ -53,8 +58,9 @@ Der Realm `betting-game` wird beim Start automatisch aus
 | `testuser` | `test123` | user | 2 |
 | `john.doe` | `password` | user | 3 |
 
-Nur `admin` sieht die Admin-Views des Frontends (`/admin/games`, `/admin/predictions`,
-`/admin/results`).
+Der Claim `participant_id` entscheidet, wessen Daten ein Token lesen darf; die Rolle
+`admin` gibt die Schreibendpunkte frei. Beides steht im Realm-Export, nicht in der
+Anwendung.
 
 ## Architektur
 
@@ -237,8 +243,12 @@ TOKEN=$(curl -s -X POST http://localhost:8090/realms/betting-game/protocol/openi
   -d "username=testuser" -d "password=test123" \
   -d "grant_type=password" | jq -r .access_token)
 
-# API mit Token aufrufen
-curl http://localhost:8080/participants/2/predictions -H "Authorization: Bearer $TOKEN"
+# API mit Token aufrufen - testuser hat participant_id 2
+curl http://localhost:8080/participants/2/bet-row -H "Authorization: Bearer $TOKEN"
+
+# Fremde Daten: 403, auch mit einem Admin-Token
+curl -o /dev/null -w '%{http_code}\n' \
+  http://localhost:8080/participants/1/fees -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Benutzerverwaltung
@@ -310,7 +320,10 @@ das Frontend unter `localhost:8090`.
 3. Externe PostgreSQL-Instanz statt Container-Datenbank
 4. Realm sichern:
    `docker-compose exec keycloak /opt/keycloak/bin/kc.sh export --file /tmp/realm-backup.json`
-5. **Zwingend:** `AuthMiddleware` in `public/index.php` einbinden (siehe Statushinweis oben)
+5. `KEYCLOAK_ISSUER` explizit setzen, wenn Keycloak hinter einem Reverse Proxy steht: der
+   `iss`-Claim trägt die *öffentliche* URL und muss exakt stimmen
+6. `KEYCLOAK_AUDIENCE` setzen, sobald die Mapper des Clients eine verlässliche `aud`
+   liefern — die Prüfung ist bewusst aus, weil sie mit dem falschen Wert alle aussperrt
 
 ## Weiterführend
 

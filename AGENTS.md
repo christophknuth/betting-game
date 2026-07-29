@@ -34,11 +34,11 @@ E1 (Selbstverwaltung) und E2 (Sportwetten) sind spezifiziert, aber nicht impleme
 
 ---
 
-## 2. ⚠️ Welche Dokumente aktuell sind
+## 2. Welche Dokumente aktuell sind
 
 Das Projekt wurde mit Commit `f1d0771` („Refocus the project on the Lotto 6aus49 syndicate
-domain") von einem Sportwetten-Tippspiel auf die Lotterie umgestellt. **Nicht alle Dokumente
-sind nachgezogen.** Vor dem Verlassen auf ein Dokument:
+domain") von einem Sportwetten-Tippspiel auf die Lotterie umgestellt. Die Dokumentation ist
+am 2026-07-29 nachgezogen worden.
 
 | Dokument | Stand |
 |---|---|
@@ -46,16 +46,22 @@ sind nachgezogen.** Vor dem Verlassen auf ein Dokument:
 | [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Aktuell** (v2.2.0, „Lotterie-Tippgemeinschaft API"). Maßgeblicher API-Vertrag |
 | [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) | ✅ Aktuell |
 | [database/schema.sql](database/schema.sql) | ✅ Aktuell |
+| [README.md](README.md) | ✅ Aktuell. Überblick, Endpunkte, Installation |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | ✅ Aktuell. Schichten, Klassenlandkarte, offene Punkte |
+| [QUICKSTART.md](QUICKSTART.md) | ✅ Aktuell. Ein Tippjahr von Hand durchgespielt |
 | [KEYCLOAK.md](KEYCLOAK.md) | ✅ Aktuell |
-| [README.md](README.md) | ⚠️ **Teilweise veraltet.** Endpunkt- und Feature-Listen beschreiben die alte Prediction-Domäne; PHPStan-Level und Testzahlen stimmen nicht |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | ⚠️ **Teilweise veraltet.** Architekturprinzipien gültig, konkrete Klassen-/Interface-Listen nicht |
-| [DEMO.md](DEMO.md) | ❌ **Veraltet.** Das beschriebene `demo/`-Verzeichnis existiert nicht mehr |
-| [CHANGELOG.md](CHANGELOG.md) | ⚠️ Historie, endet vor dem Refocus |
-| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ❌ **Veraltet.** Vue-SPA bedient noch Predictions/Scores/Games — passt zu keinem Backend-Endpunkt mehr |
+| [PSR.md](PSR.md) | ✅ Aktuell. Beachte den Lesehinweis: implementiert ≠ genutzt |
+| [DOCKER.md](DOCKER.md) | ✅ Aktuell, domänenneutral. Englisch, im Gegensatz zur übrigen Doku |
+| [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `de9215b` |
+| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ❌ **Altbestand.** Vue-SPA bedient noch Predictions/Scores/Games — passt zu keinem Backend-Endpunkt mehr. Das Dokument beschreibt sie bewusst als Altbestand; nichts daraus als Vorlage übernehmen |
 | [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | 📦 Bewusst aufgehoben für Ausbaustufe E2, nicht implementiert |
 
+`DEMO.md` beschrieb ein `demo/`-Verzeichnis, das mit dem Kurswechsel entfallen ist, und
+wurde gelöscht.
+
 **Regel:** Bei Widerspruch gewinnt der Code, danach `USER_STORIES.md` und die OpenAPI-Spec.
-Wer README/ARCHITECTURE anfasst, korrigiert das Veraltete mit, statt es fortzuschreiben.
+Wer ein Dokument anfasst, korrigiert Veraltetes mit, statt es fortzuschreiben — und zieht
+Zahlen (Dateien, Tests, Routen) nach, statt sie zu übernehmen.
 
 ---
 
@@ -227,7 +233,7 @@ direkt gebaut und gestartet.
 | Dienst | URL | Zugang |
 |---|---|---|
 | API (Caddy) | http://localhost:8080 | |
-| Frontend (veraltet) | http://localhost:3000 | |
+| Frontend (Altbestand, abschaltbar) | http://localhost:3000 | |
 | PHPMyAdmin | http://localhost:8081 | root / secret |
 | Keycloak | http://localhost:8090 | admin / admin |
 | MariaDB | localhost:3306 | root / secret, DB `betting_game` |
@@ -353,6 +359,12 @@ Projektionstabellen, Route ohne `command`-Flag, Controller-Methode mit
 - **Ein Neuaufbau ist kein Command.** `POST /admin/projections/{name}/rebuild` ist bewusst
   *nicht* mit `'command' => true` markiert — er ändert keinen Domänenzustand und gehört
   nicht in die Command-Historie.
+- **Der Lebenszyklus des Tippjahres hat keine Route.** `TippYear::start()` und `close()`
+  sind im Aggregat durchgesetzt, aber weder Command noch Endpunkt — sie werden nur aus
+  Tests aufgerufen. Ein über HTTP angelegtes Tippjahr steht auf `planned` und nimmt in
+  diesem Zustand keinen Tippschein an. Dasselbe gilt für das Anlegen eines `Participant`
+  (Selbstregistrierung ist E1-01). Wer sich wundert, warum ein Durchstich bei B-12
+  scheitert: das ist der Grund, nicht ein Fehler im Handler.
 - **Nicht anfassen:** `vendor/`, `coverage/`, `.phpunit.cache/`, `var/` — generiert.
 - **Doppelte Konfigurationsdateien** in `docker/` (`Caddyfile.minimal`,
   `Caddyfile.alternative`, `php-fpm.conf.minimal`) sind Reste aus dem Troubleshooting;
