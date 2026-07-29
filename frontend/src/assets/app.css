@@ -1,0 +1,394 @@
+/*
+ * The shared look of every view.
+ *
+ * Kept in one file rather than repeated as scoped styles: the old SPA carried
+ * the same card, button and badge rules in nine components, and every colour
+ * change had to be made nine times.
+ */
+
+:root {
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --red-dark: #dc2626;
+  --gray-900: #1f2937;
+  --gray-600: #6b7280;
+  --gray-400: #9ca3af;
+  --gray-300: #d1d5db;
+  --gray-100: #f3f4f6;
+  --gray-50: #f9fafb;
+}
+
+/* --- Page ------------------------------------------------------------- */
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h2 {
+  color: var(--gray-900);
+  font-size: 1.5rem;
+}
+
+.page-header .subtitle {
+  color: var(--gray-600);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.section > h3 {
+  color: var(--gray-900);
+  font-size: 1.125rem;
+  margin-bottom: 0.75rem;
+}
+
+/* --- Cards ------------------------------------------------------------ */
+
+.card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 1.5rem;
+}
+
+.card + .card {
+  margin-top: 1rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.card h3 {
+  color: var(--gray-900);
+  font-size: 1.125rem;
+  margin-bottom: 0.75rem;
+}
+
+/* --- Key/value list --------------------------------------------------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1.5rem;
+  font-size: 0.9375rem;
+}
+
+.facts dt {
+  color: var(--gray-600);
+}
+
+.facts dd {
+  color: var(--gray-900);
+  font-weight: 500;
+}
+
+/* --- Tables ----------------------------------------------------------- */
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+table.data th {
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  color: var(--gray-600);
+  font-weight: 600;
+  border-bottom: 1px solid var(--gray-300);
+  white-space: nowrap;
+}
+
+table.data td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-900);
+}
+
+table.data tbody tr:hover {
+  background: var(--gray-50);
+}
+
+table.data .numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Lotto numbers ---------------------------------------------------- */
+
+.numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.numbers .ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--blue);
+  color: white;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.numbers .ball.superzahl {
+  background: var(--yellow);
+}
+
+.numbers.small .ball {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.8125rem;
+}
+
+/* --- Badges ----------------------------------------------------------- */
+
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  white-space: nowrap;
+}
+
+.badge.running,
+.badge.paid,
+.badge.active,
+.badge.evaluated,
+.badge.settled,
+.badge.ok {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge.open,
+.badge.planned,
+.badge.scheduled,
+.badge.draft,
+.badge.rebuilding {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge.failed,
+.badge.lagging {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge.closed,
+.badge.distributed,
+.badge.submitted,
+.badge.drawn {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* --- Forms ------------------------------------------------------------ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.field label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.field .hint {
+  font-size: 0.75rem;
+  color: var(--gray-400);
+}
+
+.field input,
+.field select,
+.field textarea {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font: inherit;
+  color: var(--gray-900);
+  background: white;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: -1px;
+  border-color: var(--blue);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 1rem;
+}
+
+.field-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  color: var(--gray-900);
+  margin-bottom: 1rem;
+}
+
+/* --- Buttons ---------------------------------------------------------- */
+
+button {
+  font: inherit;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary {
+  background: var(--blue);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--blue-dark);
+}
+
+.btn-secondary {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--gray-300);
+}
+
+.btn-danger {
+  background: var(--red);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--red-dark);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* --- States ----------------------------------------------------------- */
+
+.state {
+  padding: 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+}
+
+.state.loading {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.state.empty {
+  background: var(--gray-50);
+  color: var(--gray-600);
+  border: 1px dashed var(--gray-300);
+}
+
+.state.error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: var(--red-dark);
+}
+
+.state.success {
+  background: #d1fae5;
+  border: 1px solid #6ee7b7;
+  color: #065f46;
+}
+
+.state.note {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0c4a6e;
+}
+
+.state code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+}
+
+pre.json {
+  background: var(--gray-900);
+  color: #e5e7eb;
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}

@@ -1,65 +1,92 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+const HOME = '/bet-row'
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
       path: '/',
-      redirect: '/predictions'
+      redirect: HOME
     },
     {
       path: '/login',
       name: 'Login',
       component: () => import('@/views/LoginView.vue')
     },
+
+    // --- Participant, read only (B-01 to B-05) ---
+
     {
-      path: '/predictions',
-      name: 'Predictions',
-      component: () => import('@/views/PredictionsView.vue'),
+      path: '/bet-row',
+      name: 'BetRow',
+      component: () => import('@/views/BetRowView.vue'),
       meta: { requiresAuth: true }
     },
     {
-      path: '/predictions/new',
-      name: 'NewPrediction',
-      component: () => import('@/views/NewPredictionView.vue'),
+      path: '/memberships',
+      name: 'Memberships',
+      component: () => import('@/views/MembershipsView.vue'),
       meta: { requiresAuth: true }
     },
     {
-      path: '/predictions/:id/edit',
-      name: 'EditPrediction',
-      component: () => import('@/views/EditPredictionView.vue'),
+      path: '/fees',
+      name: 'Fees',
+      component: () => import('@/views/FeesView.vue'),
       meta: { requiresAuth: true }
     },
     {
-      path: '/scores',
-      name: 'Scores',
-      component: () => import('@/views/ScoresView.vue'),
+      path: '/payout-share',
+      name: 'PayoutShare',
+      component: () => import('@/views/PayoutShareView.vue'),
       meta: { requiresAuth: true }
     },
     {
-      path: '/games',
-      name: 'Games',
-      component: () => import('@/views/GamesView.vue'),
+      path: '/draws',
+      name: 'Draws',
+      component: () => import('@/views/DrawsView.vue'),
       meta: { requiresAuth: true }
     },
+
+    // --- Admin (B-06 to B-14, OPS-01, OPS-03, OPS-04) ---
+
     {
-      path: '/admin/games',
-      name: 'AdminGames',
-      component: () => import('@/views/AdminGamesView.vue'),
+      path: '/admin/tipp-years',
+      name: 'AdminTippYears',
+      component: () => import('@/views/AdminTippYearsView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
-      path: '/admin/predictions',
-      name: 'AdminPredictions',
-      component: () => import('@/views/AdminPredictionsView.vue'),
+      path: '/admin/bet-rows',
+      name: 'AdminBetRows',
+      component: () => import('@/views/AdminBetRowsView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
-      path: '/admin/results',
-      name: 'AdminResults',
-      component: () => import('@/views/AdminResultsView.vue'),
+      path: '/admin/draws',
+      name: 'AdminDraws',
+      component: () => import('@/views/AdminDrawsView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/fees',
+      name: 'AdminFees',
+      component: () => import('@/views/AdminFeesView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/operations',
+      name: 'Operations',
+      component: () => import('@/views/AdminOperationsView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+
+    // Anything else is a dead link - not least every URL of the old sports
+    // betting SPA, which this application no longer has an endpoint for.
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: HOME
     }
   ]
 })
@@ -67,13 +94,15 @@ const router = createRouter({
 // Navigation guard
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  
+
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
   } else if (to.meta.requiresAdmin && !authStore.isAdmin()) {
-    next('/predictions')
+    // The guard only hides the entrance. The API checks the role itself on
+    // every admin route, which is where the decision actually is.
+    next(HOME)
   } else if (to.path === '/login' && authStore.isAuthenticated) {
-    next('/predictions')
+    next(HOME)
   } else {
     next()
   }

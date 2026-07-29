@@ -53,7 +53,7 @@ am 2026-07-29 nachgezogen worden.
 | [PSR.md](PSR.md) | ✅ Aktuell. Beachte den Lesehinweis: implementiert ≠ genutzt |
 | [DOCKER.md](DOCKER.md) | ✅ Aktuell, domänenneutral. Englisch, im Gegensatz zur übrigen Doku |
 | [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `de9215b` |
-| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ❌ **Altbestand.** Vue-SPA bedient noch Predictions/Scores/Games — passt zu keinem Backend-Endpunkt mehr. Das Dokument beschreibt sie bewusst als Altbestand; nichts daraus als Vorlage übernehmen |
+| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ✅ Aktuell. Vue-SPA auf die Lotto-Endpunkte umgestellt (11 Views, Tabelle Ansicht → Endpunkt in FRONTEND.md) |
 | [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | 📦 Bewusst aufgehoben für Ausbaustufe E2, nicht implementiert |
 
 `DEMO.md` beschrieb ein `demo/`-Verzeichnis, das mit dem Kurswechsel entfallen ist, und
@@ -233,7 +233,7 @@ direkt gebaut und gestartet.
 | Dienst | URL | Zugang |
 |---|---|---|
 | API (Caddy) | http://localhost:8080 | |
-| Frontend (Altbestand, abschaltbar) | http://localhost:3000 | |
+| Frontend (Vue-SPA) | http://localhost:3000 | |
 | PHPMyAdmin | http://localhost:8081 | root / secret |
 | Keycloak | http://localhost:8090 | admin / admin |
 | MariaDB | localhost:3306 | root / secret, DB `betting_game` |

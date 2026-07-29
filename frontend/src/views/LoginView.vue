@@ -1,22 +1,24 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h1>🎯 Betting Game</h1>
-      <p class="subtitle">Secure Authentication with Keycloak</p>
+      <h1>🎲 Tippgemeinschaft</h1>
+      <p class="subtitle">Lotto 6 aus 49 — Anmeldung über Keycloak</p>
 
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <p>Initializing...</p>
+        <p>Wird initialisiert …</p>
       </div>
 
       <div v-else>
         <div class="info-box">
-          <p><strong>Authentication via Keycloak</strong></p>
-          <p>Click the button below to login securely through Keycloak.</p>
+          <p>
+            Die Anmeldung läuft vollständig über Keycloak (OIDC mit PKCE). Das Token liegt
+            im Speicher des Adapters, nicht im localStorage.
+          </p>
         </div>
 
-        <button @click="handleLogin" class="btn-login" :disabled="loggingIn">
-          {{ loggingIn ? 'Redirecting...' : 'Login with Keycloak' }}
+        <button class="btn-login" :disabled="loggingIn" @click="handleLogin">
+          {{ loggingIn ? 'Weiterleitung …' : 'Mit Keycloak anmelden' }}
         </button>
 
         <div v-if="error" class="error-message">
@@ -24,25 +26,28 @@
         </div>
 
         <div class="demo-credentials">
-          <p><strong>Demo Credentials:</strong></p>
+          <p><strong>Demo-Zugänge:</strong></p>
           <ul>
             <li>
-              <strong>Admin:</strong> admin / admin123
-              <span class="role-badge admin">Admin</span>
+              <strong>admin</strong> / admin123
+              <span class="role-badge admin">Administrator</span>
             </li>
             <li>
-              <strong>Test User:</strong> testuser / test123
-              <span class="role-badge user">User</span>
+              <strong>testuser</strong> / test123
+              <span class="role-badge user">Teilnehmer</span>
             </li>
             <li>
-              <strong>John Doe:</strong> john.doe / password
-              <span class="role-badge user">User</span>
+              <strong>john.doe</strong> / password
+              <span class="role-badge user">Teilnehmer</span>
             </li>
           </ul>
+          <p class="small">
+            Die Teilnehmeransichten brauchen den <code>participant_id</code>-Claim aus dem
+            Benutzerattribut im Realm — ohne ihn zeigen sie nichts an.
+          </p>
         </div>
 
         <div class="keycloak-info">
-          <p>Powered by <strong>Keycloak</strong> - Open Source Identity and Access Management</p>
           <p class="small">
             <a href="http://localhost:8090/admin/master/console/#/betting-game" target="_blank">
               Keycloak Admin Console
@@ -66,10 +71,9 @@ const loading = ref(true)
 const loggingIn = ref(false)
 const error = ref(null)
 
-onMounted(async () => {
-  // Check if already authenticated
+onMounted(() => {
   if (authStore.isAuthenticated) {
-    router.push('/predictions')
+    router.push('/bet-row')
   }
   loading.value = false
 })
@@ -81,7 +85,7 @@ const handleLogin = async () => {
   try {
     await authStore.login()
   } catch (err) {
-    error.value = 'Login failed. Please try again.'
+    error.value = 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.'
     console.error('Login error:', err)
   } finally {
     loggingIn.value = false

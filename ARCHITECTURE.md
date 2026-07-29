@@ -362,8 +362,8 @@ make test-db-start && make test-integration && make test-db-stop
 - E1 (Selbstverwaltung) und E2 (Sportwetten) sind spezifiziert, aber nicht implementiert.
   Die E2-Artefakte liegen als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml)
   und [database/schema-e2-sports.sql](database/schema-e2-sports.sql) bereit.
-- Das [frontend/](frontend/) bedient noch die alte Prediction-Domäne und passt zu keinem
-  Backend-Endpunkt mehr. Es ist Altbestand, keine Vorlage — siehe [FRONTEND.md](FRONTEND.md).
+- Das [frontend/](frontend/) bedient die Basisversion vollständig, hat aber keine
+  automatisierten Tests — siehe [FRONTEND.md](FRONTEND.md).
 
 **Technisch**
 

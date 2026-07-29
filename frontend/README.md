@@ -1,386 +1,179 @@
-# Betting Game Frontend (Altbestand)
+# Frontend – Lotterie-Tippgemeinschaft
 
-Vue.js 3 Frontend für das **Sportwetten-Tippspiel**, das dieses Projekt vor dem Kurswechsel
-auf die Lotterie-Tippgemeinschaft war.
+Vue-3-SPA für die **Lotto-6-aus-49-Tippgemeinschaft**. Sie bedient die Endpunkte aus
+[`../betting_game_api.yaml`](../betting_game_api.yaml); die Zuordnung Ansicht → Endpunkt
+steht in [`../FRONTEND.md`](../FRONTEND.md), die Fachlichkeit in
+[`../USER_STORIES.md`](../USER_STORIES.md), die Anmeldung in
+[`../KEYCLOAK.md`](../KEYCLOAK.md).
 
-> ## ⛔ Passt nicht mehr zum Backend
->
-> Predictions, Scores und Games gibt es in der API nicht mehr — alle fachlichen Requests
-> dieser SPA enden in `404`. Nur Login und Logout über Keycloak funktionieren weiter.
-> Hintergrund und was ein neues Frontend bedienen müsste:
-> [`../FRONTEND.md`](../FRONTEND.md). Aktuelle Endpunkte: [`../README.md`](../README.md).
->
-> Nichts hier als Vorlage für neue Arbeit übernehmen.
->
-> Ausführliche Dokumentation (Views, Routen, API-Client, Design System, Troubleshooting):
-> [`../FRONTEND.md`](../FRONTEND.md). Authentifizierung: [`../KEYCLOAK.md`](../KEYCLOAK.md).
+**Ausbaustufe Basis:** Teilnehmer lesen ausschließlich, der Administrator schreibt alles.
+Die SPA bildet genau das ab — die Teilnehmeransichten haben keinen einzigen Absende-Button.
 
-## 🚀 Features
+## Voraussetzungen
 
-- ✅ **Keycloak Login** - OAuth2/OIDC mit PKCE und Token-Auto-Refresh
-- ⛔ **Predictions Management** - Erstellen, Bearbeiten, Anzeigen — Endpunkte entfallen
-- ⛔ **Scores Dashboard** - Points und Prize Money — Endpunkte entfallen
-- ⛔ **Games Participation** - Beitreten und Verlassen — Endpunkte entfallen
-- ⛔ **Admin-Bereich** - Games, Predictions, Ergebnisse — Endpunkte entfallen
-- ✅ **Responsive Design** - Mobile-friendly UI
-- ✅ **Vue 3 Composition API** - Moderne Vue.js Features
-- ✅ **Pinia State Management** - Für Auth und globalen State
-- ✅ **Vue Router** - Navigation mit Guards
-- ✅ **Axios HTTP Client** - API Integration mit Interceptors
+- Node.js 18+
+- API auf `http://localhost:8080` (`curl http://localhost:8080/health`)
+- Keycloak auf `http://localhost:8090`, Realm `betting-game`
 
-## 📋 Requirements
-
-- Node.js 18+ 
-- npm oder yarn
-- Betting Game API running auf `http://localhost:8080`
-- Keycloak running auf `http://localhost:8090` (Realm `betting-game`)
-
-## 🔧 Installation
-
-### 1. Dependencies installieren
+## Entwicklung
 
 ```bash
 cd frontend
 npm install
+npm run dev        # http://localhost:3000
+npm run build      # Ausgabe nach dist/
 ```
 
-### 2. Development Server starten
+`npm run lint` steht in der `package.json`, hat aber keine ESLint-Konfiguration im
+Repository und schlägt deshalb fehl — siehe „Offene Punkte“.
 
-```bash
-npm run dev
-```
+Läuft parallel der Frontend-Container aus `docker-compose.yml`, belegt der Port 3000 —
+vorher `docker-compose stop frontend`.
 
-Frontend läuft auf: **http://localhost:3000**
-
-### 3. Production Build
-
-```bash
-npm run build
-```
-
-Build Ausgabe in `dist/` Verzeichnis.
-
-## 📁 Projektstruktur
+## Projektstruktur
 
 ```
 frontend/
 ├── src/
-│   ├── views/               # Page Components
-│   │   ├── LoginView.vue
-│   │   ├── PredictionsView.vue
-│   │   ├── NewPredictionView.vue
-│   │   ├── EditPredictionView.vue
-│   │   ├── ScoresView.vue
-│   │   ├── GamesView.vue
-│   │   ├── AdminGamesView.vue
-│   │   ├── AdminPredictionsView.vue
-│   │   └── AdminResultsView.vue
-│   ├── stores/              # Pinia Stores
-│   │   └── auth.js
-│   ├── services/            # API & Auth Services
-│   │   ├── api.js
-│   │   └── keycloak.js
-│   ├── router/              # Vue Router
-│   │   └── index.js
-│   ├── App.vue              # Main App Component
-│   └── main.js              # Entry Point
-├── public/
-│   └── silent-check-sso.html
-├── .env                     # Keycloak- und API-URLs
-├── index.html
+│   ├── views/
+│   │   ├── LoginView.vue              # Keycloak-Anmeldung
+│   │   ├── BetRowView.vue             # B-01 eigene Tippreihe
+│   │   ├── MembershipsView.vue        # B-02 eigene Teilnahmen
+│   │   ├── FeesView.vue               # B-03 eigene Gebühren
+│   │   ├── PayoutShareView.vue        # B-04 eigener Gewinnanteil
+│   │   ├── DrawsView.vue              # B-05 Ziehungen des Tippjahres
+│   │   ├── AdminTippYearsView.vue     # B-10 bis B-14
+│   │   ├── AdminBetRowsView.vue       # B-06 Reihe zuordnen
+│   │   ├── AdminDrawsView.vue         # B-08, B-09
+│   │   ├── AdminFeesView.vue          # B-07 Gebühren buchen
+│   │   └── AdminOperationsView.vue    # OPS-01, OPS-03, OPS-04
+│   ├── components/
+│   │   ├── CommandFeedback.vue        # Antwort eines Commands inkl. commandId
+│   │   └── ParticipantScope.vue       # Hinweis, wenn dem Token participant_id fehlt
+│   ├── composables/useCommand.js      # Command-/Query-Zustand, Idempotency-Key
+│   ├── services/
+│   │   ├── api.js                     # Axios-Client, eine Methode je Route
+│   │   ├── errors.js                  # Fehlermeldung aus der API-Antwort
+│   │   └── keycloak.js                # keycloak-js-Wrapper
+│   ├── stores/auth.js                 # Pinia-Auth-Store
+│   ├── support/format.js              # Geld, Datum, Lottozahlen, Statuslabels
+│   ├── assets/app.css                 # gemeinsames Design System
+│   ├── router/index.js
+│   ├── App.vue
+│   └── main.js
+├── public/silent-check-sso.html
+├── .env                               # Keycloak- und API-URLs
 ├── vite.config.js
-└── package.json
+├── Dockerfile                         # Build + Nginx
+└── nginx.conf
 ```
 
-## 🎯 Features im Detail
+## Anmeldung
 
-### Authentication
-
-**Keycloak (OAuth2/OIDC):**
-- Login über Redirect zur Keycloak Login-Seite
-- `participant_id`, Username, E-Mail und Rollen kommen als Claims aus dem JWT
-- Token liegt im Speicher (Keycloak-JS) und wird automatisch erneuert
-- Silent SSO über `public/silent-check-sso.html`
+Login über Keycloak (OIDC mit PKCE). Das Token liegt im Speicher des Adapters, **nicht**
+im localStorage. `participant_id`, Username und Rollen kommen als Claims aus dem JWT.
 
 Demo-Benutzer aus `keycloak/realm-export.json`:
 
 ```
-admin    / admin123   (Rollen: user, admin, participant_id 1)
-testuser / test123    (Rolle:  user,        participant_id 2)
-john.doe / password   (Rolle:  user,        participant_id 3)
+admin    / admin123   (Rollen user + admin, participant_id 1)
+testuser / test123    (Rolle  user,         participant_id 2)
+john.doe / password   (Rolle  user,         participant_id 3)
 ```
 
-### Predictions
+Ohne `participant_id` im Token zeigen die Teilnehmeransichten einen Hinweis statt Daten.
+Das ist keine Lücke: Die API leitet die Identität aus dem Token ab und lässt dort auch
+einen Administrator nicht durch — der hat eigene Endpunkte.
 
-**Übersicht:**
-- Liste aller Predictions
-- Filter nach Status (submitted, pending, evaluated)
-- Status-Badge für jede Prediction
-- Edit-Button wenn noch editierbar
+## API-Anbindung
 
-**Neue Prediction:**
-- Event ID eingeben
-- Prediction Data als JSON
-- Quick Templates für häufige Formate
-- JSON Validation
-
-**Prediction bearbeiten:**
-- Nur möglich vor Deadline
-- Current vs. Updated Data
-- JSON Editor mit Validation
-
-### Scores
-
-**Dashboard:**
-- Summary Card mit:
-  - Total Points
-  - Total Prize Money
-  - Games Participated
-- Score History mit Details
-
-### Games
-
-**Participation Management:**
-- Active Games anzeigen
-- Join Game mit Game ID
-- Terms & Conditions Checkbox
-- Leave Game mit Confirmation Modal
-- Past Participations History
-
-## 🔌 API Integration
-
-### Proxy Configuration
-
-Vite Proxy in `vite.config.js`:
-
-```javascript
-server: {
-  proxy: {
-    '/api': {
-      target: 'http://localhost:8080',
-      changeOrigin: true,
-      rewrite: (path) => path.replace(/^\/api/, '')
-    }
-  }
-}
+```
+Vue-Komponente → api.js (Axios) → Request-Interceptor (Token) →
+Proxy /api → Backend → Response-Interceptor (401) → Komponente
 ```
 
-API Calls:
-```
-Frontend: http://localhost:3000/api/...
-→ Proxy zu: http://localhost:8080/...
-```
+Der Proxy steht in `vite.config.js` (`/api` → `http://localhost:8080`, Präfix wird
+entfernt); im Container übernimmt das `nginx.conf`.
 
-### API Endpoints
+`api.js` hat für jede Route in
+[`../src/Presentation/Router/Router.php`](../src/Presentation/Router/Router.php) genau eine
+Methode — Teilnehmerrouten direkt, Adminrouten unter `api.admin.*`.
 
-```javascript
-// Predictions
-api.getPredictions(participantId, params)
-api.submitPrediction(participantId, eventId, predictionData)
-api.updatePrediction(participantId, predictionId, predictionData)
+### Commands und der Idempotency-Key
 
-// Scores
-api.getScores(participantId, bettingGameId)
+Schreibende Aufrufe nehmen einen `Idempotency-Key` entgegen. Vergeben wird er in
+`composables/useCommand.js`, und zwar bewusst nicht bei jedem Klick neu:
 
-// Games
-api.getParticipations(participantId, status)
-api.joinGame(participantId, bettingGameId, acceptTerms)
-api.leaveGame(participantId, bettingGameId)
+- Kommt **keine Antwort** zurück (Timeout, Netzwerk), bleibt der Schlüssel bestehen. Ein
+  erneuter Klick wiederholt denselben Command; die API antwortet mit dem gespeicherten
+  Ergebnis und `Idempotent-Replay: true`, statt ein zweites Mal zu buchen.
+- Kommt **irgendein Status** zurück, ist der Schlüssel verbraucht. Ein Schlüssel, dessen
+  erster Versuch fehlschlug, bleibt serverseitig vergeben — ihn nach einem `400`
+  weiterzuverwenden, würde einen behebbaren Eingabefehler dauerhaft in ein `409` verwandeln.
 
-// Admin (Rolle "admin") - unter api.admin.*
-api.admin.getAllPredictions(params)
-api.admin.getAllGames(params)
-api.admin.createGame(gameData)
-api.admin.endGame(bettingGameId, data)
-api.admin.recordResult(eventId, resultData)
-api.admin.calculateScores(eventId)      // ⚠️ Route existiert im Backend noch nicht
-api.admin.awardScore(participantId, data) // ⚠️ Route existiert im Backend noch nicht
-```
+Antworten auf Commands sind `202` mit einer `commandId`. Sie wird angezeigt und verlinkt
+auf **Betrieb → Verarbeitungsstand**; das ist der einzige Weg, später nachzusehen, was ein
+Versuch erzeugt hat.
 
-> ⚠️ `calculateScores` und `awardScore` rufen `/admin/events/{id}/scores/calculate` bzw.
-> `/admin/participants/{id}/scores` auf. Diese Routen sind in
-> `src/Presentation/Router/Router.php` nicht registriert und liefern derzeit 404 – die
-> zugehörigen Commands (`CalculateScoresCommand`, `AwardScoreCommand`) existieren aber bereits.
+### Ehrlich zur Asynchronität
 
-## 🎨 UI/UX
+Die API beschreibt Commands als asynchron, die Implementierung schreibt synchron: Wer die
+`202` hat, sieht in den Lesemodellen bereits das Ergebnis. Deshalb laden die Admin-Ansichten
+unmittelbar nach einem Command neu — das ist hier kein Rennen.
 
-### Design System
+## Fehlerbehandlung
 
-**Farben:**
-- Primary: `#2563eb` (Blue)
-- Success: `#10b981` (Green)
-- Warning: `#f59e0b` (Yellow)
-- Danger: `#ef4444` (Red)
-- Gray Scale: `#1f2937` → `#f9fafb`
+`services/errors.js` zeigt die `message` aus der API-Antwort, nicht die von Axios: „Request
+failed with status code 409“ sagt nicht, welche Regel Nein gesagt hat.
 
-**Komponenten:**
-- Cards mit Shadow & Hover Effects
-- Gradient Summary Cards
-- Modal Dialogs
-- Form Validation
-- Status Badges
-- Empty States
+Zwei Statuscodes werden unterschiedlich behandelt:
 
-### Responsive Design
+- `401` — das Token wurde abgelehnt, der Interceptor schickt zur Anmeldung.
+- `503` — Keycloak ist nicht erreichbar. Der Aufruf ist wiederholbar, das Token bleibt
+  gültig; hier zur Anmeldung zu schicken hieße, den Benutzer ausgerechnet zu dem Dienst zu
+  schicken, von dem wir wissen, dass er gerade nicht antwortet.
 
-- Mobile First Approach
-- Grid Layout mit `auto-fill`
-- Flexible Navigation
-- Touch-friendly Buttons
+Ein `404` ist in den Leseansichten eine Aussage („für diese Periode ist keine Reihe
+hinterlegt“) und wird als Leerzustand gezeigt, nicht als Fehler.
 
-## 🔐 Security
-
-### Authentication
-
-Der Request-Interceptor holt den aktuellen Token vom Keycloak-Service, erneuert ihn bei
-Bedarf und setzt ihn als `Authorization: Bearer <token>`. Der Token wird bewusst **nicht**
-im localStorage abgelegt (XSS-Schutz).
-
-### Auto-Logout
-
-Bei einer `401`-Antwort wird der lokale Auth-State geleert und der Benutzer zum
-Keycloak-Login weitergeleitet.
-
-## 🧪 Development
-
-### Linting
+## Deployment
 
 ```bash
-npm run lint
+docker-compose build frontend && docker-compose up -d
+# Frontend :3000 | API :8080 | PHPMyAdmin :8081 | Keycloak :8090
 ```
 
-### Build Optimierung
+Statisches Hosting: `npm run build`, dann `dist/` ausliefern. Bei eigenem Nginx zusätzlich
+`try_files $uri $uri/ /index.html;` und einen `/api/`-Proxy konfigurieren.
 
-```bash
-npm run build
-```
+## Troubleshooting
 
-Optimierte Production Build:
-- Code Splitting
-- Tree Shaking
-- Minification
-- Gzip Compression
+**API-Aufrufe schlagen fehl** — läuft das Backend? `curl http://localhost:8080/health`.
+Proxy in `vite.config.js` prüfen; CORS-Header setzt Caddy.
 
-## 📦 Deployment
+**Anmeldung schlägt fehl** — Keycloak erreichbar (`curl http://localhost:8090/realms/betting-game`)?
+Werte in `.env` prüfen, Redirect-URI des Clients `betting-game-frontend` muss zur
+aufgerufenen URL passen. Nach Änderungen an `.env` den Dev-Server neu starten.
 
-### Static Hosting (Netlify, Vercel)
+**Teilnehmeransichten bleiben leer** — trägt das Token einen `participant_id`-Claim? Der
+kommt aus dem Benutzerattribut im Realm.
 
-```bash
-# Build
-npm run build
+**Alles ist leer, aber ohne Fehler** — vermutlich sind schlicht keine Daten angelegt.
+[`../QUICKSTART.md`](../QUICKSTART.md) spielt ein Tippjahr von Hand durch.
 
-# Deploy dist/ folder
-```
+**Build-Fehler** — `rm -rf node_modules dist && npm install && npm run build`
 
-### Docker
+## Stack
 
-```dockerfile
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+Vue 3.4 (Composition API, `<script setup>`), Vue Router 4.2, Pinia 2.1, Axios 1.6,
+keycloak-js 23, Vite 5.
 
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-EXPOSE 80
-```
+## Offene Punkte
 
-### Environment Variables
-
-Für Production mit echter API URL:
-
-```javascript
-// vite.config.js
-export default defineConfig({
-  server: {
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:8080',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
-  }
-})
-```
-
-## 🐛 Troubleshooting
-
-### API Verbindung funktioniert nicht
-
-1. Backend läuft auf Port 8080?
-   ```bash
-   curl http://localhost:8080/health
-   ```
-
-2. CORS aktiviert im Backend?
-   - Caddy setzt CORS Headers automatisch
-
-3. Proxy funktioniert?
-   - Check Browser Console
-   - Check Network Tab
-
-### Login funktioniert nicht
-
-1. Läuft Keycloak? `curl http://localhost:8090/realms/betting-game`
-2. Werte in `.env` prüfen (`VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`)
-3. Redirect-URI des Clients `betting-game-frontend` muss zur aufgerufenen URL passen
-4. Nach Änderungen an `.env`: Dev-Server neu starten
-
-### Build Errors
-
-```bash
-# Clear cache
-rm -rf node_modules dist
-npm install
-npm run build
-```
-
-## 📚 Technologie Stack
-
-- **Vue.js 3.4** - Progressive Framework
-- **Vue Router 4.2** - Routing
-- **Pinia 2.1** - State Management
-- **Axios 1.6** - HTTP Client
-- **keycloak-js 23.0** - OAuth2/OIDC Adapter
-- **Vite 5.0** - Build Tool
-- **ES Modules** - Modern JavaScript
-
-## 🎯 Next Steps
-
-### Geplante Features
-
-- [ ] Real-time Updates (WebSocket)
-- [ ] Notifications System
-- [ ] Advanced Filters & Search
-- [ ] Data Visualization (Charts)
-- [ ] Export Functionality (CSV, PDF)
-- [ ] Dark Mode
-- [ ] Multi-Language Support
-
-### Performance Optimierungen
-
-- [ ] Lazy Loading für Routes
-- [ ] Virtual Scrolling für lange Listen
-- [ ] Image Optimization
-- [ ] Service Worker (PWA)
-- [ ] Caching Strategy
-
-## 📄 License
-
-Same as Backend - see main README.md
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Create Pull Request
-
----
-
-**Happy Betting! 🎯**
+- `npm run lint` ist ohne `.eslintrc` nicht lauffähig. Entweder eine Konfiguration
+  ergänzen oder das Skript entfernen — ein Befehl, der immer fehlschlägt, wird nicht
+  benutzt und deckt darum auch nichts auf.
+- Keine automatisierten Tests (Vitest, Playwright).
+- Kein TypeScript.
+- Teilnehmer- und Adminlisten arbeiten teils mit IDs statt mit Namen, weil die Basisversion
+  keinen Endpunkt hat, der Teilnehmer auflistet.
