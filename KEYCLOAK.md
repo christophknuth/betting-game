@@ -1,6 +1,6 @@
 # Keycloak – Authentifizierung
 
-Benutzerverwaltung und Authentifizierung über **Keycloak 23** mit OAuth2 / OpenID Connect.
+Benutzerverwaltung und Authentifizierung über **Keycloak 26.7** mit OAuth2 / OpenID Connect.
 
 > **Status:** vollständig verdrahtet. [`public/index.php`](public/index.php) reicht an
 > [`Kernel`](src/Presentation/Http/Kernel.php) weiter, der `AuthMiddleware` vor jede Route
@@ -14,7 +14,7 @@ Benutzerverwaltung und Authentifizierung über **Keycloak 23** mit OAuth2 / Open
 docker-compose up -d
 
 # Keycloak braucht beim ersten Start 30-60 Sekunden für den Realm-Import
-docker-compose logs -f keycloak    # warten auf "Keycloak 23.0.x started", dann Ctrl+C
+docker-compose logs -f keycloak    # warten auf "Keycloak 26.7.x started", dann Ctrl+C
 
 make composer-install
 ```
@@ -245,7 +245,7 @@ docker-compose stop keycloak keycloak-db
 docker-compose rm -f keycloak keycloak-db
 docker volume rm betting-game_keycloak_db_data     # oder: podman volume rm …
 docker-compose up -d keycloak
-docker-compose logs -f keycloak                    # warten auf "Keycloak 23.0.x started"
+docker-compose logs -f keycloak                    # warten auf "Keycloak 26.7.x started"
 ```
 
 Das löscht **nur** Keycloak, nicht die Anwendungsdatenbank — `db_data` bleibt unberührt.

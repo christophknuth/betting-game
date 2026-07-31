@@ -99,18 +99,21 @@ services:
       - betting-game-network
 
   keycloak:
-    image: quay.io/keycloak/keycloak:23.0
+    image: quay.io/keycloak/keycloak:26.7
     container_name: betting-game-keycloak
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      # Seit Keycloak 26 heißen die beiden so; KEYCLOAK_ADMIN(_PASSWORD) sind
+      # abgekündigt. Der Bootstrap-Admin wird nur beim ersten Start angelegt.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
       KC_HOSTNAME_STRICT: false
       KC_HTTP_ENABLED: true
-      KC_PROXY: edge
+      # Ersetzt KC_PROXY=edge, das mit der Hostname-v2-Umstellung entfallen ist.
+      KC_PROXY_HEADERS: xforwarded
     command:
       - start-dev
       - --import-realm

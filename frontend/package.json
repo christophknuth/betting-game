@@ -17,7 +17,7 @@
     "vue-router": "^5.2.0",
     "pinia": "^4.0.2",
     "axios": "^1.19.0",
-    "keycloak-js": "^23.0.3"
+    "keycloak-js": "^26.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",

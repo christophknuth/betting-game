@@ -13,7 +13,7 @@ The application uses a modern, high-performance Docker stack:
 | **MariaDB** | `mariadb:11.3` | 3306 | Latest stable database |
 | **PHPMyAdmin** | `phpmyadmin:latest` | 8081 | Database management UI |
 | **Frontend** | built from `frontend/Dockerfile` | 3000 | ⛔ Legacy Vue.js 3 SPA, see below |
-| **Keycloak** | `quay.io/keycloak/keycloak:23.0` | 8090 | OAuth2/OIDC identity provider |
+| **Keycloak** | `quay.io/keycloak/keycloak:26.7` | 8090 | OAuth2/OIDC identity provider |
 | **Keycloak DB** | `postgres:16-alpine` | — (internal) | PostgreSQL for Keycloak |
 
 > ⛔ **The `frontend` service is legacy.** It serves the SPA of the sports prediction game
