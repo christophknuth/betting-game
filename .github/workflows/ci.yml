@@ -13,7 +13,7 @@ jobs:
     name: PHPStan + PSR-12
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -53,13 +53,16 @@ jobs:
           --health-retries=20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
+      # `coverage: pcov`, nicht `none`: phpunit.xml konfiguriert Coverage-Reports,
+      # und ohne Treiber meldet PHPUnit eine Warnung — Warnungen führen zu
+      # Exit 1, also schlägt der Job fehl, obwohl kein Test kaputt ist.
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: pdo, pdo_mysql, json
-          coverage: none
+          coverage: pcov
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress
@@ -94,9 +97,9 @@ jobs:
         working-directory: frontend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '18'
           cache: npm
@@ -116,7 +119,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -130,7 +133,7 @@ jobs:
       - name: Install PHP dependencies for the bind mount
         run: composer install --no-interaction --no-progress
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '18'
           cache: npm
@@ -181,7 +184,7 @@ jobs:
         if: failure()
         run: docker compose logs --tail 200
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: playwright-artifacts
