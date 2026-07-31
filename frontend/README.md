@@ -24,6 +24,9 @@ npm run dev        # http://localhost:3000
 npm run build      # Ausgabe nach dist/
 npm run lint       # prüft, ändert nichts
 npm run lint:fix   # korrigiert, was automatisch korrigierbar ist
+npm test           # Vitest, einmaliger Lauf
+npm run test:watch
+npm run test:e2e   # Playwright, braucht den laufenden Stack (docker-compose up -d)
 ```
 
 Ohne lokales Node läuft beides im Container:
@@ -71,9 +74,10 @@ frontend/
 │   ├── router/index.js
 │   ├── App.vue
 │   └── main.js
+├── tests/unit/                     # Vitest, gespiegelt zur src/-Struktur
 ├── public/silent-check-sso.html
 ├── .env                               # Keycloak- und API-URLs
-├── vite.config.js
+├── vite.config.js                     # inkl. Vitest-Konfiguration (test:)
 ├── Dockerfile                         # Build + Nginx
 └── nginx.conf
 ```
@@ -180,7 +184,9 @@ keycloak-js 23, Vite 5.
 
 ## Offene Punkte
 
-- Keine automatisierten Tests (Vitest, Playwright).
+- Vitest ist eingerichtet und läuft grün (`tests/unit/`). Playwright (`tests/e2e/`) ist
+  geschrieben, aber auf dieser Maschine noch nicht gegen den echten Stack gelaufen. Siehe
+  [FRONTEND.md](../FRONTEND.md) Abschnitt „Testing".
 - Kein TypeScript.
 - Teilnehmer- und Adminlisten arbeiten teils mit IDs statt mit Namen, weil die Basisversion
   keinen Endpunkt hat, der Teilnehmer auflistet.

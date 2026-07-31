@@ -279,7 +279,55 @@ manuellem Nginx zusätzlich `try_files $uri $uri/ /index.html;` und einen `/api/
 
 ## Testing
 
-Automatisierte Tests existieren nicht. Manuelle Checkliste:
+**Vitest** deckt Composables, Stores, Services und den Router-Guard ab —
+[`tests/unit/`](frontend/tests/unit/), gegliedert wie die Backend-Tests in `tests/Unit`.
+Jede Datei ist an einer konkreten User Story oder Akzeptanzkriterium verankert, nicht an der
+Implementierung:
+
+| Datei | Prüft |
+|---|---|
+| `composables/useCommand.spec.js` | OPS-02: der Idempotency-Key bleibt bei einer antwortlosen Anfrage erhalten (Retry wiederholt denselben Command) und wird bei jeder Antwort — Erfolg wie Fehler — verworfen; `useQuery` fällt bei Fehlern auf den Ausgangswert zurück (B-01: 404 ist ein Leerzustand) |
+| `services/errors.spec.js` | `apiMessage` für 401 (iss-Claim-Hinweis), 503 (wiederholbar), durchgereichte API-Nachricht, nicht erreichbare API |
+| `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: Anteil ist `null`, bis die Ausschüttung gebucht ist); `parseNumbers` gegen B-06 (genau sechs verschiedene Zahlen 1–49, aufsteigend) |
+| `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), `displayName`-Fallback, `logout()` räumt lokalen State auch dann auf, wenn der Keycloak-Logout selbst fehlschlägt |
+| `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 bis B-17): anonym → `/login`, Teilnehmer → kein Zutritt zu `/admin/*` |
+| `components/ParticipantScope.spec.js` | Fehlender `participant_id`-Claim zeigt den Hinweis statt der Teilnehmeransichten |
+
+```bash
+npm test          # einmaliger Lauf
+npm run test:watch
+```
+
+Ohne lokales Node läuft das im selben Container wie Lint:
+
+```bash
+docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine sh -c "npm install && npm test"
+```
+
+**Playwright** deckt den Durchstich gegen den echten, laufenden Stack ab —
+[`tests/e2e/`](frontend/tests/e2e/). `global-setup.js` sät dafür einmalig ein komplettes
+Tippjahr durch die echten Command-Handler (derselbe Ablauf wie in
+[QUICKSTART.md](QUICKSTART.md), nur automatisiert statt mit `curl`), und lässt es
+`closed` zurück, damit ein zweiter Lauf nicht an B-18s „nur ein laufendes Tippjahr"
+scheitert.
+
+| Datei | Prüft |
+|---|---|
+| `auth.spec.js` | Echter Keycloak-Login (B-15), Admin-Bereich für Teilnehmer unerreichbar (B-17), Logout |
+| `participant-views.spec.js` | B-01, B-03, B-05 mit echten, gesäten Daten für `testuser` |
+| `admin-fee-payment.spec.js` | B-07 als echter Schreibvorgang durch die Oberfläche, nicht nur ein Read |
+
+```bash
+docker-compose up -d          # der volle Stack muss laufen, .env baut localhost:* fest ein
+npm run test:e2e
+```
+
+> **Noch nicht gegen den echten Stack verifiziert.** Geschrieben und gegen den tatsächlichen
+> Quellcode der Views abgeglichen, aber auf der Entwicklungsmaschine durch ein
+> WSL2/Hyper-V-Portforwarding-Problem noch nicht real ausgeführt worden — vor dem ersten
+> Vertrauen in einen grünen Lauf einmal `npm run test:e2e` selbst beobachten.
+
+Manuelle Checkliste für das, was auch Playwright nicht abdeckt:
 
 - [ ] Login über Keycloak, Logout, Redirect auf `/login` ohne Session
 - [ ] Session bleibt nach Reload erhalten (Silent SSO)
@@ -320,8 +368,9 @@ docker-compose logs frontend
 
 ## Offene Punkte
 
-- **Keine automatisierten Tests.** Vitest für die Composables (der Idempotency-Key hat
-  eine Regel, die sich prüfen lässt), Playwright für den Durchstich.
+- **Vitest ist eingerichtet und läuft grün** (57 Tests, siehe „Testing" oben). **Playwright
+  ist geschrieben, aber auf dieser Maschine noch nicht gegen den echten Stack gelaufen**
+  (WSL2/Hyper-V-Portforwarding-Problem, siehe „Testing").
 - **Teilnehmer werden über IDs angesprochen.** „Teilnehmer-ID“ statt Name in
   `AdminBetRowsView` und beim Aufnehmen — die Basisversion hat keinen Endpunkt, der
   Teilnehmer auflistet. `GET /admin/fees` liefert `displayName` mit, deshalb steht dort
