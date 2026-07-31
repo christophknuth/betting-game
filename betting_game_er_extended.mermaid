@@ -1,48 +1,48 @@
 erDiagram
     %% =====================================================================
-    %% BASISVERSION - Lotterie-Tippgemeinschaft (Lotto 6 aus 49)
+    %% BASE VERSION - lottery syndicate (Lotto 6 aus 49)
     %%
-    %% Kernidee: Jeder Teilnehmer hat pro TIPPPERIODE genau eine Tippreihe.
-    %% Wie lang eine Periode ist, legt der Administrator fest - eine Periode
-    %% ueber das ganze Tippjahr ergibt "eine Reihe pro Jahr", zwoelf
-    %% Monatsperioden erlauben einen monatlichen Wechsel.
+    %% Core idea: each participant has exactly one bet row per BET PERIOD.
+    %% How long a period runs is up to the administrator - a single period
+    %% spanning the whole tipp year yields "one row per year", twelve monthly
+    %% periods allow a monthly change.
     %%
-    %% Die Reihe wird monatlich auf einem gemeinsamen Tippschein eingereicht und
-    %% nimmt automatisch an allen Ziehungen des Monats teil. Gewinne werden
-    %% ueber das Tippjahr gesammelt und am Ende gleichmaessig ausgeschuettet.
+    %% The row is submitted monthly on a shared ticket and automatically takes
+    %% part in every draw of that month. Winnings are collected over the tipp
+    %% year and distributed evenly at the end.
     %% =====================================================================
 
-    %% --- Stammdaten ---
+    %% --- Master data ---
     User |o--|| Participant : "is assigned to"
 
-    %% --- Tippjahr und Teilnahme ---
+    %% --- Tipp year and membership ---
     TippYear ||--o{ Membership : "has members"
     Participant ||--o{ Membership : "participates in"
 
-    %% --- Tippperiode: frei waehlbarer Gueltigkeitszeitraum ---
+    %% --- Bet period: freely chosen validity window ---
     TippYear ||--o{ BetPeriod : "is divided into"
 
-    %% --- Tippreihe: eine je Teilnehmer und Tippperiode ---
+    %% --- Bet row: one per participant and bet period ---
     BetPeriod ||--o{ BetRow : "scopes"
     Participant ||--o{ BetRow : "owns"
 
-    %% --- Monatlicher Tippschein ---
+    %% --- Monthly ticket ---
     TippYear ||--o{ Ticket : "is submitted as"
     Ticket ||--o{ TicketRow : "carries"
     BetRow ||--o{ TicketRow : "is printed as"
 
-    %% --- Ziehungen und Gewinne des Tippscheins ---
+    %% --- Draws and the ticket's winnings ---
     TippYear ||--o{ Draw : "covers"
     Ticket ||--o{ TicketDrawResult : "wins in"
     Draw ||--o{ TicketDrawResult : "produces"
     TicketRow ||--o{ TicketRowMatch : "is evaluated as"
     Draw ||--o{ TicketRowMatch : "evaluates"
 
-    %% --- Gebuehren ---
+    %% --- Fees ---
     Ticket ||--o{ Fee : "is charged as"
     Participant ||--o{ Fee : "owes"
 
-    %% --- Jahresausschuettung ---
+    %% --- Yearly distribution ---
     TippYear ||--o| Payout : "is settled by"
     Payout ||--o{ PayoutShare : "splits into"
     Participant ||--o{ PayoutShare : "receives"
@@ -82,7 +82,7 @@ erDiagram
 
     TippYear {
         int tipp_year_id PK
-        string name "e.g. Tippjahr 2026"
+        string name "e.g. Tipp year 2026"
         date start_date "freely defined, not tied to the calendar"
         date end_date
         string status "planned / running / closed / distributed"
@@ -104,7 +104,7 @@ erDiagram
     BetPeriod {
         int bet_period_id PK
         int tipp_year_id FK "UK(tipp_year_id, start_date)"
-        string name "e.g. 2026 gesamt / Q1 2026 / Maerz 2026"
+        string name "e.g. 2026 full year / Q1 2026 / March 2026"
         date start_date "freely chosen by the administrator"
         date end_date
         int sequence "order within the tipp year"

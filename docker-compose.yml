@@ -16,17 +16,17 @@ services:
       - DB_DATABASE=betting_game
       - DB_USERNAME=root
       - DB_PASSWORD=secret
-      # Erreichbarkeit: aus dem Netz heraus heißt Keycloak "keycloak:8080".
-      # Von hier holt die API das JWKS.
+      # Reachability: from inside the network Keycloak is "keycloak:8080".
+      # This is where the API fetches the JWKS from.
       - KEYCLOAK_URL=http://keycloak:8080
       - KEYCLOAK_REALM=betting-game
-      # Identität: Das Token wird für einen Browser ausgestellt, und der spricht
-      # mit dem veröffentlichten Port. Genau diese URL steht im iss-Claim, und
-      # der wird exakt verglichen (hash_equals in TokenVerifier).
+      # Identity: the token is issued for a browser, and that talks to the
+      # published port. Exactly this URL ends up in the iss claim, and it is
+      # compared verbatim (hash_equals in TokenVerifier).
       #
-      # Ohne diese Zeile fällt der erwartete issuer auf KEYCLOAK_URL zurück,
-      # jedes Browser-Token gilt als "issued by" der falschen Instanz, und die
-      # API antwortet mit 401 auf ein völlig intaktes Token.
+      # Without this line the expected issuer falls back to KEYCLOAK_URL, every
+      # browser token counts as "issued by" the wrong instance, and the API
+      # answers 401 to a perfectly intact token.
       - KEYCLOAK_ISSUER=http://localhost:8090/realms/betting-game
     depends_on:
       - db
@@ -102,8 +102,8 @@ services:
     image: quay.io/keycloak/keycloak:26.7
     container_name: betting-game-keycloak
     environment:
-      # Seit Keycloak 26 heißen die beiden so; KEYCLOAK_ADMIN(_PASSWORD) sind
-      # abgekündigt. Der Bootstrap-Admin wird nur beim ersten Start angelegt.
+      # Since Keycloak 26 these are the names; KEYCLOAK_ADMIN(_PASSWORD) are
+      # deprecated. The bootstrap admin is only created on the first start.
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_DB: postgres
@@ -112,7 +112,7 @@ services:
       KC_DB_PASSWORD: keycloak
       KC_HOSTNAME_STRICT: false
       KC_HTTP_ENABLED: true
-      # Ersetzt KC_PROXY=edge, das mit der Hostname-v2-Umstellung entfallen ist.
+      # Replaces KC_PROXY=edge, which the hostname-v2 change dropped.
       KC_PROXY_HEADERS: xforwarded
     command:
       - start-dev
@@ -134,10 +134,10 @@ services:
       POSTGRES_USER: keycloak
       POSTGRES_PASSWORD: keycloak
     volumes:
-      # Ab PostgreSQL 18 gehört der Mount auf /var/lib/postgresql, nicht auf
-      # dessen data/-Unterverzeichnis: Das Image legt die Daten darunter ab,
-      # damit `pg_upgrade --link` nicht über eine Mount-Grenze stolpert. Mit dem
-      # alten Pfad startet der Container gar nicht erst.
+      # From PostgreSQL 18 on the mount belongs on /var/lib/postgresql, not on
+      # its data/ subdirectory: the image puts the data below that so
+      # `pg_upgrade --link` does not trip over a mount boundary. With the old
+      # path the container refuses to start at all.
       - keycloak_db_data:/var/lib/postgresql
     networks:
       - betting-game-network

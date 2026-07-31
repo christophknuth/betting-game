@@ -1,17 +1,17 @@
--- MariaDB Schema: Lotterie-Tippgemeinschaft (Lotto 6 aus 49)
--- Version: 2.0 - Basisversion
+-- MariaDB schema: lottery syndicate (Lotto 6 aus 49)
+-- Version: 2.0 - base version
 -- Engine: InnoDB for ACID compliance and foreign keys
 --
--- Kernidee: Jeder Teilnehmer hat pro TIPPPERIODE genau eine Tippreihe. Der Unique Key
--- auf bet_row(participant_id, bet_period_id) setzt das strukturell durch, nicht als
--- Pruefung im Code.
+-- Core idea: each participant has exactly one bet row per BET PERIOD. The unique key on
+-- bet_row(participant_id, bet_period_id) enforces that structurally, not as a check in
+-- code.
 --
--- Wie lang eine Periode ist, legt der Administrator fest: eine Periode ueber das
--- ganze Tippjahr ergibt "eine Reihe pro Jahr", zwoelf Monatsperioden erlauben einen
--- monatlichen Wechsel. Perioden eines Tippjahres duerfen sich nicht ueberlappen -
--- sonst waeren zwei Reihen desselben Teilnehmers am selben Tag gueltig.
+-- How long a period runs is up to the administrator: a single period spanning the whole
+-- tipp year yields "one row per year", twelve monthly periods allow a monthly change.
+-- Periods of one tipp year must not overlap - otherwise two rows of the same participant
+-- would be valid on the same day.
 --
--- Das Schema der Sportwetten-Erweiterung liegt in schema-e2-sports.sql.
+-- The schema of the sports-betting extension lives in schema-e2-sports.sql.
 
 -- Drop existing tables (in correct order due to foreign keys)
 DROP TABLE IF EXISTS command_log;
@@ -36,7 +36,7 @@ DROP TABLE IF EXISTS participant;
 DROP TABLE IF EXISTS user;
 
 -- ============================================================
--- Stammdaten
+-- Master data
 -- ============================================================
 
 CREATE TABLE user (
@@ -64,7 +64,7 @@ CREATE TABLE participant (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- Tippjahr und Teilnahme
+-- Tipp year and membership
 -- ============================================================
 
 CREATE TABLE tipp_year (
@@ -76,10 +76,9 @@ CREATE TABLE tipp_year (
     ticket_cost_per_row DECIMAL(10, 2) NOT NULL COMMENT 'Cost of one row per draw',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INT DEFAULT 0 COMMENT 'Optimistic locking',
-    -- 1 waehrend das Jahr laeuft, sonst NULL. Gleiche NULLs kollidieren in
-    -- einem Unique Key nicht, gleiche Einsen schon - damit traegt der Key
-    -- unten die Regel "hoechstens ein laufendes Tippjahr", ohne die uebrigen
-    -- Zustaende einzuschraenken.
+    -- 1 while the year is running, NULL otherwise. Equal NULLs do not collide
+    -- in a unique key, equal ones do - so the key below carries the rule "at
+    -- most one running tipp year" without constraining the other states.
     running_marker TINYINT GENERATED ALWAYS AS (IF(status = 'running', 1, NULL)) STORED,
     UNIQUE KEY uk_single_running_year (running_marker)
         COMMENT 'Enforces: at most one tipp year is running at a time',
@@ -103,13 +102,13 @@ CREATE TABLE membership (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- Tippperiode: der frei waehlbare Gueltigkeitszeitraum einer Tippreihe
+-- Bet period: the freely chosen validity window of a bet row
 -- ============================================================
 
 CREATE TABLE bet_period (
     bet_period_id INT AUTO_INCREMENT PRIMARY KEY,
     tipp_year_id INT NOT NULL,
-    name VARCHAR(100) NOT NULL COMMENT 'e.g. "2026 gesamt", "Q1 2026", "Maerz 2026"',
+    name VARCHAR(100) NOT NULL COMMENT 'e.g. "2026 full year", "Q1 2026", "March 2026"',
     start_date DATE NOT NULL COMMENT 'Freely chosen by the administrator',
     end_date DATE NOT NULL,
     sequence INT NOT NULL DEFAULT 1 COMMENT 'Order within the tipp year',
@@ -121,7 +120,7 @@ CREATE TABLE bet_period (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- Tippreihe: eine je Teilnehmer und Tippperiode
+-- Bet row: one per participant and bet period
 -- ============================================================
 
 CREATE TABLE bet_row (
@@ -172,7 +171,7 @@ CREATE TABLE ticket_row (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- Ziehungen und Gewinne
+-- Draws and winnings
 -- ============================================================
 
 CREATE TABLE draw (

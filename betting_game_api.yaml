@@ -1,59 +1,57 @@
 openapi: 3.0.3
 info:
-  title: Lotterie-Tippgemeinschaft API
+  title: Lottery Syndicate API
   description: |
-    Verwaltung einer Tippgemeinschaft für Lotto 6 aus 49.
+    Administration of a syndicate playing Lotto 6 aus 49.
 
-    ## Fachliches Modell
+    ## Domain model
 
-    Jeder Teilnehmer hat pro **Tippperiode** genau eine Tippreihe aus sechs Zahlen. Sie gilt
-    bis auf Widerruf und wandert automatisch auf jeden Tippschein - getippt wird einmal pro
-    Periode, nicht pro Ziehung.
+    Each participant has exactly one bet row of six numbers per **bet period**. It stands
+    until revoked and travels automatically onto every ticket - a bet is placed once per
+    period, not once per draw.
 
-    Wie lang eine Periode ist, legt der Administrator fest: eine Periode über das ganze
-    Tippjahr ergibt "eine Reihe pro Jahr", zwölf Monatsperioden erlauben einen monatlichen
-    Wechsel. Perioden eines Tippjahres dürfen sich nicht überlappen.
+    How long a period runs is up to the administrator: a single period spanning the whole
+    tipp year yields "one row per year", twelve monthly periods allow a monthly change.
+    Periods of one tipp year must not overlap.
 
-    Zum Monatsanfang wird ein gemeinsamer **Tippschein** mit allen aktiven Reihen eingereicht.
-    Seine Kosten werden auf die Teilnehmer aufgeteilt und sind im Laufe des Monats zu zahlen.
+    At the start of each month a shared **ticket** carrying all active rows is submitted.
+    Its cost is split across the participants and is due during that month.
 
-    Gewinne fallen je Ziehung für den Tippschein als Ganzes an, werden über das Tippjahr
-    gesammelt und am Jahresende gleichmäßig auf alle Teilnehmer ausgeschüttet.
+    Winnings accrue per draw for the ticket as a whole, are collected over the tipp year
+    and distributed evenly across all participants at the end of the year.
 
-    ## Umfang dieser Version
+    ## Scope of this version
 
-    Basisversion. Teilnehmer haben **ausschließlich lesenden Zugriff**; alle Buchungen nimmt
-    der Administrator vor. Selbstverwaltung (E1) und das Sportergebnis-Tippspiel (E2) sind
-    nicht enthalten - die Spezifikation des Sportspiels liegt in
-    `betting_game_api_e2_sports.yaml`.
+    Base version. Participants have **read-only access**; the administrator records every
+    booking. Self-service (E1) and the sports-result betting game (E2) are not included -
+    the sports game's specification lives in `betting_game_api_e2_sports.yaml`.
 
-    ## Konventionen
+    ## Conventions
 
-    - **Queries** (`GET`) liefern `200` mit einem aus dem Event Store projizierten Read Model.
-    - **Commands** (`POST`/`PUT`) liefern `202 Accepted` mit einer `CommandResponse`.
-      `GET /commands/{commandId}` liefert den Verarbeitungsstand.
+    - **Queries** (`GET`) return `200` with a read model projected from the event store.
+    - **Commands** (`POST`/`PUT`) return `202 Accepted` with a `CommandResponse`.
+      `GET /commands/{commandId}` returns the processing state.
 
-      *Zum Stand der Implementierung:* Der Schreibvorgang läuft derzeit **synchron** ab —
-      wenn der Aufrufer die `202` in Händen hält, sind Event Store und Lesemodelle bereits
-      aktuell. Der Statuscode und der Command-Endpunkt halten den Vertrag für den Fall offen,
-      dass das Schreiben später aus dem Request herauswandert.
-    - Alle Commands akzeptieren einen **`Idempotency-Key`**-Header. Ein Retry mit demselben
-      Schlüssel liefert die ursprüngliche `CommandResponse` mit ihrem ursprünglichen
-      Statuscode und dem Header `Idempotent-Replay: true`, ohne erneut zu schreiben.
-      Ein Schlüssel, dessen erster Versuch fehlschlug, bleibt vergeben: Die Wiederholung
-      erhält `409` statt eines erfundenen Ergebnisses.
+      *On the state of the implementation:* writing currently happens **synchronously** -
+      by the time the caller holds the `202`, event store and read models are already up
+      to date. The status code and the command endpoint keep the contract open for the
+      case where writing later moves out of the request.
+    - Every command accepts an **`Idempotency-Key`** header. A retry with the same key
+      returns the original `CommandResponse` with its original status code and the header
+      `Idempotent-Replay: true`, without writing again. A key whose first attempt failed
+      stays taken: the retry gets `409` rather than an invented result.
 
-    ## Authentifizierung
+    ## Authentication
 
-    Bearer-Token von Keycloak. Die **Signatur wird gegen den JWKS-Endpunkt des Realms
-    geprüft** — Identität und Rollen sind damit Aussagen von Keycloak und nicht des
-    Aufrufers, worauf jede Berechtigungsregel dieser API beruht.
+    Bearer tokens from Keycloak. The **signature is verified against the realm's JWKS
+    endpoint** - identity and roles are therefore assertions made by Keycloak and not by
+    the caller, which is what every authorisation rule in this API rests on.
 
-    Zwei Statuscodes, die man auseinanderhalten muss:
+    Two status codes that have to be kept apart:
 
-    - `401` — das Token wird abgelehnt. Der Grund steht bewusst nicht in der Antwort.
-    - `503` — Keycloak ist nicht erreichbar, die Signatur lässt sich gerade nicht prüfen.
-      Der Aufruf ist wiederholbar; das Token wegzuwerfen wäre falsch.
+    - `401` - the token is rejected. The reason is deliberately absent from the response.
+    - `503` - Keycloak is unreachable, the signature cannot be checked right now. The call
+      is repeatable; throwing the token away would be wrong.
   version: 2.3.0
   contact:
     name: API Support
@@ -70,36 +68,36 @@ security:
   - bearerAuth: []
 
 tags:
-  - name: Teilnehmer
-    description: Lesender Zugriff des Teilnehmers auf die eigenen Daten
-  - name: Tippjahr
-    description: Ziehungen und Gewinne des laufenden Tippjahres
-  - name: Admin - Tippjahr
-    description: Tippjahr, Mitglieder, Tippscheine und Ausschüttung
-  - name: Admin - Teilnehmer
-    description: Anlegen und Auflisten der Teilnehmer
-  - name: Admin - Tippreihen
-    description: Zuordnung der Tippreihen
-  - name: Admin - Ziehungen
-    description: Ziehungen und deren Gewinne
-  - name: Admin - Zahlungen
-    description: Buchung der Tippgebühren
+  - name: Participant
+    description: Read-only access for a participant to their own data
+  - name: Tipp Year
+    description: Draws and winnings of the running tipp year
+  - name: Admin - Tipp Year
+    description: Tipp year, members, tickets and distribution
+  - name: Admin - Participants
+    description: Creating and listing participants
+  - name: Admin - Bet Rows
+    description: Assignment of bet rows
+  - name: Admin - Draws
+    description: Draws and their winnings
+  - name: Admin - Payments
+    description: Recording of ticket fees
   - name: Operations
-    description: Verarbeitungsstand der asynchronen Schreibseite
+    description: Processing state of the asynchronous write side
 
 paths:
   # ============================================
-  # TEILNEHMER - nur lesend
+  # PARTICIPANT - read only
   # ============================================
 
   /participants/{participantId}/bet-row:
     get:
       tags:
-        - Teilnehmer
-      summary: Eigene Tippreihe abrufen (B-01)
+        - Participant
+      summary: Retrieve own bet row (B-01)
       description: |
-        Die Tippreihe des Teilnehmers für eine Tippperiode. Ohne `betPeriodId` wird die
-        heute laufende Periode verwendet.
+        The participant's bet row for a bet period. Without `betPeriodId` the period
+        running today is used.
       operationId: getBetRow
       security:
         - bearerAuth: []
@@ -107,12 +105,12 @@ paths:
         - $ref: '#/components/parameters/ParticipantIdPath'
         - name: betPeriodId
           in: query
-          description: Standardmäßig die heute laufende Periode
+          description: Defaults to the period running today
           schema:
             type: integer
       responses:
         '200':
-          description: Die Tippreihe
+          description: The bet row
           content:
             application/json:
               schema:
@@ -122,7 +120,7 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '404':
-          description: Für diese Periode ist keine Reihe zugeordnet
+          description: No row is assigned for this period
           content:
             application/json:
               schema:
@@ -133,12 +131,12 @@ paths:
   /participants/{participantId}/memberships:
     get:
       tags:
-        - Teilnehmer
-      summary: Eigene Teilnahmen abrufen (B-02)
+        - Participant
+      summary: Retrieve own memberships (B-02)
       description: |
-        Teilnahmen des Teilnehmers je Tippjahr, inklusive der Tippscheine, auf denen die
-        eigene Reihe tatsächlich stand. Bei unterjährigem Beitritt fehlt sie auf früheren
-        Scheinen - genau das macht diese Ansicht sichtbar.
+        The participant's memberships per tipp year, including the tickets their own row
+        actually appeared on. After joining mid-year it is missing from earlier tickets -
+        which is precisely what this view makes visible.
       operationId: getMemberships
       security:
         - bearerAuth: []
@@ -146,12 +144,12 @@ paths:
         - $ref: '#/components/parameters/ParticipantIdPath'
         - name: tippYearId
           in: query
-          description: Standardmäßig das laufende Tippjahr
+          description: Defaults to the running tipp year
           schema:
             type: integer
       responses:
         '200':
-          description: Teilnahmen
+          description: Memberships
           content:
             application/json:
               schema:
@@ -171,9 +169,9 @@ paths:
   /participants/{participantId}/fees:
     get:
       tags:
-        - Teilnehmer
-      summary: Eigene Zahlungen abrufen (B-03)
-      description: Die Tippgebühren des Teilnehmers je Tippschein mit Zahlungsstatus
+        - Participant
+      summary: Retrieve own payments (B-03)
+      description: The participant's ticket fees per ticket, with payment status
       operationId: getParticipantFees
       security:
         - bearerAuth: []
@@ -190,7 +188,7 @@ paths:
             enum: [open, paid, waived]
       responses:
         '200':
-          description: Gebühren
+          description: Fees
           content:
             application/json:
               schema:
@@ -221,11 +219,11 @@ paths:
   /participants/{participantId}/payout-share:
     get:
       tags:
-        - Teilnehmer
-      summary: Eigenen Gewinnanteil abrufen (B-04)
+        - Participant
+      summary: Retrieve own payout share (B-04)
       description: |
-        Der anteilige Jahresgewinn des Teilnehmers. Solange die Ausschüttung nicht gebucht
-        ist, wird `amount: null` mit dem bisher aufgelaufenen Zwischenstand geliefert.
+        The participant's proportional yearly winnings. As long as the distribution has not
+        been recorded, `amount: null` is returned along with the interim total so far.
       operationId: getPayoutShare
       security:
         - bearerAuth: []
@@ -237,7 +235,7 @@ paths:
             type: integer
       responses:
         '200':
-          description: Gewinnanteil
+          description: Payout share
           content:
             application/json:
               schema:
@@ -250,17 +248,17 @@ paths:
           $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
-  # TIPPJAHR - Ziehungen und Gewinne
+  # TIPP YEAR - draws and winnings
   # ============================================
 
   /tipp-years/{tippYearId}/draws:
     get:
       tags:
-        - Tippjahr
-      summary: Ziehungen und Scheingewinne abrufen (B-05)
+        - Tipp Year
+      summary: Retrieve draws and ticket winnings (B-05)
       description: |
-        Die Ziehungen des Tippjahres mit dem Gewinn, den der **gesamte** Tippschein erzielt
-        hat - nicht der eigene Anteil. Der entsteht erst mit der Jahresausschüttung.
+        The tipp year's draws with the winnings the **whole** ticket achieved - not one's
+        own share. That only comes into being with the yearly distribution.
       operationId: getDraws
       security:
         - bearerAuth: []
@@ -273,13 +271,13 @@ paths:
             enum: [scheduled, drawn, evaluated]
         - name: withWinningsOnly
           in: query
-          description: Nur Ziehungen, bei denen der Schein gewonnen hat
+          description: Only draws where the ticket won something
           schema:
             type: boolean
             default: false
       responses:
         '200':
-          description: Ziehungen
+          description: Draws
           content:
             application/json:
               schema:
@@ -294,7 +292,7 @@ paths:
                   totalWinnings:
                     type: number
                     format: decimal
-                    description: Summe über alle ausgewerteten Ziehungen des Jahres
+                    description: Sum over all evaluated draws of the year
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -303,26 +301,26 @@ paths:
           $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
-  # ADMIN - Teilnehmer
+  # ADMIN - participants
   # ============================================
 
   /admin/participants:
     get:
       tags:
-        - Admin - Teilnehmer
-      summary: Teilnehmer auflisten (B-21)
+        - Admin - Participants
+      summary: List participants (B-21)
       description: |
-        Alle Teilnehmer, nach Anzeigename sortiert.
+        All participants, sorted by display name.
 
-        Bewusst nur für den Administrator: Ein Teilnehmer sieht ausschließlich eigene Daten
-        und hat die anderen nicht aufzuzählen (B-16). Die Liste füllt die Auswahlfelder der
-        Adminansichten, die sonst nach einer nackten Teilnehmer-ID fragen müssten.
+        Deliberately administrator-only: a participant sees exclusively their own data and
+        has no business enumerating the others (B-16). The list fills the dropdowns of the
+        admin views, which would otherwise have to ask for a bare participant ID.
       operationId: getParticipants
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Liste der Teilnehmer
+          description: List of participants
           content:
             application/json:
               schema:
@@ -341,18 +339,18 @@ paths:
 
     post:
       tags:
-        - Admin - Teilnehmer
-      summary: Teilnehmer anlegen (B-21)
+        - Admin - Participants
+      summary: Create participant (B-21)
       description: |
-        Legt einen Teilnehmer an (CQRS Command).
+        Creates a participant (CQRS command).
 
-        Es wird **kein Benutzerkonto verknüpft**: Die Identität kommt aus dem
-        Keycloak-Token, und die Tabelle `user` stammt aus der Zeit davor. Damit jemand seine
-        eigenen Daten sieht, muss die vergebene `resourceId` im Realm als
-        `participant_id`-Attribut hinterlegt sein. Selbstregistrierung ist E1-01.
+        **No user account is linked**: identity comes from the Keycloak token, and the
+        `user` table dates from before that. For someone to see their own data, the
+        `resourceId` handed out here has to be stored in the realm as a `participant_id`
+        attribute. Self-registration is E1-01.
 
-        Der Teilnehmer ist sofort aktiv - was der Administrator einträgt, ist mit dem
-        Eintragen genehmigt.
+        The participant is active immediately - whatever the administrator records is
+        approved by the act of recording it.
       operationId: createParticipant
       security:
         - bearerAuth: []
@@ -366,7 +364,7 @@ paths:
               $ref: '#/components/schemas/CreateParticipantCommand'
       responses:
         '202':
-          description: Teilnehmer akzeptiert
+          description: Participant accepted
           content:
             application/json:
               schema:
@@ -381,24 +379,23 @@ paths:
           $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
-  # ADMIN - Tippreihen
+  # ADMIN - bet rows
   # ============================================
 
   /admin/participants/{participantId}/bet-row:
     put:
       tags:
-        - Admin - Tippreihen
-      summary: Tippreihe zuordnen (B-06)
+        - Admin - Bet Rows
+      summary: Assign bet row (B-06)
       description: |
-        Ordnet einem Teilnehmer die Tippreihe für eine Tippperiode zu (CQRS Command).
+        Assigns a participant their bet row for a bet period (CQRS command).
 
-        Pro Teilnehmer und Periode ist genau eine Reihe zulässig - durchgesetzt über den
-        Unique Key, nicht über eine Prüfung im Code. Eine bereits zugeordnete Reihe wird mit
-        `409` abgelehnt; eine Korrektur innerhalb der laufenden Periode verlangt
-        `replaceReason`.
+        Exactly one row per participant and period is allowed - enforced through the unique
+        key, not through a check in code. An already assigned row is rejected with `409`; a
+        correction within the running period requires `replaceReason`.
 
-        Wie oft eine Reihe wechseln darf, ergibt sich damit aus dem Zuschnitt der Perioden
-        und ist eine Konfiguration des Tippjahres.
+        How often a row may change therefore follows from how the periods are cut, and is a
+        configuration of the tipp year.
       operationId: assignBetRow
       security:
         - bearerAuth: []
@@ -413,7 +410,7 @@ paths:
               $ref: '#/components/schemas/AssignBetRowCommand'
       responses:
         '202':
-          description: Zuordnung akzeptiert
+          description: Assignment accepted
           content:
             application/json:
               schema:
@@ -430,15 +427,15 @@ paths:
           $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
-  # ADMIN - Zahlungen
+  # ADMIN - payments
   # ============================================
 
   /admin/fees/{feeId}/payment:
     put:
       tags:
-        - Admin - Zahlungen
-      summary: Zahlungsstatus setzen (B-07)
-      description: Bucht den Zahlungseingang einer Tippgebühr oder erlässt sie (CQRS Command)
+        - Admin - Payments
+      summary: Set payment status (B-07)
+      description: Records the incoming payment of a ticket fee, or waives it (CQRS command)
       operationId: recordFeePayment
       security:
         - bearerAuth: []
@@ -453,7 +450,7 @@ paths:
               $ref: '#/components/schemas/RecordFeePaymentCommand'
       responses:
         '202':
-          description: Buchung akzeptiert
+          description: Booking accepted
           content:
             application/json:
               schema:
@@ -472,9 +469,9 @@ paths:
   /admin/fees:
     get:
       tags:
-        - Admin - Zahlungen
-      summary: Gebührenlage abrufen
-      description: Alle Gebühren mit Zahlungsstatus, zur Übersicht über offene Posten
+        - Admin - Payments
+      summary: Retrieve the fee situation
+      description: All fees with payment status, for an overview of outstanding items
       operationId: getAllFees
       security:
         - bearerAuth: []
@@ -494,7 +491,7 @@ paths:
             enum: [open, paid, waived]
       responses:
         '200':
-          description: Gebühren
+          description: Fees
           content:
             application/json:
               schema:
@@ -512,17 +509,17 @@ paths:
           $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
-  # ADMIN - Ziehungen
+  # ADMIN - draws
   # ============================================
 
   /admin/draws:
     post:
       tags:
-        - Admin - Ziehungen
-      summary: Ziehung eintragen (B-08)
+        - Admin - Draws
+      summary: Record draw (B-08)
       description: |
-        Trägt eine Lottoziehung mit den sechs Gewinnzahlen und der Superzahl ein
-        (CQRS Command). Ein doppeltes Ziehungsdatum wird mit `409` abgelehnt.
+        Records a lottery draw with its six winning numbers and the bonus number (CQRS
+        command). A duplicate draw date is rejected with `409`.
       operationId: recordDraw
       security:
         - bearerAuth: []
@@ -536,7 +533,7 @@ paths:
               $ref: '#/components/schemas/RecordDrawCommand'
       responses:
         '202':
-          description: Ziehung akzeptiert
+          description: Draw accepted
           content:
             application/json:
               schema:
@@ -555,13 +552,13 @@ paths:
   /admin/draws/{drawId}/winnings:
     put:
       tags:
-        - Admin - Ziehungen
-      summary: Gewinne einer Ziehung eintragen (B-09)
+        - Admin - Draws
+      summary: Record the winnings of a draw (B-09)
       description: |
-        Trägt ein, was der Tippschein bei dieser Ziehung gewonnen hat (CQRS Command).
+        Records what the ticket won on this draw (CQRS command).
 
-        Die Treffer je Reihe werden aus den Gewinnzahlen und den Reihen-Snapshots des
-        Tippscheins berechnet; der eingetragene Betrag ist der Gewinn des gesamten Scheins.
+        The hits per row are computed from the winning numbers and the ticket's row
+        snapshots; the amount recorded is the winnings of the whole ticket.
       operationId: recordDrawWinnings
       security:
         - bearerAuth: []
@@ -576,7 +573,7 @@ paths:
               $ref: '#/components/schemas/RecordDrawWinningsCommand'
       responses:
         '202':
-          description: Gewinne akzeptiert
+          description: Winnings accepted
           content:
             application/json:
               schema:
@@ -595,14 +592,14 @@ paths:
           $ref: '#/components/responses/ServiceUnavailableError'
 
   # ============================================
-  # ADMIN - Tippjahr
+  # ADMIN - tipp year
   # ============================================
 
   /admin/tipp-years:
     get:
       tags:
-        - Admin - Tippjahr
-      summary: Tippjahre abrufen
+        - Admin - Tipp Year
+      summary: Retrieve tipp years
       operationId: getTippYears
       security:
         - bearerAuth: []
@@ -614,7 +611,7 @@ paths:
             enum: [planned, running, closed, distributed]
       responses:
         '200':
-          description: Tippjahre
+          description: Tipp years
           content:
             application/json:
               schema:
@@ -633,11 +630,11 @@ paths:
 
     post:
       tags:
-        - Admin - Tippjahr
-      summary: Tippjahr anlegen (B-10)
+        - Admin - Tipp Year
+      summary: Create tipp year (B-10)
       description: |
-        Legt ein Tippjahr mit frei wählbarem Zeitraum und dem Preis einer Reihe je Ziehung an
-        (CQRS Command). Überlappende Zeiträume werden mit `409` abgelehnt.
+        Creates a tipp year with a freely chosen period and the price of one row per draw
+        (CQRS command). Overlapping periods are rejected with `409`.
       operationId: createTippYear
       security:
         - bearerAuth: []
@@ -651,7 +648,7 @@ paths:
               $ref: '#/components/schemas/CreateTippYearCommand'
       responses:
         '202':
-          description: Anlage akzeptiert
+          description: Creation accepted
           content:
             application/json:
               schema:
@@ -670,25 +667,25 @@ paths:
   /admin/tipp-years/{tippYearId}/status:
     put:
       tags:
-        - Admin - Tippjahr
-      summary: Status eines Tippjahres setzen (B-18)
+        - Admin - Tipp Year
+      summary: Set the status of a tipp year (B-18)
       description: |
-        Setzt den Status eines Tippjahres (CQRS Command).
+        Sets the status of a tipp year (CQRS command).
 
-        **Jeder** Übergang ist erlaubt, auch rückwärts. Das ist Absicht: Ein zu früh
-        geschlossenes Jahr muss sich wieder öffnen lassen, und diese Korrektur gehört in
-        die Event-Historie statt in ein manuelles `UPDATE`, das niemand mehr sieht.
+        **Every** transition is allowed, backwards ones included. That is deliberate: a
+        year closed too early has to be reopenable, and that correction belongs in the
+        event history rather than in a manual `UPDATE` nobody ever sees again.
 
-        Es bleibt eine Regel, und sie spannt über Aggregate: **höchstens ein Tippjahr ist
-        gleichzeitig `running`.** Sonst wäre nicht mehr eindeutig, zu welchem Jahr eine
-        Ziehung gehört, und sie zählte auf zwei Ausschüttungen. Ein zweites laufendes Jahr
-        wird mit `409` abgelehnt, unter Nennung des blockierenden Jahres.
+        One rule remains, and it spans aggregates: **at most one tipp year is `running` at
+        a time.** Otherwise it would no longer be unambiguous which year a draw belongs to,
+        and it would count towards two distributions. A second running year is rejected
+        with `409`, naming the year that blocks it.
 
-        Den bereits gesetzten Status erneut zu setzen ist ebenfalls `409` — ein Event, das
-        keine Änderung beschreibt, gehört nicht in die Historie.
+        Setting the status that is already set is likewise `409` - an event that describes
+        no change does not belong in the history.
 
-        Nur ein `running` Jahr nimmt Tippscheine an (B-12); ausgeschüttet wird nur aus
-        `closed` heraus (B-13).
+        Only a `running` year accepts tickets (B-12); distribution happens only out of
+        `closed` (B-13).
       operationId: changeTippYearStatus
       security:
         - bearerAuth: []
@@ -703,7 +700,7 @@ paths:
               $ref: '#/components/schemas/ChangeTippYearStatusCommand'
       responses:
         '202':
-          description: Statuswechsel akzeptiert
+          description: Status change accepted
           content:
             application/json:
               schema:
@@ -724,8 +721,8 @@ paths:
   /admin/tipp-years/{tippYearId}/bet-periods:
     get:
       tags:
-        - Admin - Tippjahr
-      summary: Tippperioden abrufen
+        - Admin - Tipp Year
+      summary: Retrieve bet periods
       operationId: getBetPeriods
       security:
         - bearerAuth: []
@@ -733,7 +730,7 @@ paths:
         - $ref: '#/components/parameters/TippYearIdPath'
       responses:
         '200':
-          description: Perioden des Tippjahres
+          description: The tipp year's periods
           content:
             application/json:
               schema:
@@ -754,18 +751,17 @@ paths:
 
     post:
       tags:
-        - Admin - Tippjahr
-      summary: Tippperiode anlegen (B-14)
+        - Admin - Tipp Year
+      summary: Create bet period (B-14)
       description: |
-        Legt einen Gültigkeitszeitraum für Tippreihen fest (CQRS Command).
+        Defines a validity window for bet rows (CQRS command).
 
-        Die Grenzen wählt der Administrator frei. Eine einzige Periode über das ganze
-        Tippjahr ergibt "eine Reihe pro Jahr", zwölf Monatsperioden erlauben einen
-        monatlichen Wechsel.
+        The administrator picks the boundaries freely. A single period spanning the whole
+        tipp year yields "one row per year", twelve monthly periods allow a monthly change.
 
-        Die Periode muss innerhalb des Tippjahres liegen und darf keine bestehende Periode
-        desselben Jahres überlappen - sonst wären zwei Reihen desselben Teilnehmers am
-        selben Tag gültig. Beides wird mit `409` abgelehnt.
+        The period has to lie within the tipp year and must not overlap an existing period
+        of the same year - otherwise two rows of the same participant would be valid on the
+        same day. Both are rejected with `409`.
       operationId: createBetPeriod
       security:
         - bearerAuth: []
@@ -780,7 +776,7 @@ paths:
               $ref: '#/components/schemas/CreateBetPeriodCommand'
       responses:
         '202':
-          description: Anlage akzeptiert
+          description: Creation accepted
           content:
             application/json:
               schema:
@@ -799,9 +795,9 @@ paths:
   /admin/tipp-years/{tippYearId}/members:
     post:
       tags:
-        - Admin - Tippjahr
-      summary: Teilnehmer aufnehmen (B-11)
-      description: Nimmt einen Teilnehmer in ein Tippjahr auf (CQRS Command)
+        - Admin - Tipp Year
+      summary: Add member (B-11)
+      description: Adds a participant to a tipp year (CQRS command)
       operationId: addMember
       security:
         - bearerAuth: []
@@ -816,7 +812,7 @@ paths:
               $ref: '#/components/schemas/AddMemberCommand'
       responses:
         '202':
-          description: Aufnahme akzeptiert
+          description: Membership accepted
           content:
             application/json:
               schema:
@@ -835,15 +831,15 @@ paths:
   /admin/tipp-years/{tippYearId}/tickets:
     post:
       tags:
-        - Admin - Tippjahr
-      summary: Tippschein erfassen (B-12)
+        - Admin - Tipp Year
+      summary: Submit ticket (B-12)
       description: |
-        Erfasst den monatlichen Tippschein (CQRS Command).
+        Records the monthly ticket (CQRS command).
 
-        Bündelt alle Reihen mit aktiver Teilnahme, kopiert sie als Snapshot auf den Schein,
-        berechnet `rowCount × drawCount × ticketCostPerRow` und erzeugt je Teilnehmer eine
-        Gebühr über den gleichen Anteil daran. Eine spätere Korrektur einer Tippreihe ändert
-        einen eingereichten Schein nicht mehr.
+        Bundles all rows with an active membership, copies them onto the ticket as a
+        snapshot, computes `rowCount × drawCount × ticketCostPerRow` and creates one fee
+        per participant over an equal share of it. A later correction to a bet row no
+        longer changes a submitted ticket.
       operationId: submitTicket
       security:
         - bearerAuth: []
@@ -858,7 +854,7 @@ paths:
               $ref: '#/components/schemas/SubmitTicketCommand'
       responses:
         '202':
-          description: Tippschein akzeptiert
+          description: Ticket accepted
           content:
             application/json:
               schema:
@@ -877,16 +873,16 @@ paths:
   /admin/tipp-years/{tippYearId}/payout:
     post:
       tags:
-        - Admin - Tippjahr
-      summary: Jahresausschüttung buchen (B-13)
+        - Admin - Tipp Year
+      summary: Record the yearly distribution (B-13)
       description: |
-        Bucht die Jahresausschüttung (CQRS Command).
+        Records the yearly distribution (CQRS command).
 
-        Summiert alle Scheingewinne des Tippjahres und teilt sie gleichmäßig auf die
-        Teilnehmer auf - unabhängig davon, wie viele Perioden jemand bezahlt hat. Die
-        Rundungsdifferenz geht auf den ersten Anteil.
+        Sums all ticket winnings of the tipp year and splits them evenly across the
+        participants - regardless of how many periods anyone paid for. The rounding
+        difference goes onto the first share.
 
-        `409`, solange das Tippjahr nicht `closed` ist oder bereits ausgeschüttet wurde.
+        `409` for as long as the tipp year is not `closed`, or was already distributed.
       operationId: distributePayout
       security:
         - bearerAuth: []
@@ -901,7 +897,7 @@ paths:
               $ref: '#/components/schemas/DistributePayoutCommand'
       responses:
         '202':
-          description: Ausschüttung akzeptiert
+          description: Distribution accepted
           content:
             application/json:
               schema:
@@ -925,12 +921,12 @@ paths:
     get:
       tags:
         - Operations
-      summary: Event-Historie eines Aggregats einsehen (OPS-03)
+      summary: Inspect the event history of an aggregate (OPS-03)
       description: |
-        Alle Events eines Aggregats, älteste zuerst.
+        All events of an aggregate, oldest first.
 
-        Zeigt Dinge, die in keinem Lesemodell stehen — etwa den Grund, aus dem eine Tippreihe
-        innerhalb der laufenden Periode ersetzt wurde.
+        Shows things no read model holds - such as the reason a bet row was replaced within
+        the running period.
       operationId: getAuditTrail
       security:
         - bearerAuth: []
@@ -948,7 +944,7 @@ paths:
             type: integer
       responses:
         '200':
-          description: Event-Historie
+          description: Event history
           content:
             application/json:
               schema:
@@ -968,17 +964,16 @@ paths:
     get:
       tags:
         - Operations
-      summary: Projektionen überwachen (OPS-04)
+      summary: Monitor projections (OPS-04)
       description: |
-        Stand aller Lesemodelle. `lag` zählt nur die Events, die diese Projektion auch
-        konsumiert — eine Tippreihen-Projektion hinkt nicht hinterher, weil eine Gebühr
-        gebucht wurde.
+        State of all read models. `lag` counts only the events this projection actually
+        consumes - a bet-row projection does not fall behind because a fee was recorded.
       operationId: getProjections
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Projektionen
+          description: Projections
           content:
             application/json:
               schema:
@@ -999,15 +994,15 @@ paths:
     post:
       tags:
         - Operations
-      summary: Projektion neu aufbauen (OPS-04)
+      summary: Rebuild projection (OPS-04)
       description: |
-        Spielt eine Projektion aus dem Event Store neu ein. `all` baut alle auf.
+        Replays a projection from the event store. `all` rebuilds every one of them.
 
-        Läuft **synchron**; die Antwort ist der Zustand danach, keine Bestätigung.
+        Runs **synchronously**; the response is the state afterwards, not an acknowledgement.
 
-        Die Liste enthält in der Regel mehr als die angeforderte Projektion: Die Lesemodelle
-        hängen über Foreign Keys mit `ON DELETE CASCADE` zusammen, deshalb werden die davon
-        abhängigen mit aufgebaut — sonst blieben sie leer.
+        The list usually holds more than the requested projection: the read models hang
+        together through foreign keys with `ON DELETE CASCADE`, so the dependent ones are
+        rebuilt along with it - otherwise they would stay empty.
       operationId: rebuildProjection
       security:
         - bearerAuth: []
@@ -1015,12 +1010,12 @@ paths:
         - name: name
           in: path
           required: true
-          description: Name der Projektion oder `all`
+          description: Name of the projection, or `all`
           schema:
             type: string
       responses:
         '200':
-          description: Neu aufgebaute Projektionen
+          description: Rebuilt projections
           content:
             application/json:
               schema:
@@ -1043,16 +1038,17 @@ paths:
     get:
       tags:
         - Operations
-      summary: Verarbeitungsstand eines Commands abfragen (OPS-01)
+      summary: Query the processing state of a command (OPS-01)
       description: |
-        `commandId` ist der Wert aus der `CommandResponse`.
+        `commandId` is the value from the `CommandResponse`.
 
-        **Hinweis:** Diese Implementierung schreibt synchron — wenn der Aufrufer die `202` hat,
-        ist der Command bereits `completed`, und `projectionsUpToDate` ist immer `true`. Der
-        Endpunkt ist dort nützlich, wo ein Retry nachschlägt, was der erste Versuch erzeugt hat.
+        **Note:** this implementation writes synchronously - by the time the caller holds
+        the `202` the command is already `completed`, and `projectionsUpToDate` is always
+        `true`. The endpoint is useful where a retry looks up what the first attempt
+        produced.
 
-        Nicht auf Administratoren beschränkt: Wer einen Command abgesetzt hat, darf erfahren,
-        was daraus wurde, und die ID ist nicht erratbar.
+        Not restricted to administrators: whoever issued a command may learn what became of
+        it, and the ID is not guessable.
       operationId: getCommandStatus
       security:
         - bearerAuth: []
@@ -1133,9 +1129,8 @@ components:
       in: header
       required: false
       description: |
-        Vom Client vergebener Schlüssel, der einen Command wiederholbar macht. Ein Retry mit
-        demselben Schlüssel liefert die ursprüngliche CommandResponse zurück, ohne ein
-        zweites Event zu schreiben.
+        A key issued by the client that makes a command repeatable. A retry with the same
+        key returns the original CommandResponse, without writing a second event.
       schema:
         type: string
         format: uuid
@@ -1147,7 +1142,7 @@ components:
 
     LottoNumbers:
       type: array
-      description: Sechs verschiedene Zahlen aus 1 bis 49, aufsteigend sortiert
+      description: Six distinct numbers from 1 to 49, sorted ascending
       minItems: 6
       maxItems: 6
       uniqueItems: true
@@ -1174,10 +1169,10 @@ components:
         changeableFrom:
           type: string
           format: date
-          description: Beginn der nächsten Periode - erst dann ist die Reihe wieder änderbar
+          description: Start of the next period - only then is the row changeable again
         ticketCount:
           type: integer
-          description: Auf so vielen Tippscheinen stand diese Reihe bisher
+          description: The number of tickets this row has appeared on so far
 
     BetPeriodReadModel:
       type: object
@@ -1199,10 +1194,10 @@ components:
           format: date
         sequence:
           type: integer
-          description: Reihenfolge innerhalb des Tippjahres
+          description: Ordering within the tipp year
         betRowCount:
           type: integer
-          description: Wie viele Teilnehmer für diese Periode eine Reihe hinterlegt haben
+          description: How many participants have stored a row for this period
 
     MembershipReadModel:
       type: object
@@ -1227,7 +1222,7 @@ components:
           nullable: true
         tickets:
           type: array
-          description: Tippscheine des Jahres und ob die eigene Reihe darauf stand
+          description: The year's tickets, and whether one's own row appeared on them
           items:
             type: object
             properties:
@@ -1299,7 +1294,7 @@ components:
         totalWinnings:
           type: number
           format: decimal
-          description: Gewinnsumme des Tippscheins über das ganze Jahr
+          description: Total winnings of the ticket over the whole year
         participantCount:
           type: integer
           nullable: true
@@ -1307,12 +1302,12 @@ components:
           type: number
           format: decimal
           nullable: true
-          description: Null, solange die Ausschüttung nicht gebucht ist
+          description: Null for as long as the distribution has not been recorded
         provisionalAmount:
           type: number
           format: decimal
           nullable: true
-          description: Zwischenstand vor der Ausschüttung, rein informativ
+          description: Interim total before the distribution, purely informational
         paymentStatus:
           type: string
           enum: [open, paid]
@@ -1342,7 +1337,7 @@ components:
         ticket:
           type: object
           nullable: true
-          description: Der Tippschein, der an dieser Ziehung teilnahm
+          description: The ticket that took part in this draw
           properties:
             ticketId:
               type: integer
@@ -1351,7 +1346,7 @@ components:
             totalAmount:
               type: number
               format: decimal
-              description: Gewinn des gesamten Scheins bei dieser Ziehung
+              description: Winnings of the whole ticket on this draw
             winningClasses:
               type: array
               items:
@@ -1427,7 +1422,7 @@ components:
         httpStatus:
           type: integer
           nullable: true
-          description: Status der ursprünglichen Antwort, wird bei einem Retry wiederholt
+          description: Status of the original response, repeated on a retry
         projectionsUpToDate:
           type: boolean
         eventStorePosition:
@@ -1458,7 +1453,7 @@ components:
           example: bet_row-12
         version:
           type: integer
-          description: Version des jüngsten Events
+          description: Version of the most recent event
         events:
           type: array
           items:
@@ -1466,10 +1461,10 @@ components:
             properties:
               position:
                 type: integer
-                description: Globale Position im Event Store
+                description: Global position in the event store
               version:
                 type: integer
-                description: Version innerhalb dieses Streams
+                description: Version within this stream
               eventId:
                 type: string
                 format: uuid
@@ -1487,7 +1482,7 @@ components:
                 nullable: true
               data:
                 type: object
-                description: Nutzlast des Events
+                description: Payload of the event
 
     ProjectionReadModel:
       type: object
@@ -1502,10 +1497,10 @@ components:
           type: integer
         headPosition:
           type: integer
-          description: Position des jüngsten Events im Store
+          description: Position of the most recent event in the store
         lag:
           type: integer
-          description: Noch nicht verarbeitete Events *dieser* Projektion
+          description: Events *this* projection has not processed yet
         upToDate:
           type: boolean
         updatedAt:
@@ -1533,9 +1528,8 @@ components:
         replaceReason:
           type: string
           description: |
-            Erforderlich, um eine bereits zugeordnete Reihe zu ersetzen. Ohne diesen Wert
-            antwortet der Endpunkt mit 409 - regulär wechselt die Reihe erst mit der
-            nächsten Periode.
+            Required in order to replace an already assigned row. Without this value the
+            endpoint answers 409 - regularly the row only changes with the next period.
 
     CreateParticipantCommand:
       type: object
@@ -1601,7 +1595,7 @@ components:
           nullable: true
         note:
           type: string
-          description: Erforderlich beim Erlass einer Gebühr
+          description: Required when waiving a fee
 
     RecordDrawCommand:
       type: object
@@ -1631,12 +1625,12 @@ components:
         totalAmount:
           type: number
           format: decimal
-          description: Gewinn des gesamten Tippscheins bei dieser Ziehung
+          description: Winnings of the whole ticket on this draw
         winningClasses:
           type: array
           description: |
-            Optionale Aufschlüsselung. Wird sie weggelassen, berechnet das System die Treffer
-            je Reihe selbst und verteilt den Gesamtbetrag darauf.
+            Optional breakdown. If omitted, the system computes the hits per row itself and
+            distributes the total amount across them.
           items:
             type: object
             required:
@@ -1670,7 +1664,7 @@ components:
         ticketCostPerRow:
           type: number
           format: decimal
-          description: Preis einer Reihe je Ziehung
+          description: Price of one row per draw
 
     ChangeTippYearStatusCommand:
       type: object
@@ -1681,8 +1675,8 @@ components:
           type: string
           enum: [planned, running, closed, distributed]
           description: |
-            Der Zielstatus. Jeder Übergang ist erlaubt; abgelehnt wird nur ein zweites
-            laufendes Tippjahr und das Setzen des bereits gesetzten Status.
+            The target status. Every transition is allowed; only a second running tipp year
+            and setting the status that is already set are rejected.
 
     AddMemberCommand:
       type: object
@@ -1695,7 +1689,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: Standardmäßig jetzt
+          description: Defaults to now
 
     SubmitTicketCommand:
       type: object
@@ -1712,13 +1706,13 @@ components:
           format: date
         drawCount:
           type: integer
-          description: Anzahl der Ziehungen, an denen der Schein teilnimmt
+          description: Number of draws the ticket takes part in
         superzahl:
           type: integer
           minimum: 0
           maximum: 9
           nullable: true
-          description: Aus der Losnummer des Scheins; gilt für alle Reihen darauf
+          description: From the ticket's lot number; applies to every row on it
         lotteryReference:
           type: string
           nullable: true
@@ -1730,7 +1724,7 @@ components:
       properties:
         confirm:
           type: boolean
-          description: Muss true sein - die Ausschüttung ist nicht rücknehmbar
+          description: Must be true - the distribution cannot be taken back
         note:
           type: string
 
@@ -1775,11 +1769,11 @@ components:
   responses:
     UnauthorizedError:
       description: |
-        Kein, kein lesbares oder kein gültiges Token.
+        No token, no readable token, or no valid token.
 
-        Die Antwort nennt den Grund bewusst nicht: welche Prüfung ein Token nicht
-        bestanden hat, ist eine Beschreibung der Validierungsregeln und damit eine
-        Rückmeldeschleife für den nächsten Fälschungsversuch. Der Grund steht im Log.
+        The response deliberately does not name the reason: which check a token failed is a
+        description of the validation rules, and therefore a feedback loop for the next
+        forgery attempt. The reason goes to the log.
       content:
         application/json:
           schema:
@@ -1787,12 +1781,12 @@ components:
 
     ServiceUnavailableError:
       description: |
-        Der Identity Provider ist nicht erreichbar, die Signatur lässt sich gerade
-        weder bestätigen noch widerlegen.
+        The identity provider is unreachable; the signature can currently neither be
+        confirmed nor refuted.
 
-        Bewusst nicht `401`: ein `401` würde jeden Client dazu bringen, sein intaktes
-        Token wegzuwerfen und sich ausgerechnet dort neu anzumelden, wo wir schon
-        wissen, dass es nicht geht. Der Aufruf ist wiederholbar.
+        Deliberately not `401`: a `401` would make every client throw away its intact token
+        and log in again at precisely the place we already know is not working. The call is
+        repeatable.
       content:
         application/json:
           schema:

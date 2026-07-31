@@ -108,7 +108,7 @@ final class ApiTest extends HttpTestCase
         self::assertSame([], $response->data()['tippYears']);
     }
 
-    // --- B-18: der Lebenszyklus des Tippjahres über HTTP ---
+    // --- B-18: the tipp year lifecycle over HTTP ---
 
     public function testAnAdminMovesATippYearThroughItsLifecycle(): void
     {

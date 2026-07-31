@@ -76,8 +76,8 @@
             <td>#{{ year.tippYearId }}</td>
             <td>{{ year.name }}</td>
             <td>{{ formatDate(year.startDate) }} – {{ formatDate(year.endDate) }}</td>
-            <!-- B-18: jeder Übergang ist erlaubt, deshalb ein Dropdown und
-                 keine Schaltflächenreihe für den je nächsten Schritt. -->
+            <!-- B-18: every transition is allowed, hence a dropdown rather
+                 than a row of buttons for whatever the next step would be. -->
             <td>
               <select
                 :value="year.status"
@@ -614,7 +614,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Sieht aus wie das Badge, das hier vorher stand - ist aber bedienbar. */
+/* Looks like the badge that used to sit here - but is operable. */
 .status-select {
   padding: 0.125rem 0.5rem;
   border: 1px solid var(--gray-300);

@@ -1,66 +1,65 @@
-# Keycloak – Authentifizierung
+# Keycloak – authentication
 
-Benutzerverwaltung und Authentifizierung über **Keycloak 26.7** mit OAuth2 / OpenID Connect.
+User management and authentication through **Keycloak 26.7** with OAuth2 / OpenID Connect.
 
-> **Status:** vollständig verdrahtet. [`public/index.php`](public/index.php) reicht an
-> [`Kernel`](src/Presentation/Http/Kernel.php) weiter, der `AuthMiddleware` vor jede Route
-> hängt, die sich nicht ausdrücklich als öffentlich markiert. Die Signatur wird gegen den
-> JWKS-Endpunkt des Realms geprüft — siehe
+> **Status:** fully wired up. [`public/index.php`](public/index.php) hands over to
+> [`Kernel`](src/Presentation/Http/Kernel.php), which puts `AuthMiddleware` in front of every
+> route that does not explicitly mark itself public. The signature is verified against the
+> realm's JWKS endpoint — see
 > [TokenVerifier](src/Infrastructure/Auth/TokenVerifier.php).
 
-## Schnellstart
+## Quick start
 
 ```bash
 docker-compose up -d
 
-# Keycloak braucht beim ersten Start 30-60 Sekunden für den Realm-Import
-docker-compose logs -f keycloak    # warten auf "Keycloak 26.7.x started", dann Ctrl+C
+# On its first start Keycloak needs 30-60 seconds for the realm import
+docker-compose logs -f keycloak    # wait for "Keycloak 26.7.x started", then Ctrl+C
 
 make composer-install
 ```
 
-> Wer nur die API testen will, holt sich das Token mit dem Snippet unter
-> [Testen](#testen) und lässt den Frontend-Container aus.
+> If you only want to test the API, grab a token with the snippet under
+> [Testing](#testing) and leave the frontend container out.
 
-Das Frontend läuft danach als Container auf Port 3000. Für Entwicklung mit Hot Reload
-stattdessen den Vite-Dev-Server nutzen:
+Afterwards the frontend runs as a container on port 3000. For development with hot reload,
+use the Vite dev server instead:
 
 ```bash
-docker-compose stop frontend   # gibt Port 3000 frei, Vite nutzt denselben Port
+docker-compose stop frontend   # frees port 3000, Vite uses the same port
 cd frontend && npm install && npm run dev
 ```
 
-### Login testen
+### Test the login
 
-1. <http://localhost:3000> öffnen
-2. "Login with Keycloak" klicken
-3. Demo-Credentials eingeben (siehe unten)
+1. Open <http://localhost:3000>
+2. Click "Login with Keycloak"
+3. Enter the demo credentials (see below)
 
 ## Services
 
 | Service | Port | URL | Credentials |
 |---------|------|-----|-------------|
-| Frontend | 3000 | <http://localhost:3000> | siehe Demo-Benutzer |
-| Backend API | 8080 | <http://localhost:8080> | JWT Token |
+| Frontend | 3000 | <http://localhost:3000> | see the demo users |
+| Backend API | 8080 | <http://localhost:8080> | JWT token |
 | Keycloak | 8090 | <http://localhost:8090> | – |
-| Admin Console | 8090 | <http://localhost:8090/admin> | admin / admin |
+| Admin console | 8090 | <http://localhost:8090/admin> | admin / admin |
 
-## Vorkonfigurierte Benutzer
+## Preconfigured users
 
-Der Realm `betting-game` wird beim Start automatisch aus
-[`keycloak/realm-export.json`](keycloak/realm-export.json) importiert.
+The realm `betting-game` is imported automatically at startup from
+[`keycloak/realm-export.json`](keycloak/realm-export.json).
 
-| Username | Passwort | Rollen | `participant_id` |
-|----------|----------|--------|------------------|
+| Username | Password | Roles | `participant_id` |
+|----------|----------|-------|------------------|
 | `admin` | `admin123` | user, admin | 1 |
 | `testuser` | `test123` | user | 2 |
 | `john.doe` | `password` | user | 3 |
 
-Der Claim `participant_id` entscheidet, wessen Daten ein Token lesen darf; die Rolle
-`admin` gibt die Schreibendpunkte frei. Beides steht im Realm-Export, nicht in der
-Anwendung.
+The claim `participant_id` decides whose data a token may read; the role `admin` unlocks the
+write endpoints. Both live in the realm export, not in the application.
 
-## Architektur
+## Architecture
 
 ```
 ┌─────────────┐         ┌──────────────┐         ┌──────────────┐
@@ -72,30 +71,30 @@ Anwendung.
       └───────────────────────────────────────────────────┘
 ```
 
-Login-Ablauf:
+Login sequence:
 
-1. User klickt "Login" → Redirect zur Keycloak Login-Seite
-2. Keycloak validiert die Credentials und stellt einen Authorization Code aus
-3. Keycloak-JS tauscht den Code gegen Access-/Refresh-/ID-Token (PKCE)
-4. Axios-Interceptor hängt den Access Token an jeden API-Request
-5. Backend validiert die Signatur gegen den Public Key des Realms
+1. The user clicks "Login" → redirect to the Keycloak login page
+2. Keycloak validates the credentials and issues an authorization code
+3. keycloak-js exchanges the code for access/refresh/ID tokens (PKCE)
+4. The axios interceptor attaches the access token to every API request
+5. The backend validates the signature against the realm's public key
 
-## Komponenten
+## Components
 
 ### Backend
 
-| Datei | Aufgabe |
-|-------|---------|
-| `src/Infrastructure/Auth/TokenVerifier.php` | Signatur- und Claim-Prüfung |
-| `src/Infrastructure/Auth/JwkSet.php` | JWKS lesen, RSA-Schlüssel als PEM aufbauen |
-| `src/Infrastructure/Auth/KeycloakKeys.php` | JWKS holen und cachen, Rotation |
-| `src/Infrastructure/Auth/KeycloakService.php` | Token-Parsing, `participant_id`, Rollen |
-| `src/Infrastructure/Auth/AuthMiddleware.php` | Request-Authentifizierung, User-Kontext |
-| `src/Infrastructure/DI/Container.php` | Registrierung der Services |
+| File | Job |
+|------|-----|
+| `src/Infrastructure/Auth/TokenVerifier.php` | Signature and claim verification |
+| `src/Infrastructure/Auth/JwkSet.php` | Read the JWKS, build RSA keys as PEM |
+| `src/Infrastructure/Auth/KeycloakKeys.php` | Fetch and cache the JWKS, rotation |
+| `src/Infrastructure/Auth/KeycloakService.php` | Token parsing, `participant_id`, roles |
+| `src/Infrastructure/Auth/AuthMiddleware.php` | Request authentication, user context |
+| `src/Infrastructure/DI/Container.php` | Registration of the services |
 
 ```php
-// Wirft InvalidTokenException, wenn das Token abgelehnt wird, und
-// KeyUnavailableException, wenn sich das gerade nicht entscheiden lässt.
+// Throws InvalidTokenException when the token is rejected, and
+// KeyUnavailableException when that cannot be decided right now.
 $tokenData     = $keycloakService->verifyToken($jwtToken);
 $participantId = $keycloakService->getParticipantId($tokenData);
 $roles         = $keycloakService->getRoles($tokenData);
@@ -104,7 +103,7 @@ if ($keycloakService->hasRole($tokenData, 'admin')) { /* ... */ }
 ```
 
 ```php
-// In Router/Controller
+// In the router/controller
 $authResponse = $authMiddleware->handle($request);
 if ($authResponse) {
     return $authResponse;             // 401 Unauthorized
@@ -117,38 +116,38 @@ $roles         = $request->attribute('roles');
 
 ### Frontend
 
-| Datei | Aufgabe |
-|-------|---------|
-| `frontend/src/services/keycloak.js` | Keycloak-JS Wrapper (Init, Login, Logout, Token) |
-| `frontend/src/stores/auth.js` | Pinia Store mit User-State und Rollen |
-| `frontend/src/views/LoginView.vue` | Login-Seite |
-| `frontend/public/silent-check-sso.html` | Silent SSO Check |
-| `frontend/.env` | Keycloak- und API-URLs |
+| File | Job |
+|------|-----|
+| `frontend/src/services/keycloak.js` | keycloak-js wrapper (init, login, logout, token) |
+| `frontend/src/stores/auth.js` | Pinia store with user state and roles |
+| `frontend/src/views/LoginView.vue` | Login page |
+| `frontend/public/silent-check-sso.html` | Silent SSO check |
+| `frontend/.env` | Keycloak and API URLs |
 
 ```javascript
 const authStore = useAuthStore()
 
-await authStore.initKeycloak()   // beim App-Start (main.js)
+await authStore.initKeycloak()   // at app start (main.js)
 await authStore.login()
 await authStore.logout()
 
 authStore.isAuthenticated        // computed
-authStore.username               // aus preferred_username
-authStore.participantId          // aus Custom Claim
-authStore.roles                  // aus realm_access.roles
+authStore.username               // from preferred_username
+authStore.participantId          // from the custom claim
+authStore.roles                  // from realm_access.roles
 authStore.isAdmin()              // hasRole('admin')
 ```
 
-Der Axios-Interceptor holt den aktuellen Token, erneuert ihn bei Bedarf und setzt
-`Authorization: Bearer <token>`. Bei `401` folgt ein Redirect zum Keycloak-Login.
+The axios interceptor fetches the current token, refreshes it where needed and sets
+`Authorization: Bearer <token>`. On `401` a redirect to the Keycloak login follows.
 
-## Konfiguration
+## Configuration
 
-**Backend** – [`config/config.php`](config/config.php), Werte aus Environment-Variablen:
+**Backend** – [`config/config.php`](config/config.php), values from environment variables:
 
 ```php
 'keycloak' => [
-    'url'                 => 'http://keycloak:8080',   // interner Docker-Hostname
+    'url'                 => 'http://keycloak:8080',   // internal Docker hostname
     'realm'               => 'betting-game',
     'client_id'           => 'betting-game-api',
     'frontend_client_id'  => 'betting-game-frontend',
@@ -166,12 +165,12 @@ VITE_API_URL=http://localhost:8080
 
 ### Clients
 
-| Client | Typ | Standard Flow | Direct Access Grants | Redirect URIs |
-|--------|-----|---------------|----------------------|---------------|
-| `betting-game-frontend` | Public (PKCE) | aktiv | aktiv | `http://localhost:3000/*` |
-| `betting-game-api` | Bearer-Only | aus | aus | – |
+| Client | Type | Standard flow | Direct access grants | Redirect URIs |
+|--------|------|---------------|----------------------|---------------|
+| `betting-game-frontend` | Public (PKCE) | on | on | `http://localhost:3000/*` |
+| `betting-game-api` | Bearer-only | off | off | – |
 
-## Token
+## Tokens
 
 ### Claims
 
@@ -188,142 +187,140 @@ VITE_API_URL=http://localhost:8080
 }
 ```
 
-`participant_id` wird aus den User-Attributen ins Token gemappt – kein separater Lookup nötig.
-Der Mapper hängt **direkt am Client** `betting-game-frontend` (`protocolMappers`), nicht an
-einem eigenen Client Scope. Warum, steht gleich darunter.
+`participant_id` is mapped from the user attributes into the token – no separate lookup
+needed. The mapper hangs **directly off the client** `betting-game-frontend`
+(`protocolMappers`), not off a client scope of its own. Why, follows right below.
 
-### Ein Client Scope im Realm-Export löscht die eingebauten
+### One client scope in the realm export deletes the built-in ones
 
-> Diese Falle hat den Realm zwischen dem Kurswechsel und dem 2026-07-29 unbrauchbar
-> gemacht. Wer den Export anfasst, muss sie kennen.
+> This trap made the realm unusable between the change of course and 2026-07-29. Anyone
+> touching the export has to know about it.
 
-Enthält ein Realm-Export einen **Top-Level-Block `clientScopes`**, versteht Keycloak ihn
-als *die vollständige Liste* der Client Scopes des Realms — und legt die eingebauten
-(`profile`, `email`, `roles`, `web-origins`, `acr`) dann **nicht** an.
+If a realm export contains a **top-level `clientScopes` block**, Keycloak reads it as *the
+complete list* of the realm's client scopes — and then does **not** create the built-in ones
+(`profile`, `email`, `roles`, `web-origins`, `acr`).
 
-Der Export dieses Projekts definierte genau einen Scope (`participant_id`). Die Folge:
+This project's export defined exactly one scope (`participant_id`). The consequences:
 
-- Der Realm hatte nur `participant_id` und `offline_access`.
-- Die `defaultClientScopes` des Frontend-Clients verwiesen auf fünf Scopes, die es nicht
-  gab. Keycloak verwirft solche Verweise **stillschweigend** — der Client stand am Ende
-  mit *null* zugewiesenen Scopes da.
-- Ausgestellte Token trugen daraufhin weder `participant_id` noch `preferred_username`
-  noch `realm_access.roles`.
+- The realm had only `participant_id` and `offline_access`.
+- The frontend client's `defaultClientScopes` referred to five scopes that did not exist.
+  Keycloak discards such references **silently** — the client ended up with *zero* assigned
+  scopes.
+- Issued tokens consequently carried neither `participant_id` nor `preferred_username` nor
+  `realm_access.roles`.
 
-Und damit war die gesamte Autorisierung wirkungslos, ohne dass irgendwo ein Fehler stand:
+And with that the entire authorisation was ineffective, without an error appearing anywhere:
 
-| Wirkung | Folge |
+| Effect | Consequence |
 |---|---|
-| kein `participant_id` | B-01 bis B-04 antworten mit `403`, das Frontend zeigt den Hinweis in `ParticipantScope` |
-| kein `realm_access.roles` | **alle** Adminrouten `403`, im Frontend fehlt die Admin-Navigation |
-| kein `preferred_username` | `bookedBy` fällt auf `'admin'` zurück, die Anzeige auf `'User'` |
+| no `participant_id` | B-01 through B-04 answer `403`, the frontend shows the note in `ParticipantScope` |
+| no `realm_access.roles` | **all** admin routes `403`, the admin navigation is missing in the frontend |
+| no `preferred_username` | `bookedBy` falls back to `'admin'`, the display to `'User'` |
 
-**Regel:** Einen eigenen Mapper an den Client hängen, nicht über einen Client Scope. Wer
-doch einen Scope braucht, muss die eingebauten im Export mit auflisten — sonst nimmt er
-sie weg.
+**Rule:** hang your own mapper off the client, not off a client scope. Anyone who does need
+a scope has to list the built-in ones in the export too — otherwise they take them away.
 
-Nachsehen lässt sich der Ist-Zustand nur an der laufenden Instanz, nicht am Export:
+The actual state can only be inspected on the running instance, not on the export:
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8090/realms/master/protocol/openid-connect/token \
   -d "grant_type=password&client_id=admin-cli&username=admin&password=admin" | jq -r .access_token)
 
-# Muss profile, email, roles, web-origins und acr enthalten
+# Has to contain profile, email, roles, web-origins and acr
 curl -s -H "Authorization: Bearer $TOKEN" \
   http://localhost:8090/admin/realms/betting-game/client-scopes | jq -r '.[].name'
 ```
 
-### Änderungen am Export wirken erst nach einem Neuimport
+### Changes to the export only take effect after a re-import
 
-`--import-realm` importiert **nur, wenn der Realm noch nicht existiert**. Er liegt im
-Volume `betting-game_keycloak_db_data` und überlebt jedes `docker-compose restart`, jedes
-`up -d` und jedes `down` ohne `-v`. Eine Änderung an `realm-export.json` bleibt bis dahin
-wirkungslos:
+`--import-realm` imports **only when the realm does not exist yet**. It lives in the volume
+`betting-game_keycloak_db_data` and survives every `docker-compose restart`, every `up -d`
+and every `down` without `-v`. Until then a change to `realm-export.json` has no effect:
 
 ```bash
 docker-compose stop keycloak keycloak-db
 docker-compose rm -f keycloak keycloak-db
-docker volume rm betting-game_keycloak_db_data     # oder: podman volume rm …
+docker volume rm betting-game_keycloak_db_data     # or: podman volume rm …
 docker-compose up -d keycloak
-docker-compose logs -f keycloak                    # warten auf "Keycloak 26.7.x started"
+docker-compose logs -f keycloak                    # wait for "Keycloak 26.7.x started"
 ```
 
-Das löscht **nur** Keycloak, nicht die Anwendungsdatenbank — `db_data` bleibt unberührt.
-Wer den Realm nicht neu aufbauen will, setzt dieselbe Änderung von Hand in der Admin
-Console: *Clients → betting-game-frontend → Client scopes* bzw. *→ Dedicated scopes →
+This deletes **only** Keycloak, not the application database — `db_data` stays untouched.
+If you would rather not rebuild the realm, apply the same change by hand in the admin
+console: *Clients → betting-game-frontend → Client scopes* respectively *→ Dedicated scopes →
 Add mapper*.
 
-### Lebensdauer
+### Lifetimes
 
-Werte aus `keycloak/realm-export.json`:
+Values from `keycloak/realm-export.json`:
 
-| Einstellung | Wert | Bedeutung |
-|-------------|------|-----------|
-| `accessTokenLifespan` | 3600 s (60 Min) | Gültigkeit des Access Tokens |
-| `ssoSessionIdleTimeout` | 1800 s (30 Min) | Session verfällt nach Inaktivität |
-| `ssoSessionMaxLifespan` | 36000 s (10 Std) | maximale Session-Dauer |
+| Setting | Value | Meaning |
+|---------|-------|---------|
+| `accessTokenLifespan` | 3600 s (60 min) | validity of the access token |
+| `ssoSessionIdleTimeout` | 1800 s (30 min) | the session expires after inactivity |
+| `ssoSessionMaxLifespan` | 36000 s (10 h) | maximum session duration |
 
-Der Refresh Token ist an die SSO-Session gebunden: 30 Minuten Idle, maximal 10 Stunden.
+The refresh token is bound to the SSO session: 30 minutes idle, 10 hours at most.
 
-## Security-Eigenschaften
+## Security properties
 
-**Backend** (aktiv, `Kernel` → `AuthMiddleware` → `TokenVerifier`):
+**Backend** (active, `Kernel` → `AuthMiddleware` → `TokenVerifier`):
 
-- Signaturprüfung gegen den Public Key des Realms aus dem JWKS-Endpunkt
-- Algorithmus-Allowlist, die nur asymmetrische Verfahren enthalten *kann* — damit scheitern
-  `alg: none` und HS256-mit-dem-öffentlichen-Schlüssel an derselben Stelle
-- Ablaufprüfung (`exp`, `nbf`, `iat`) mit Leeway gegen Uhrendrift
-- Realm-Validierung: `iss` muss exakt stimmen
-- optional `aud`, wenn konfiguriert
-- Schlüsselrotation: eine unbekannte `kid` löst genau einen gedrosselten Refetch aus
-- rollenbasierte Zugriffskontrolle für Admin-Endpunkte
+- Signature verification against the realm's public key from the JWKS endpoint
+- An algorithm allowlist that *can* only contain asymmetric algorithms — so `alg: none` and
+  HS256-with-the-public-key fail at the same place
+- Expiry checks (`exp`, `nbf`, `iat`) with leeway against clock drift
+- Realm validation: `iss` has to match verbatim
+- `aud` optionally, where configured
+- Key rotation: an unknown `kid` triggers exactly one throttled refetch
+- Role-based access control for the admin endpoints
 
-Nicht erreichbares Keycloak beantwortet die API mit **503**, nicht mit 401 — ein 401 würde
-jeden Client dazu bringen, sein intaktes Token wegzuwerfen und sich ausgerechnet dort neu
-anzumelden, wo wir schon wissen, dass es nicht geht.
+An unreachable Keycloak makes the API answer **503**, not 401 — a 401 would make every client
+throw away its intact token and log in again at precisely the place we already know is not
+working.
 
-**Frontend** (aktiv):
+**Frontend** (active):
 
-- PKCE gegen Authorization Code Interception
-- Token nur im Speicher, nicht im localStorage (XSS-Schutz)
-- automatischer Token-Refresh
-- Silent SSO Check für nahtlose Sessions
+- PKCE against authorization code interception
+- Token in memory only, not in localStorage (XSS protection)
+- Automatic token refresh
+- Silent SSO check for seamless sessions
 
-## Testen
+## Testing
 
 ```bash
-# Keycloak erreichbar? (bester Check - /health ist ohne KC_HEALTH_ENABLED nicht verfügbar)
+# Keycloak reachable? (the best check - /health is unavailable without KC_HEALTH_ENABLED)
 curl http://localhost:8090/realms/betting-game
 
-# Backend erreichbar?
+# Backend reachable?
 curl http://localhost:8080/health          # {"status":"healthy","timestamp":"..."}
 
-# Token holen
+# Get a token
 TOKEN=$(curl -s -X POST http://localhost:8090/realms/betting-game/protocol/openid-connect/token \
   -d "client_id=betting-game-frontend" \
   -d "username=testuser" -d "password=test123" \
   -d "grant_type=password" | jq -r .access_token)
 
-# API mit Token aufrufen - testuser hat participant_id 2
+# Call the API with the token - testuser has participant_id 2
 curl http://localhost:8080/participants/2/bet-row -H "Authorization: Bearer $TOKEN"
 
-# Fremde Daten: 403, auch mit einem Admin-Token
+# Someone else's data: 403, with an admin token too
 curl -o /dev/null -w '%{http_code}\n' \
   http://localhost:8080/participants/1/fees -H "Authorization: Bearer $TOKEN"
 ```
 
-## Benutzerverwaltung
+## User management
 
-### Neuen Benutzer über die Admin Console
+### A new user through the admin console
 
-1. <http://localhost:8090/admin> öffnen, Login `admin` / `admin`
-2. Realm `betting-game` wählen
-3. Users → Add User → Formular ausfüllen
+1. Open <http://localhost:8090/admin>, log in `admin` / `admin`
+2. Select the realm `betting-game`
+3. Users → Add User → fill in the form
 4. Credentials → Set Password
-5. Attributes → `participant_id` mit der passenden ID anlegen
-6. Role Mappings → Rolle `user` (und ggf. `admin`) zuweisen
+5. Attributes → create `participant_id` with the matching ID
+6. Role Mappings → assign the role `user` (and `admin` where applicable)
 
-### Neuen Benutzer über den Realm-Export
+### A new user through the realm export
 
 ```json
 {
@@ -341,47 +338,47 @@ curl -o /dev/null -w '%{http_code}\n' \
 
 ## Troubleshooting
 
-**Keycloak startet nicht**
+**Keycloak does not start**
 
 ```bash
 docker-compose logs keycloak
-lsof -i :8090                  # Port belegt?
+lsof -i :8090                  # port taken?
 docker-compose restart keycloak
 ```
 
-Port ändern in `docker-compose.yml`: `ports: ["8888:8080"]`.
+Change the port in `docker-compose.yml`: `ports: ["8888:8080"]`.
 
-**Frontend verbindet nicht zu Keycloak**
+**The frontend does not connect to Keycloak**
 
 ```bash
 curl http://localhost:8090/realms/betting-game
 cat frontend/.env              # VITE_KEYCLOAK_URL=http://localhost:8090
 ```
 
-Nach Änderungen an `.env` den Dev-Server neu starten. Prüfen, ob die Redirect-URI des
-Clients zur aufgerufenen URL passt.
+After changes to `.env`, restart the dev server. Check that the client's redirect URI
+matches the URL being called.
 
-**Endlosschleife zwischen Frontend und Keycloak-Login**
+**Endless loop between the frontend and the Keycloak login**
 
-Symptom: Nach dem Login blitzt kurz „Invalid or expired token" auf, dann geht es zur
-Keycloak-Anmeldung und sofort wieder zurück — endlos.
+Symptom: after the login "Invalid or expired token" flashes up briefly, then it goes to the
+Keycloak login and straight back again — endlessly.
 
-Fast immer ist es **nicht** das Token, sondern der `iss`-Claim. Keycloak stellt das Token
-für einen Browser aus und schreibt die URL hinein, unter der der Browser es geholt hat
-(`http://localhost:8090/realms/betting-game`). Die API vergleicht `iss` **exakt**
-(`hash_equals` in `TokenVerifier`) und erwartet ohne `KEYCLOAK_ISSUER` den Wert aus
-`KEYCLOAK_URL` — also den *internen* Hostnamen `http://keycloak:8080/realms/betting-game`.
-Ein intaktes Token wird damit abgelehnt.
+Almost always this is **not** the token but the `iss` claim. Keycloak issues the token for a
+browser and writes into it the URL the browser fetched it from
+(`http://localhost:8090/realms/betting-game`). The API compares `iss` **verbatim**
+(`hash_equals` in `TokenVerifier`) and, without `KEYCLOAK_ISSUER`, expects the value from
+`KEYCLOAK_URL` — that is, the *internal* hostname
+`http://keycloak:8080/realms/betting-game`. An intact token is rejected on that basis.
 
-Zwei Adressen für denselben Dienst, zwei verschiedene Aufgaben — deshalb hat der Issuer
-eine eigene Variable, und deshalb setzt `docker-compose.yml` beide:
+Two addresses for the same service, two different jobs — which is why the issuer has a
+variable of its own, and why `docker-compose.yml` sets both:
 
-| Variable | Wert | Wofür |
+| Variable | Value | What for |
 |---|---|---|
-| `KEYCLOAK_URL` | `http://keycloak:8080` | **Erreichbarkeit** — von hier holt die API das JWKS |
-| `KEYCLOAK_ISSUER` | `http://localhost:8090/realms/betting-game` | **Identität** — was im Token steht |
+| `KEYCLOAK_URL` | `http://keycloak:8080` | **reachability** — this is where the API fetches the JWKS |
+| `KEYCLOAK_ISSUER` | `http://localhost:8090/realms/betting-game` | **identity** — what the token says |
 
-Nachsehen, was tatsächlich drinsteht:
+Look up what is actually in there:
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8090/realms/betting-game/protocol/openid-connect/token \
@@ -394,43 +391,44 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/participants/2/bet-row
 ```
 
-Beide `iss`-Werte müssen zeichengleich sein. Nach einer Änderung an den Variablen
-`docker-compose up -d php` — ein `restart` übernimmt geänderte `environment`-Einträge nicht.
+Both `iss` values have to be character-for-character identical. After changing the
+variables, `docker-compose up -d php` — a `restart` does not pick up changed `environment`
+entries.
 
-Dass die Schleife entsteht und nicht einfach ein Fehler stehenbleibt, war zusätzlich ein
-Fehler im Client: Der Response-Interceptor schickte bei *jedem* `401` zur Anmeldung.
-Keycloak hat aber eine gültige Sitzung, gibt dasselbe Token zurück, und das Spiel beginnt
-von vorn. Er meldet jetzt nur noch an, wenn gar keine Sitzung besteht — andernfalls bleibt
-die Meldung stehen.
+That the loop arises at all, rather than an error simply staying on screen, was additionally
+a bug in the client: the response interceptor sent the user to the login on *every* `401`.
+But Keycloak has a valid session, hands back the same token, and the game starts over. It
+now only sends them to log in when there is no session at all — otherwise the message stays
+put.
 
-**Backend validiert Token nicht**
+**The backend does not validate tokens**
 
 ```bash
 docker-compose exec php printenv | grep KEYCLOAK
 docker-compose exec php curl -s http://keycloak:8080/realms/betting-game | head -c 200
 ```
 
-Beachte: Das Backend spricht Keycloak unter dem internen Hostnamen `keycloak:8080` an,
-das Frontend unter `localhost:8090`. Ist Keycloak gar nicht erreichbar, antwortet die API
-mit `503`, nicht mit `401` — ein Schlüsselproblem ist kein ungültiges Token.
+Note: the backend talks to Keycloak under the internal hostname `keycloak:8080`, the
+frontend under `localhost:8090`. If Keycloak is unreachable altogether, the API answers
+`503`, not `401` — a key problem is not an invalid token.
 
-**Token abgelaufen** – das Frontend erneuert automatisch; manuell:
+**Token expired** – the frontend refreshes automatically; manually:
 `await keycloakService.updateToken(5)`.
 
 ## Production
 
-1. Starke Passwörter setzen (`KEYCLOAK_ADMIN_PASSWORD`)
-2. HTTPS aktivieren – eigenes Zertifikat oder hinter Reverse Proxy (Caddy)
-3. Externe PostgreSQL-Instanz statt Container-Datenbank
-4. Realm sichern:
+1. Set strong passwords (`KEYCLOAK_ADMIN_PASSWORD`)
+2. Enable HTTPS – your own certificate, or behind a reverse proxy (Caddy)
+3. An external PostgreSQL instance instead of the container database
+4. Back the realm up:
    `docker-compose exec keycloak /opt/keycloak/bin/kc.sh export --file /tmp/realm-backup.json`
-5. `KEYCLOAK_ISSUER` auf die öffentliche URL setzen. Das gilt nicht erst hinter einem
-   Reverse Proxy — es gilt überall dort, wo Browser und API Keycloak unter verschiedenen
-   Adressen erreichen, also auch im lokalen Compose-Stack
-6. `KEYCLOAK_AUDIENCE` setzen, sobald die Mapper des Clients eine verlässliche `aud`
-   liefern — die Prüfung ist bewusst aus, weil sie mit dem falschen Wert alle aussperrt
+5. Set `KEYCLOAK_ISSUER` to the public URL. This does not only apply behind a reverse proxy —
+   it applies everywhere the browser and the API reach Keycloak under different addresses,
+   so in the local Compose stack too
+6. Set `KEYCLOAK_AUDIENCE` as soon as the client's mappers deliver a reliable `aud` — the
+   check is deliberately off, because with the wrong value it locks everyone out
 
-## Weiterführend
+## Further reading
 
 - [Keycloak Documentation](https://www.keycloak.org/documentation)
 - [Keycloak JS Adapter](https://www.keycloak.org/docs/latest/securing_apps/#_javascript_adapter)

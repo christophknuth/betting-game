@@ -13,7 +13,7 @@ use BettingGame\Support\Row;
  * Admin-only, and deliberately not a participant-facing route: a member has no
  * business enumerating the others (B-16). It exists so the administrator can
  * pick a name instead of typing an id - the reason the admin views used to ask
- * for a raw "Teilnehmer-ID".
+ * for a raw participant ID.
  */
 final class GetParticipantsHandler
 {

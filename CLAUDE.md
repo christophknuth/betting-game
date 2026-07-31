@@ -1,27 +1,27 @@
 # CLAUDE.md
 
-Hinweise für Claude Code in diesem Repository.
+Notes for Claude Code in this repository.
 
-## Zuerst lesen
+## Read this first
 
-**[AGENTS.md](AGENTS.md) enthält die vollständige Projektanleitung** — Domäne, Architektur,
-Befehle, Konventionen, Fallstricke. Diese Datei ergänzt nur, was für Claude Code in dieser
-Arbeitsumgebung dazukommt. Bei Widerspruch gewinnt AGENTS.md.
+**[AGENTS.md](AGENTS.md) holds the complete project guide** — domain, architecture,
+commands, conventions, pitfalls. This file only adds what comes on top for Claude Code in
+this working environment. Where the two contradict, AGENTS.md wins.
 
-## Kurzfassung
+## In brief
 
-PHP-8.4-API für eine **Lotto-6-aus-49-Tippgemeinschaft**. Kein Framework, Onion Architecture,
-Event Sourcing + CQRS, MariaDB, Keycloak (OIDC). Ausbaustufe **Basis**: Teilnehmer lesen nur,
-der Administrator schreibt alles.
+A PHP 8.4 API for a **Lotto 6 aus 49 syndicate**. No framework, onion architecture,
+event sourcing + CQRS, MariaDB, Keycloak (OIDC). Expansion stage **base**: participants
+only read, the administrator writes everything.
 
-## Analysen und Tests ausführen
+## Running analyses and tests
 
-PHP, Composer und PHPUnit müssen nicht lokal installiert sein — sie laufen im Container.
+PHP, Composer and PHPUnit do not have to be installed locally — they run in the container.
 
-**Tests gehören in die eigene Testumgebung**, nicht in den `php`-Container: dessen
-`DB_DATABASE` ist die Entwicklungsdatenbank, und die Integration-Suite leert vor jedem Test
-jede Tabelle. `IntegrationTestCase` verweigert inzwischen alles, was nicht auf `_test`
-endet — im `php`-Container überspringen sich damit alle 173 Integrationstests.
+**Tests belong in the dedicated test environment**, not in the `php` container: that one's
+`DB_DATABASE` is the development database, and the integration suite truncates every table
+before each test. `IntegrationTestCase` now refuses anything that does not end in `_test` —
+so inside the `php` container all 173 integration tests skip themselves.
 
 ```bash
 docker-compose -f docker-compose.test.yml up -d test-db
@@ -30,46 +30,49 @@ docker-compose -f docker-compose.test.yml run --rm test vendor/bin/phpstan analy
 docker-compose -f docker-compose.test.yml down -v
 ```
 
-Statische Analyse allein läuft auch im Dev-Container (`docker-compose exec php
-vendor/bin/phpstan analyse`) — die schreibt nichts.
+Static analysis on its own also runs in the dev container (`docker-compose exec php
+vendor/bin/phpstan analyse`) — that one writes nothing.
 
-Läuft der Stack nicht, vorher `docker-compose up -d`. `vendor/` ist nicht eingecheckt
-(`.gitignore`) und muss im Container einmal installiert werden (`composer install`).
-Ohne erreichbaren Container ist die einzige ehrliche Antwort, dass die Prüfung nicht
-ausgeführt wurde — Ergebnisse nicht schätzen.
+If the stack is not running, `docker-compose up -d` first. `vendor/` is not checked in
+(`.gitignore`) and has to be installed once inside the container (`composer install`).
+Without a reachable container the only honest answer is that the check was not run —
+do not estimate results.
 
-Das Frontend hat eigene Suiten (Vitest, Playwright) — siehe [FRONTEND.md](FRONTEND.md).
+The frontend has its own suites (Vitest, Playwright) — see [FRONTEND.md](FRONTEND.md).
 
-## Wichtige Dateien zum Einstieg
+## Key files to start from
 
-| Frage | Datei |
+| Question | File |
 |---|---|
-| Was macht die Anwendung fachlich? | [USER_STORIES.md](USER_STORIES.md) |
-| Welche Endpunkte gibt es? | [src/Presentation/Router/Router.php](src/Presentation/Router/Router.php), [betting_game_api.yaml](betting_game_api.yaml) |
-| Wie läuft ein Request ab? | [src/Presentation/Http/Kernel.php](src/Presentation/Http/Kernel.php) |
-| Wie ist alles verdrahtet? | [src/Infrastructure/DI/Container.php](src/Infrastructure/DI/Container.php) |
-| Welche Tabellen gibt es? | [database/schema.sql](database/schema.sql) |
+| What does the application do, in domain terms? | [USER_STORIES.md](USER_STORIES.md) |
+| Which endpoints exist? | [src/Presentation/Router/Router.php](src/Presentation/Router/Router.php), [betting_game_api.yaml](betting_game_api.yaml) |
+| How does a request flow? | [src/Presentation/Http/Kernel.php](src/Presentation/Http/Kernel.php) |
+| How is everything wired up? | [src/Infrastructure/DI/Container.php](src/Infrastructure/DI/Container.php) |
+| Which tables exist? | [database/schema.sql](database/schema.sql) |
 
-## Beim Arbeiten beachten
+## Things to keep in mind
 
-- **Doku-Stand.** Die Dokumentation ist seit dem 2026-07-29 nachgezogen — die Tabelle in
-  [AGENTS.md](AGENTS.md) Abschnitt 2 sagt, was gilt.
-- **Das Frontend hat kein PHP.** `frontend/` ist eine Vue-3-SPA gegen die Lotto-Endpunkte
-  ([FRONTEND.md](FRONTEND.md)). Dort gelten PHPStan und PSR-12 nicht, sondern ESLint mit
-  `eslint:recommended` + `plugin:vue/vue3-recommended` — **fehlerfrei, halte es so.**
-  Ohne lokales Node laufen Lint und Build im Container:
+- **State of the docs.** The documentation has been caught up since 2026-07-29 — the table
+  in [AGENTS.md](AGENTS.md) section 2 says what holds.
+- **The frontend has no PHP.** `frontend/` is a Vue 3 SPA against the lotto endpoints
+  ([FRONTEND.md](FRONTEND.md)). PHPStan and PSR-12 do not apply there; ESLint does, with
+  `eslint:recommended` + `plugin:vue/vue3-recommended` — **clean, keep it that way.**
+  Without a local Node, lint and build run in the container:
 
   ```bash
   docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine \
     sh -c "npm install && npm run lint"
-  docker-compose build frontend      # führt npm run build aus
+  docker-compose build frontend      # runs npm run build
   ```
 
-- **PHPStan Level 10 und PSR-12 sind erfüllt.** Änderungen müssen das bleiben lassen.
-- **Kommentare erklären das Warum.** Der Bestand ist durchgehend so geschrieben; siehe
-  AGENTS.md Abschnitt 6. Neuen Code im selben Ton kommentieren, nicht die Signatur nacherzählen.
-- **Sprache:** Code und Commit-Messages Englisch, Projektdokumentation Deutsch.
-- **Tests, die sich selbst überspringen.** Ohne erreichbare MariaDB meldet die Integration-Suite
-  „skipped", nicht „failed". Eine grüne Ausgabe ohne DB beweist nichts über die Persistenz —
-  beim Berichten dazusagen.
-- **Nicht anfassen:** `vendor/`, `coverage/`, `.phpunit.cache/`, `var/`.
+- **PHPStan level 10 and PSR-12 are met.** Changes have to leave it that way.
+- **Comments explain the why.** The existing code is written that way throughout; see
+  AGENTS.md section 6. Comment new code in the same tone, do not restate the signature.
+- **Language:** everything that lands in the repository is written in English — code,
+  comments, documentation and commit messages. The one exception is the frontend's
+  user-facing text (labels, messages, `de-DE` date and currency formatting), which stays
+  German because that is the language of the syndicate using it.
+- **Tests that skip themselves.** Without a reachable MariaDB the integration suite reports
+  "skipped", not "failed". Green output without a database proves nothing about persistence —
+  say so when reporting.
+- **Do not touch:** `vendor/`, `coverage/`, `.phpunit.cache/`, `var/`.
