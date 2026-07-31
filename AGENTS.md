@@ -196,7 +196,7 @@ keycloak/realm-export.json        Realm, Demo-User, Rollen, participant_id-Claim
 
 ## 5. Befehle
 
-**Auf diesem Rechner ist PHP nicht im PATH.** Alles läuft über Docker.
+**PHP muss nicht lokal installiert sein.** Der Normalfall ist Docker.
 Die `composer`- und `make`-Ziele darunter setzen ein lokales PHP voraus und funktionieren
 nur im Container oder auf einer Maschine mit PHP 8.3.
 
