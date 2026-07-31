@@ -29,7 +29,7 @@ npm run lint:fix   # korrigiert, was automatisch korrigierbar ist
 Ohne lokales Node läuft beides im Container:
 
 ```bash
-podman run --rm -v "$PWD:/app:Z" -w /app node:18-alpine sh -c "npm install && npm run lint"
+docker run --rm -v "$PWD:/app" -w /app node:18-alpine sh -c "npm install && npm run lint"
 ```
 
 Regelsatz: `eslint:recommended` + `plugin:vue/vue3-recommended` (siehe

@@ -254,7 +254,7 @@ Der Bestand ist **fehlerfrei** — halte ihn so. Ohne lokales Node läuft die Pr
 Container:
 
 ```bash
-podman run --rm -v "$PWD/frontend:/app:Z" -w /app node:18-alpine \
+docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine \
   sh -c "npm install && npm run lint"
 ```
 

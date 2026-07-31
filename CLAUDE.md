@@ -14,21 +14,19 @@ PHP-8.3-API für eine **Lotto-6-aus-49-Tippgemeinschaft**. Kein Framework, Onion
 Event Sourcing + CQRS, MariaDB, Keycloak (OIDC). Ausbaustufe **Basis**: Teilnehmer lesen nur,
 der Administrator schreibt alles.
 
-## Umgebung auf diesem Rechner
+## Analysen und Tests ausführen
 
-- **Windows 11, PowerShell.** Der Bash-Tool-Pfad ist Git Bash — beide haben eigene Syntax.
-- **PHP, Composer und PHPUnit sind nicht im PATH.** `composer test`, `make phpstan` und
-  `vendor/bin/*` schlagen hier direkt fehl. Alles über Docker ausführen:
+PHP, Composer und PHPUnit müssen nicht lokal installiert sein — sie laufen im Container:
 
-  ```bash
-  docker-compose exec php vendor/bin/phpunit --testdox
-  docker-compose exec php vendor/bin/phpstan analyse
-  ```
+```bash
+docker-compose exec php vendor/bin/phpunit --testdox
+docker-compose exec php vendor/bin/phpstan analyse
+```
 
-  Läuft der Stack nicht, vorher `docker-compose up -d`. Ohne Docker ist die einzige
-  ehrliche Antwort, dass die Prüfung nicht ausgeführt wurde — Ergebnisse nicht schätzen.
-- `vendor/` ist ausgecheckt, aber ohne PHP-Binary nutzlos.
-- Aktueller Branch: `Refocus-project`. Hauptbranch: `main`.
+Läuft der Stack nicht, vorher `docker-compose up -d`. `vendor/` ist nicht eingecheckt
+(`.gitignore`) und muss im Container einmal installiert werden (`composer install`).
+Ohne erreichbaren Container ist die einzige ehrliche Antwort, dass die Prüfung nicht
+ausgeführt wurde — Ergebnisse nicht schätzen.
 
 ## Wichtige Dateien zum Einstieg
 
@@ -47,10 +45,10 @@ der Administrator schreibt alles.
 - **Das Frontend hat kein PHP.** `frontend/` ist eine Vue-3-SPA gegen die Lotto-Endpunkte
   ([FRONTEND.md](FRONTEND.md)). Dort gelten PHPStan und PSR-12 nicht, sondern ESLint mit
   `eslint:recommended` + `plugin:vue/vue3-recommended` — **fehlerfrei, halte es so.**
-  Node ist hier nicht im PATH; Lint und Build laufen im Container:
+  Ohne lokales Node laufen Lint und Build im Container:
 
   ```bash
-  podman run --rm -v "$PWD/frontend:/app:Z" -w /app node:18-alpine \
+  docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine \
     sh -c "npm install && npm run lint"
   docker-compose build frontend      # führt npm run build aus
   ```
