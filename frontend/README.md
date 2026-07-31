@@ -11,7 +11,7 @@ Die SPA bildet genau das ab — die Teilnehmeransichten haben keinen einzigen Ab
 
 ## Voraussetzungen
 
-- Node.js 18+
+- Node.js 24 (Active LTS; 18 und 20 sind end-of-life)
 - API auf `http://localhost:8080` (`curl http://localhost:8080/health`)
 - Keycloak auf `http://localhost:8090`, Realm `betting-game`
 
@@ -32,7 +32,7 @@ npm run test:e2e   # Playwright, braucht den laufenden Stack (docker-compose up 
 Ohne lokales Node läuft beides im Container:
 
 ```bash
-docker run --rm -v "$PWD:/app" -w /app node:18-alpine sh -c "npm install && npm run lint"
+docker run --rm -v "$PWD:/app" -w /app node:24-alpine sh -c "npm install && npm run lint"
 ```
 
 Regelsatz: `eslint:recommended` + `plugin:vue/vue3-recommended` (siehe
