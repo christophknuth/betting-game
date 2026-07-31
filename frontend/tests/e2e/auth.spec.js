@@ -23,15 +23,24 @@ test.describe('authentication and role gating', () => {
     await expect(page.getByRole('link', { name: 'Tippjahre' })).toHaveCount(0)
 
     // Typing the URL lands back on /bet-row and never renders the admin view.
-    //
-    // Weak on its own: a full load drops the requested deep link and settles
-    // on /bet-row for *every* route (see navigateTo in fixtures.js), so this
-    // would also pass with the guard removed. What actually pins the rule down
-    // is tests/unit/router/guard.spec.js, which drives the guard client-side.
-    // Kept because it still proves the admin view never reaches the screen.
+    // Meaningful on its own now that deep links survive a reload: a
+    // participant genuinely gets turned away here, rather than every route
+    // collapsing onto /bet-row regardless of role.
     await page.goto('/admin/tipp-years')
     await expect(page).toHaveURL(/\/bet-row$/)
     await expect(page.getByRole('heading', { name: 'Tippjahre', level: 2 })).toHaveCount(0)
+  })
+
+  test('a deep link survives a full page load (no bounce to /bet-row)', async ({ page }) => {
+    await loginAs(page, 'testuser', 'test123')
+
+    // A real reload of a protected route: the SPA restarts and Keycloak has
+    // to restore the session before the guard may judge it. This used to land
+    // on /bet-row, which made every bookmark to a subpage useless.
+    await page.goto('/fees')
+
+    await expect(page).toHaveURL(/\/fees$/)
+    await expect(page.getByRole('heading', { name: 'Meine Gebühren' })).toBeVisible()
   })
 
   test('logout clears the session and returns to the login page', async ({ page }) => {

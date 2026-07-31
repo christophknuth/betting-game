@@ -56,6 +56,13 @@ Routen mit `requiresAuth` verlangen einen Login, `/admin/*` zusätzlich `require
 Der Guard verbirgt nur den Eingang; die Rolle prüft die API auf jeder Adminroute selbst,
 und dort fällt die Entscheidung.
 
+**Der Guard ist `async` und wartet auf `authStore.ready()`.** Vue Router startet seine
+erste Navigation bereits in `app.use(router)` — also bevor `main.js` den Keycloak-Start
+abgewartet hat. Ohne das Warten beurteilte der Guard einen angemeldeten Benutzer als
+anonym, schickte die angefragte Route auf `/login`, und bis die Session zurück war, war
+das Ziel verloren: Jeder Deep-Link und jeder Reload einer geschützten Seite landete auf
+`/bet-row`. `ready()` liefert dieselbe memoisierte Zusage, die auch der App-Start abwartet.
+
 ```javascript
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
@@ -353,14 +360,12 @@ Container oben), warnt es und setzt voraus, dass die Zeilen schon da sind:
 docker-compose exec -T db mariadb -uroot -psecret betting_game < database/seed-demo-participants.sql
 ```
 
-### Warum die Tests über die Navigation klicken statt `page.goto`
+### Warum die Ansichtstests über die Navigation klicken
 
-Ein harter Aufruf einer geschützten Route verliert das Ziel: Die SPA startet neu, der
-Router-Guard entscheidet, bevor Keycloak die Session wiederhergestellt hat, und die
-Anwendung landet auf `/bet-row` statt auf dem angefragten Pfad. **Das ist ein echter
-Mangel der Anwendung** (Deep-Links überleben einen Reload nicht) und steht unter „Offene
-Punkte". Bis er behoben ist, navigieren die Tests über `navigateTo()` aus `fixtures.js` —
-so, wie ein Benutzer es täte.
+`page.goto()` funktioniert, seit der Guard auf den Keycloak-Start wartet (siehe
+„Navigations-Guard" oben) — `auth.spec.js` prüft genau das. Die Ansichtstests klicken
+trotzdem über `navigateTo()` aus `fixtures.js`: derselbe Weg, den ein Benutzer nimmt, und
+ohne vollständigen Reload je Test.
 
 Manuelle Checkliste für das, was auch Playwright nicht abdeckt:
 
@@ -403,11 +408,6 @@ docker-compose logs frontend
 
 ## Offene Punkte
 
-- **Deep-Links überleben keinen Reload.** Wer `/fees` direkt aufruft oder eine geschützte
-  Route neu lädt, landet auf `/bet-row`: Der Router-Guard entscheidet, bevor Keycloaks
-  `check-sso` die Session wiederhergestellt hat, und das angefragte Ziel geht dabei
-  verloren. Ein Lesezeichen auf eine Unterseite führt damit immer zur Startseite. Beim
-  Aufsetzen der E2E-Tests aufgefallen (siehe „Testing"), noch nicht behoben.
 - **Teilnehmer werden über IDs angesprochen.** „Teilnehmer-ID“ statt Name in
   `AdminBetRowsView` und beim Aufnehmen — die Basisversion hat keinen Endpunkt, der
   Teilnehmer auflistet. `GET /admin/fees` liefert `displayName` mit, deshalb steht dort

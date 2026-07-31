@@ -92,8 +92,18 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
+//
+// Async because the very first navigation starts inside `app.use(router)`,
+// before main.js has awaited the Keycloak bootstrap. Deciding at that point
+// meant judging an authenticated user as anonymous: the guard sent the
+// requested route to /login, and by the time the session was restored the
+// original target was gone - every deep link and every reload of a protected
+// page ended up on HOME. Awaiting the store's `ready()` makes the guard judge
+// the session it is actually about to render.
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  await authStore.ready()
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')

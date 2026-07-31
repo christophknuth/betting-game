@@ -184,10 +184,8 @@ keycloak-js 23, Vite 5.
 
 ## Offene Punkte
 
-- Vitest (`tests/unit/`, 57 Tests) und Playwright (`tests/e2e/`, 7 Tests gegen den echten
+- Vitest (`tests/unit/`, 58 Tests) und Playwright (`tests/e2e/`, 8 Tests gegen den echten
   Stack) laufen grün. Siehe [FRONTEND.md](../FRONTEND.md) Abschnitt „Testing".
-- Deep-Links überleben keinen Reload: Eine geschützte Route direkt aufzurufen landet auf
-  `/bet-row`, weil der Router-Guard vor Keycloaks `check-sso` entscheidet.
 - Kein TypeScript.
 - Teilnehmer- und Adminlisten arbeiten teils mit IDs statt mit Namen, weil die Basisversion
   keinen Endpunkt hat, der Teilnehmer auflistet.
