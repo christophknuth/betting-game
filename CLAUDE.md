@@ -10,7 +10,7 @@ Arbeitsumgebung dazukommt. Bei Widerspruch gewinnt AGENTS.md.
 
 ## Kurzfassung
 
-PHP-8.3-API für eine **Lotto-6-aus-49-Tippgemeinschaft**. Kein Framework, Onion Architecture,
+PHP-8.4-API für eine **Lotto-6-aus-49-Tippgemeinschaft**. Kein Framework, Onion Architecture,
 Event Sourcing + CQRS, MariaDB, Keycloak (OIDC). Ausbaustufe **Basis**: Teilnehmer lesen nur,
 der Administrator schreibt alles.
 
