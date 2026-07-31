@@ -24,8 +24,8 @@ Setup-Hinweise stehen in [`frontend/README.md`](frontend/README.md), die Auth-De
 | Services | 3 (API-Client, Fehlermeldungen, Keycloak-Wrapper) |
 | Sonstiges | 1 Composable, 1 Formatierungsmodul, 1 Auth-Store, 1 Stylesheet |
 
-**Stack:** Vue 3.4 (Composition API, `<script setup>`), Vue Router 4.2, Pinia 2.1,
-Axios 1.6, keycloak-js 23, Vite 5.
+**Stack:** Vue 3.5 (Composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0,
+Axios 1.19, keycloak-js 23, Vite 8.
 
 ## Ausbaustufe Basis: was die Oberfläche zeigen darf
 

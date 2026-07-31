@@ -179,8 +179,8 @@ kommt aus dem Benutzerattribut im Realm.
 
 ## Stack
 
-Vue 3.4 (Composition API, `<script setup>`), Vue Router 4.2, Pinia 2.1, Axios 1.6,
-keycloak-js 23, Vite 5.
+Vue 3.5 (Composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0, Axios 1.19,
+keycloak-js 23, Vite 8.
 
 ## Offene Punkte
 
