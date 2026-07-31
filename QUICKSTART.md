@@ -255,7 +255,7 @@ Projektionen mit aufgebaut. Die Antwort listet alle tatsächlich neu aufgebauten
 Tests laufen in einer **eigenen** Umgebung mit eigener Datenbank:
 
 ```bash
-make test-db-start        # MariaDB 11.3 auf Port 3307, Schema geladen
+make test-db-start        # MariaDB 11.4 auf Port 3307, Schema geladen
 make test-docker          # phpunit --testdox
 make phpstan-docker
 make test-db-stop
