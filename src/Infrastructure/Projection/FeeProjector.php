@@ -12,19 +12,25 @@ use BettingGame\Support\Row;
 
 final class FeeProjector implements Projector
 {
+    public const NAME = 'fee_read_model';
+
+    public const EVENT_CHARGED = 'fee.charged';
+
+    public const EVENT_PAYMENT_RECORDED = 'fee.payment_recorded';
+
     public function __construct(private Db $db)
     {
     }
 
     public function name(): string
     {
-        return 'fee_read_model';
+        return self::NAME;
     }
 
     /** @return list<string> */
     public function eventTypes(): array
     {
-        return ['fee.charged', 'fee.payment_recorded'];
+        return [self::EVENT_CHARGED, self::EVENT_PAYMENT_RECORDED];
     }
 
     public function reset(): void
@@ -37,7 +43,7 @@ final class FeeProjector implements Projector
         $data = $record->event->toArray();
 
         match ($record->event->eventType()) {
-            'fee.charged' => $this->db->execute(
+            self::EVENT_CHARGED => $this->db->execute(
                 '
                 INSERT INTO fee (
                     fee_id, participant_id, ticket_id, amount, due_date, payment_status, version
@@ -53,7 +59,7 @@ final class FeeProjector implements Projector
                     $record->version,
                 ]
             ),
-            'fee.payment_recorded' => $this->db->execute(
+            self::EVENT_PAYMENT_RECORDED => $this->db->execute(
                 '
                 UPDATE fee
                 SET payment_status = ?, paid_at = ?, payment_method = ?,

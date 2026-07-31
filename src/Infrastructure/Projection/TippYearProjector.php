@@ -19,23 +19,33 @@ use DateTimeImmutable;
  */
 final class TippYearProjector implements Projector
 {
+    public const NAME = 'tipp_year_read_model';
+
+    public const EVENT_CREATED = 'tipp_year.created';
+
+    public const EVENT_STATUS_CHANGED = 'tipp_year.status_changed';
+
+    public const EVENT_MEMBER_ADDED = 'tipp_year.member_added';
+
+    public const EVENT_PAYOUT_DISTRIBUTED = 'tipp_year.payout_distributed';
+
     public function __construct(private Db $db)
     {
     }
 
     public function name(): string
     {
-        return 'tipp_year_read_model';
+        return self::NAME;
     }
 
     /** @return list<string> */
     public function eventTypes(): array
     {
         return [
-            'tipp_year.created',
-            'tipp_year.status_changed',
-            'tipp_year.member_added',
-            'tipp_year.payout_distributed',
+            self::EVENT_CREATED,
+            self::EVENT_STATUS_CHANGED,
+            self::EVENT_MEMBER_ADDED,
+            self::EVENT_PAYOUT_DISTRIBUTED,
         ];
     }
 
@@ -60,8 +70,8 @@ final class TippYearProjector implements Projector
         $data = $record->event->toArray();
 
         match ($record->event->eventType()) {
-            'tipp_year.created' => $this->created($data, $record),
-            'tipp_year.status_changed' => $this->db->execute(
+            self::EVENT_CREATED => $this->created($data, $record),
+            self::EVENT_STATUS_CHANGED => $this->db->execute(
                 'UPDATE tipp_year SET status = ?, version = ? WHERE tipp_year_id = ?',
                 [
                     Row::string($data, 'to_status'),
@@ -69,8 +79,8 @@ final class TippYearProjector implements Projector
                     Row::int($data, 'tipp_year_id'),
                 ]
             ),
-            'tipp_year.member_added' => $this->memberAdded($data, $record),
-            'tipp_year.payout_distributed' => $this->distributed($data, $record),
+            self::EVENT_MEMBER_ADDED => $this->memberAdded($data, $record),
+            self::EVENT_PAYOUT_DISTRIBUTED => $this->distributed($data, $record),
             default => null,
         };
     }

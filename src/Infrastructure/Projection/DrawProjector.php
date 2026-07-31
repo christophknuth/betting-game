@@ -23,19 +23,25 @@ use BettingGame\Support\Row;
  */
 final class DrawProjector implements Projector
 {
+    public const NAME = 'draw_read_model';
+
+    public const EVENT_RECORDED = 'draw.recorded';
+
+    public const EVENT_WINNINGS_RECORDED = 'draw.winnings_recorded';
+
     public function __construct(private Db $db)
     {
     }
 
     public function name(): string
     {
-        return 'draw_read_model';
+        return self::NAME;
     }
 
     /** @return list<string> */
     public function eventTypes(): array
     {
-        return ['draw.recorded', 'draw.winnings_recorded'];
+        return [self::EVENT_RECORDED, self::EVENT_WINNINGS_RECORDED];
     }
 
     public function reset(): void
@@ -52,8 +58,8 @@ final class DrawProjector implements Projector
         $data = $record->event->toArray();
 
         match ($record->event->eventType()) {
-            'draw.recorded' => $this->recorded($data, $record),
-            'draw.winnings_recorded' => $this->winningsRecorded($data, $record),
+            self::EVENT_RECORDED => $this->recorded($data, $record),
+            self::EVENT_WINNINGS_RECORDED => $this->winningsRecorded($data, $record),
             default => null,
         };
     }

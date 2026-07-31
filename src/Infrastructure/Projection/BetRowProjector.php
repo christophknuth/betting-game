@@ -12,19 +12,25 @@ use BettingGame\Support\Row;
 
 final class BetRowProjector implements Projector
 {
+    public const NAME = 'bet_row_read_model';
+
+    public const EVENT_ASSIGNED = 'bet_row.assigned';
+
+    public const EVENT_REPLACED = 'bet_row.replaced';
+
     public function __construct(private Db $db)
     {
     }
 
     public function name(): string
     {
-        return 'bet_row_read_model';
+        return self::NAME;
     }
 
     /** @return list<string> */
     public function eventTypes(): array
     {
-        return ['bet_row.assigned', 'bet_row.replaced'];
+        return [self::EVENT_ASSIGNED, self::EVENT_REPLACED];
     }
 
     public function reset(): void
@@ -37,7 +43,7 @@ final class BetRowProjector implements Projector
         $data = $record->event->toArray();
 
         match ($record->event->eventType()) {
-            'bet_row.assigned' => $this->db->execute(
+            self::EVENT_ASSIGNED => $this->db->execute(
                 '
                 INSERT INTO bet_row (bet_row_id, participant_id, bet_period_id, numbers, assigned_at, version)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -51,7 +57,7 @@ final class BetRowProjector implements Projector
                     $record->version,
                 ]
             ),
-            'bet_row.replaced' => $this->db->execute(
+            self::EVENT_REPLACED => $this->db->execute(
                 'UPDATE bet_row SET numbers = ?, version = ? WHERE bet_row_id = ?',
                 [$this->numbers($data, 'numbers'), $record->version, Row::int($data, 'bet_row_id')]
             ),

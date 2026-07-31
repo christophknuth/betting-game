@@ -11,19 +11,25 @@ use BettingGame\Support\Row;
 
 final class ParticipantProjector implements Projector
 {
+    public const NAME = 'participant_read_model';
+
+    public const EVENT_CREATED = 'participant.created';
+
+    public const EVENT_APPROVED = 'participant.approved';
+
     public function __construct(private Db $db)
     {
     }
 
     public function name(): string
     {
-        return 'participant_read_model';
+        return self::NAME;
     }
 
     /** @return list<string> */
     public function eventTypes(): array
     {
-        return ['participant.created', 'participant.approved'];
+        return [self::EVENT_CREATED, self::EVENT_APPROVED];
     }
 
     public function reset(): void
@@ -36,7 +42,7 @@ final class ParticipantProjector implements Projector
         $data = $record->event->toArray();
 
         match ($record->event->eventType()) {
-            'participant.created' => $this->db->execute(
+            self::EVENT_CREATED => $this->db->execute(
                 '
                 INSERT INTO participant (participant_id, user_id, display_name, registered_at, is_active, version)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -50,7 +56,7 @@ final class ParticipantProjector implements Projector
                     $record->version,
                 ]
             ),
-            'participant.approved' => $this->db->execute(
+            self::EVENT_APPROVED => $this->db->execute(
                 'UPDATE participant SET is_active = 1, version = ? WHERE participant_id = ?',
                 [$record->version, Row::int($data, 'participant_id')]
             ),

@@ -13,19 +13,23 @@ use BettingGame\Support\Row;
 
 final class TicketProjector implements Projector
 {
+    public const NAME = 'ticket_read_model';
+
+    public const EVENT_SUBMITTED = 'ticket.submitted';
+
     public function __construct(private Db $db)
     {
     }
 
     public function name(): string
     {
-        return 'ticket_read_model';
+        return self::NAME;
     }
 
     /** @return list<string> */
     public function eventTypes(): array
     {
-        return ['ticket.submitted'];
+        return [self::EVENT_SUBMITTED];
     }
 
     public function reset(): void
@@ -40,7 +44,7 @@ final class TicketProjector implements Projector
 
     public function apply(RecordedEvent $record): void
     {
-        if ($record->event->eventType() !== 'ticket.submitted') {
+        if ($record->event->eventType() !== self::EVENT_SUBMITTED) {
             return;
         }
 
