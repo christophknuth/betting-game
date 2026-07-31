@@ -8,7 +8,7 @@ The application uses a modern, high-performance Docker stack:
 
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
-| **PHP** | `php:8.3-fpm-alpine` (built from `docker/Dockerfile.php`) | 9000 (internal) | PHP-FPM with OPcache optimization |
+| **PHP** | `php:8.4-fpm-alpine` (built from `docker/Dockerfile.php`) | 9000 (internal) | PHP-FPM with OPcache optimization |
 | **Caddy** | `caddy:2.7-alpine` | 8080, 8443 | Modern web server with auto-HTTPS |
 | **MariaDB** | `mariadb:11.3` | 3306 | Latest stable database |
 | **PHPMyAdmin** | `phpmyadmin:latest` | 8081 | Database management UI |
@@ -23,11 +23,11 @@ The application uses a modern, high-performance Docker stack:
 
 ### Why This Stack?
 
-#### PHP-FPM 8.3 Alpine
+#### PHP-FPM 8.4 Alpine
 - **Smaller footprint**: Alpine Linux is ~5MB vs ~100MB+ for Debian
 - **Faster startup**: Minimal dependencies
 - **Better performance**: Optimized process manager
-- **JIT compilation**: PHP 8.3 JIT for performance boost
+- **JIT compilation**: PHP 8.4 JIT for performance boost
 - **OPcache enabled**: Code cache for maximum speed
 
 #### Caddy 2.7
@@ -245,7 +245,7 @@ docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public confi
 The integration tests use the `db` service and **skip themselves** when no database is
 reachable — a green run without one proves nothing about persistence.
 
-For a test run without the full stack there is `docker/Dockerfile.test` (PHP 8.3 CLI +
+For a test run without the full stack there is `docker/Dockerfile.test` (PHP 8.4 CLI +
 `pdo_mysql` + `pcov`). It is deliberately not wired into any compose file and is built and
 run directly.
 

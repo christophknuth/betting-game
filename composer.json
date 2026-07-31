@@ -3,7 +3,7 @@
     "description": "High-performance betting game API with Event Sourcing and CQRS",
     "type": "project",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "ext-pdo": "*",
         "ext-json": "*",
         "nikic/fast-route": "^1.3",

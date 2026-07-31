@@ -317,7 +317,7 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 |---|---|
 | Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 386 Testmethoden (213 Unit, 173 Integration) |
 | `demo/` | Die Nur-Lese-Demo für Prediction/Result ist mit dem Kurswechsel entfallen und nicht ersetzt worden |
-| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.2.0, 19 Pfade, 21 Operationen; `/health` steht bewusst nicht darin). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
+| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.3.0, 21 Pfade, 24 Operationen; `/health` steht bewusst nicht darin). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
 | PHPStan Level 10, PSR-12 | Unverändert gültig |
 
 ---

@@ -16,7 +16,9 @@ final class FileCache implements CacheInterface
     private string $cacheDir;
     private int $defaultTtl;
 
-    public function __construct(string $cacheDir = null, int $defaultTtl = 3600)
+    // `?string` explicitly: PHP 8.4 deprecates inferring the nullability from a
+    // `= null` default.
+    public function __construct(?string $cacheDir = null, int $defaultTtl = 3600)
     {
         $this->cacheDir = $cacheDir ?? __DIR__ . '/../../../var/cache';
         $this->defaultTtl = $defaultTtl;

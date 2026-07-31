@@ -1,7 +1,7 @@
 # Lotterie-Tippgemeinschaft — API
 
 Backend-API zur Verwaltung einer **Tippgemeinschaft für Lotto 6 aus 49**.
-PHP 8.3, kein Framework, Onion Architecture mit Event Sourcing und CQRS, MariaDB,
+PHP 8.4, kein Framework, Onion Architecture mit Event Sourcing und CQRS, MariaDB,
 Authentifizierung über Keycloak (OIDC).
 
 **Ausbaustufe Basis:** Teilnehmer lesen ausschließlich ihre eigenen Daten, der
@@ -107,7 +107,7 @@ Ein abgelehnter Unique Key ist eine Geschäftsregel, die Nein sagt — kein Date
 
 ## Endpunkte
 
-23 Routen. Die Story-IDs verweisen auf [USER_STORIES.md](USER_STORIES.md).
+25 Routen. Die Story-IDs verweisen auf [USER_STORIES.md](USER_STORIES.md).
 
 ### Teilnehmer — nur lesend
 
@@ -155,7 +155,7 @@ hat, darf nachsehen, und die UUID kann niemand raten.
 
 `GET /health` — der einzige Endpunkt ohne Authentifizierung. Ein Health Check hinter einem
 Token kann einem Load Balancer nicht sagen, ob der Dienst läuft. Er steht deshalb auch
-nicht in der OpenAPI-Spezifikation (20 Pfade, 22 Operationen).
+nicht in der OpenAPI-Spezifikation (21 Pfade, 24 Operationen).
 
 ## Authentifizierung
 
@@ -270,7 +270,7 @@ Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import
 
 ### Ohne Docker
 
-Voraussetzungen: PHP 8.3 mit `pdo_mysql`, MariaDB 11.3 oder MySQL 8.0, Composer 2.
+Voraussetzungen: PHP 8.4 mit `pdo_mysql`, MariaDB 11.3 oder MySQL 8.0, Composer 2.
 
 ```bash
 composer install

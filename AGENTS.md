@@ -9,7 +9,7 @@ Werkzeugneutral — gilt für jeden Agenten. Claude-Code-Spezifisches steht in
 ## 1. Was dieses Projekt ist
 
 Backend-API zur Verwaltung einer **Lotterie-Tippgemeinschaft für Lotto 6 aus 49**.
-PHP 8.3, kein Framework, Onion Architecture mit Event Sourcing und CQRS.
+PHP 8.4, kein Framework, Onion Architecture mit Event Sourcing und CQRS.
 
 **Fachliche Kernidee** (ausführlich in [USER_STORIES.md](USER_STORIES.md)):
 
@@ -199,7 +199,7 @@ keycloak/realm-export.json        Realm, Demo-User, Rollen, participant_id-Claim
 
 **PHP muss nicht lokal installiert sein.** Der Normalfall ist Docker.
 Die `composer`- und `make`-Ziele darunter setzen ein lokales PHP voraus und funktionieren
-nur im Container oder auf einer Maschine mit PHP 8.3.
+nur im Container oder auf einer Maschine mit PHP 8.4.
 
 ### Über Docker (der Normalfall hier)
 
@@ -216,7 +216,7 @@ docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public confi
 > endet, und überspringt sich mit einem Hinweis, statt die Dev-Daten zu löschen. Tests
 > gehören in die Umgebung darunter.
 
-Für Tests existiert `docker-compose.test.yml`: ein PHP-8.3-CLI-Image
+Für Tests existiert `docker-compose.test.yml`: ein PHP-8.4-CLI-Image
 (`docker/Dockerfile.test`, mit `pdo_mysql` + `pcov`) gegen eine eigene, vom Dev-Stack isolierte
 MariaDB (`betting_game_test` auf Port 3307). `composer install` läuft dabei bei jedem
 Containerstart neu (siehe Kommentar in der Dockerfile) — dadurch bleibt der Autoloader auch
@@ -284,7 +284,7 @@ eine Lüge über die Persistenz. Der Job stellt eine Datenbank bereit, also ist 
 - `final` als Standard. Vererbung nur begründet (`EventSourcedRepository` ist eine
   der wenigen `abstract`-Basen).
 - Value Objects sind **immutable** und validieren im Konstruktor.
-- Constructor Property Promotion, `match`, Enums-artige VOs — PHP-8.3-Idiome nutzen.
+- Constructor Property Promotion, `match`, Enums-artige VOs — PHP-8.4-Idiome nutzen.
 - Kein `$_ENV` direkt lesen: `config/config.php` geht über `getenv()`, weil `$_ENV` in den
   offiziellen PHP-Images nicht befüllt ist. Auch keine Ausgabe vor der Response — eine
   PHP-Warning sendet Header und macht jeden Statuscode zu 200.
