@@ -224,15 +224,18 @@ docker-compose exec php composer remove vendor/package
 ### Testing
 
 ```bash
-# Run tests in container
+# Run tests in their own environment, with their own database.
+# Not in the `php` container: its DB_DATABASE is the development database, and
+# the integration suite truncates every table before each test. IntegrationTestCase
+# refuses any database not named *_test and skips instead.
+make test-db-start
 make test-docker
-# or
-docker-compose exec php vendor/bin/phpunit --testdox
+make test-db-stop
 
 # With coverage
-docker-compose exec php vendor/bin/phpunit --coverage-text
+docker-compose -f docker-compose.test.yml run --rm test vendor/bin/phpunit --coverage-text
 
-# PHPStan (level 10, see phpstan.neon)
+# PHPStan (level 10, see phpstan.neon) - read-only, safe in the dev container
 docker-compose exec php vendor/bin/phpstan analyse
 
 # PSR-12

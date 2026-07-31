@@ -13,7 +13,15 @@ test.describe('participant read views (testuser, participant 2)', () => {
   })
 
   test('B-01: sees the assigned bet row with its six numbers', async ({ page }) => {
-    // Login lands on /bet-row, so this view is already open.
+    const { betPeriodId } = readFixture()
+
+    // Login lands on /bet-row, but the view then asks for the period running
+    // *today*. The seeded tipp year sits in whichever calendar year was still
+    // free (tipp years may not overlap), which is usually not this one - so
+    // the period is named explicitly instead of relying on the date.
+    await page.locator('#betPeriodId').fill(String(betPeriodId))
+    await page.getByRole('button', { name: 'Anzeigen' }).click()
+
     const numbers = page.locator('.numbers .ball')
 
     await expect(numbers).toHaveCount(6)

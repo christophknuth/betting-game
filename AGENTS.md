@@ -205,12 +205,17 @@ nur im Container oder auf einer Maschine mit PHP 8.3.
 ```bash
 docker-compose up -d                              # kompletter Stack
 docker-compose exec php composer install
-docker-compose exec php vendor/bin/phpunit --testdox
 docker-compose exec php vendor/bin/phpstan analyse
 docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
 ```
 
-Für Tests ohne den vollen Stack existiert `docker-compose.test.yml`: ein PHP-8.3-CLI-Image
+> **Tests nicht im `php`-Container.** Dessen `DB_DATABASE` ist `betting_game`, die
+> Entwicklungsdatenbank — und die Integration-Suite leert **jede** Tabelle vor jedem Test.
+> `IntegrationTestCase` verweigert deshalb jede Datenbank, deren Name nicht auf `_test`
+> endet, und überspringt sich mit einem Hinweis, statt die Dev-Daten zu löschen. Tests
+> gehören in die Umgebung darunter.
+
+Für Tests existiert `docker-compose.test.yml`: ein PHP-8.3-CLI-Image
 (`docker/Dockerfile.test`, mit `pdo_mysql` + `pcov`) gegen eine eigene, vom Dev-Stack isolierte
 MariaDB (`betting_game_test` auf Port 3307). `composer install` läuft dabei bei jedem
 Containerstart neu (siehe Kommentar in der Dockerfile) — dadurch bleibt der Autoloader auch

@@ -16,17 +16,29 @@ der Administrator schreibt alles.
 
 ## Analysen und Tests ausführen
 
-PHP, Composer und PHPUnit müssen nicht lokal installiert sein — sie laufen im Container:
+PHP, Composer und PHPUnit müssen nicht lokal installiert sein — sie laufen im Container.
+
+**Tests gehören in die eigene Testumgebung**, nicht in den `php`-Container: dessen
+`DB_DATABASE` ist die Entwicklungsdatenbank, und die Integration-Suite leert vor jedem Test
+jede Tabelle. `IntegrationTestCase` verweigert inzwischen alles, was nicht auf `_test`
+endet — im `php`-Container überspringen sich damit alle 173 Integrationstests.
 
 ```bash
-docker-compose exec php vendor/bin/phpunit --testdox
-docker-compose exec php vendor/bin/phpstan analyse
+docker-compose -f docker-compose.test.yml up -d test-db
+docker-compose -f docker-compose.test.yml run --rm test                    # phpunit
+docker-compose -f docker-compose.test.yml run --rm test vendor/bin/phpstan analyse
+docker-compose -f docker-compose.test.yml down -v
 ```
+
+Statische Analyse allein läuft auch im Dev-Container (`docker-compose exec php
+vendor/bin/phpstan analyse`) — die schreibt nichts.
 
 Läuft der Stack nicht, vorher `docker-compose up -d`. `vendor/` ist nicht eingecheckt
 (`.gitignore`) und muss im Container einmal installiert werden (`composer install`).
 Ohne erreichbaren Container ist die einzige ehrliche Antwort, dass die Prüfung nicht
 ausgeführt wurde — Ergebnisse nicht schätzen.
+
+Das Frontend hat eigene Suiten (Vitest, Playwright) — siehe [FRONTEND.md](FRONTEND.md).
 
 ## Wichtige Dateien zum Einstieg
 

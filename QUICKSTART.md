@@ -252,24 +252,32 @@ Projektionen mit aufgebaut. Die Antwort listet alle tatsächlich neu aufgebauten
 
 ## 10. Tests und Prüfungen
 
+Tests laufen in einer **eigenen** Umgebung mit eigener Datenbank:
+
 ```bash
-docker-compose exec php vendor/bin/phpunit --testdox
+make test-db-start        # MariaDB 11.3 auf Port 3307, Schema geladen
+make test-docker          # phpunit --testdox
+make phpstan-docker
+make test-db-stop
+```
+
+> **Nicht im `php`-Container testen.** Dort ist `DB_DATABASE` die Entwicklungsdatenbank,
+> und die Integration-Suite leert vor jedem Test jede Tabelle — ein Lauf würde das
+> Tippjahr aus diesem Durchstich wegräumen. `IntegrationTestCase` lehnt jede Datenbank ab,
+> deren Name nicht auf `_test` endet, und überspringt sich mit einem Hinweis.
+
+Nur lesende Prüfungen sind im Dev-Container unbedenklich:
+
+```bash
 docker-compose exec php vendor/bin/phpstan analyse
 docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
 ```
 
-Mit lokalem PHP stattdessen `make test`, `make phpstan`, `make cs-check`,
-`make all-tests`.
+Die Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist.
+Eine grüne Ausgabe ohne laufende Datenbank beweist deshalb nichts über die Persistenz —
+auf die Zeile `Tests: N … Skipped: N` achten, nicht auf den Exit-Code.
 
-Die Integrationstests brauchen eine Datenbank und **überspringen sich selbst**, wenn keine
-erreichbar ist. Eine grüne Ausgabe ohne laufende Datenbank beweist deshalb nichts über die
-Persistenz. Eigene Testdatenbank:
-
-```bash
-make test-db-start        # MariaDB 11.3 auf Port 3307, Schema geladen
-make test-integration
-make test-db-stop
-```
+Das Frontend hat eigene Suiten (Vitest, Playwright) — siehe [FRONTEND.md](FRONTEND.md).
 
 ## Häufige Probleme
 
