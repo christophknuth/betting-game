@@ -292,8 +292,10 @@ Neue Kommentare in dieser Form schreiben. Klassen-Docblocks nennen die Story-ID 
 
 - **Code, Kommentare, Docblocks, Commit-Messages: Englisch.**
 - **Projektdokumentation (`USER_STORIES.md`, `ARCHITECTURE.md`, `CHANGELOG.md`): Deutsch.**
-- Commit-Messages im Imperativ, eine Zeile, ohne Präfix-Tags:
-  `Verify the token signature`, `Wire the base version up over HTTP`.
+- Commit-Messages folgen [Conventional Commits](https://www.conventionalcommits.org/)
+  (`type(scope): subject`, Imperativ, eine Zeile): `feat: verify the token signature`,
+  `fix(auth): wire the base version up over HTTP`. Übliche Typen hier: `feat`, `fix`,
+  `docs`, `refactor`, `test`, `chore`.
 
 ---
 
