@@ -304,6 +304,10 @@ docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public confi
 Ohne Docker stehen dieselben Ziele als `make test`, `make phpstan`, `make cs-check`
 bereit — sie setzen ein PHP im PATH voraus. `make all-tests` fasst alle drei zusammen.
 
+Automatisch läuft all das in [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+statische Analyse, PHPUnit gegen eine MariaDB, ESLint + Vitest und der
+Playwright-Durchstich gegen den vollen Stack.
+
 | Suite | Umfang | Voraussetzung |
 |---|---|---|
 | `tests/Unit` | 19 Dateien, 213 Testmethoden — Domänenlogik, Value Objects, JWT, HTTP-Helfer | keine |

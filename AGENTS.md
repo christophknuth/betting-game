@@ -52,6 +52,7 @@ am 2026-07-29 nachgezogen worden.
 | [KEYCLOAK.md](KEYCLOAK.md) | ✅ Aktuell |
 | [PSR.md](PSR.md) | ✅ Aktuell. Beachte den Lesehinweis: implementiert ≠ genutzt |
 | [DOCKER.md](DOCKER.md) | ✅ Aktuell, domänenneutral. Englisch, im Gegensatz zur übrigen Doku |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml) | ✅ Aktuell. Vier Jobs, siehe Abschnitt 5 |
 | [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `b514e12` |
 | [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ✅ Aktuell. Vue-SPA auf die Lotto-Endpunkte umgestellt (12 Views, Tabelle Ansicht → Endpunkt in FRONTEND.md). Vitest + Playwright |
 | [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | 📦 Bewusst aufgehoben für Ausbaustufe E2, nicht implementiert |
@@ -229,6 +230,24 @@ docker-compose -f docker-compose.test.yml down -v
 ```
 
 Äquivalent über `make test-db-start` / `test-docker` / `phpstan-docker` / `test-db-stop`.
+
+### Continuous Integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) läuft auf `main`, `Refocus-project`
+und jedem Pull Request — in vier getrennten Jobs, damit schnelles Feedback nicht auf den
+langsamsten wartet:
+
+| Job | Umfang | Braucht |
+|---|---|---|
+| `static` | PHPStan Level 10, PSR-12 | nichts |
+| `php-tests` | PHPUnit inkl. Integration | MariaDB als Service (`betting_game_test`) |
+| `frontend-unit` | ESLint, Vitest | Node 18 |
+| `e2e` | Playwright | den **vollen** Stack inkl. Keycloak-Realm-Import |
+
+**`--fail-on-skipped` ist der wichtigste Schalter darin.** Ohne erreichbare Datenbank
+überspringen sich die Integrationstests selbst und melden trotzdem grün — in CI wäre das
+eine Lüge über die Persistenz. Der Job stellt eine Datenbank bereit, also ist jedes
+Überspringen ein Fehlschlag.
 
 ### Makefile / Composer (mit lokalem PHP)
 

@@ -1,0 +1,189 @@
+# Vier getrennte Jobs statt einem: Die statische Analyse ist in einer Minute
+# durch, der E2E-Durchstich braucht den kompletten Stack samt Keycloak-Import.
+# In einem Job gebündelt würde jede Rückmeldung auf den langsamsten Teil warten.
+name: CI
+
+on:
+  push:
+    branches: [main, Refocus-project]
+  pull_request:
+
+jobs:
+  static:
+    name: PHPStan + PSR-12
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, json
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      # Level 10, siehe phpstan.neon. Der Bestand ist fehlerfrei - das soll er bleiben.
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress
+
+      - name: PSR-12
+        run: vendor/bin/phpcs --standard=PSR12 src tests public config
+
+  php-tests:
+    name: PHPUnit
+    runs-on: ubuntu-latest
+
+    services:
+      # Der Datenbankname endet auf `_test`, weil IntegrationTestCase alles
+      # andere ablehnt: Die Suite leert vor jedem Test jede Tabelle, und diese
+      # Schranke verhindert, dass das je eine Entwicklungsdatenbank trifft.
+      mariadb:
+        image: mariadb:11.3
+        env:
+          MARIADB_ROOT_PASSWORD: secret
+          MARIADB_DATABASE: betting_game_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -uroot -psecret --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, json
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      # Über das mariadb-Image statt über einen Client auf dem Runner: so hängt
+      # der Schritt nicht daran, welche Clientversion das Runner-Image gerade
+      # mitbringt.
+      - name: Load schema
+        run: |
+          docker run --rm -i --network host mariadb:11.3 \
+            mariadb -h 127.0.0.1 -uroot -psecret betting_game_test < database/schema.sql
+
+      # `--fail-on-skipped` ist hier der eigentliche Punkt: Ohne erreichbare
+      # Datenbank überspringen sich die Integrationstests selbst und melden
+      # trotzdem grün. Genau das darf in CI nicht durchgehen, denn ein solcher
+      # Lauf sagt nichts über die Persistenz aus. Hier steht eine Datenbank
+      # bereit, also ist jedes Überspringen ein Fehler.
+      - name: PHPUnit
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3306'
+          DB_DATABASE: betting_game_test
+          DB_USERNAME: root
+          DB_PASSWORD: secret
+        run: vendor/bin/phpunit --testdox --fail-on-skipped
+
+  frontend-unit:
+    name: ESLint + Vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # Der Bestand ist fehlerfrei; eslint:recommended + vue3-recommended.
+      - run: npm run lint
+
+      - run: npm test
+
+  e2e:
+    name: Playwright (voller Stack)
+    runs-on: ubuntu-latest
+    # Der langsamste Job: Keycloak importiert seinen Realm beim ersten Start.
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, json
+          coverage: none
+
+      # docker-compose.yml mountet das Repository nach /var/www/html und
+      # überdeckt damit das vendor/ aus dem Image. Ohne diesen Schritt findet
+      # der Container keinen Autoloader.
+      - name: Install PHP dependencies for the bind mount
+        run: composer install --no-interaction --no-progress
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Start the stack
+        run: docker compose up -d --build
+
+      - name: Wait for the API
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/health >/dev/null && exit 0
+            sleep 2
+          done
+          echo "::error::API did not become reachable"
+          docker compose logs caddy php
+          exit 1
+
+      - name: Wait for Keycloak
+        run: |
+          for i in $(seq 1 90); do
+            curl -sf http://localhost:8090/realms/betting-game >/dev/null && exit 0
+            sleep 2
+          done
+          echo "::error::Keycloak did not import its realm"
+          docker compose logs keycloak
+          exit 1
+
+      # Teilnehmer anzulegen hat zwar seit B-21 eine Route, aber die Demo-IDs
+      # müssen zu den `participant_id`-Claims des Realms passen - und die stehen
+      # dort fest. Deshalb weiterhin über den Seed.
+      - name: Seed demo participants
+        run: |
+          docker compose exec -T db mariadb -uroot -psecret betting_game \
+            < database/seed-demo-participants.sql
+
+      - name: Install Playwright
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Collect stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-artifacts
+          path: frontend/test-results/
+          retention-days: 7
