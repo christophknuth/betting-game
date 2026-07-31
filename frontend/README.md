@@ -36,7 +36,7 @@ docker run --rm -v "$PWD:/app" -w /app node:24-alpine sh -c "npm install && npm 
 ```
 
 Regelsatz: `eslint:recommended` + `plugin:vue/vue3-recommended` (siehe
-[`.eslintrc.cjs`](.eslintrc.cjs)). `vue3-recommended` ist die strengste der drei
+[`eslint.config.js`](eslint.config.js)). `vue3-recommended` ist die strengste der drei
 Vue-Voreinstellungen; sie enthält neben den Fehlerregeln auch die Formatierungs- und
 Reihenfolgeregeln. Der Bestand ist fehlerfrei — **halte ihn so**.
 
@@ -78,6 +78,7 @@ frontend/
 ├── public/silent-check-sso.html
 ├── .env                               # Keycloak- und API-URLs
 ├── vite.config.js                     # inkl. Vitest-Konfiguration (test:)
+├── eslint.config.js                   # Flat Config (ESLint 9+)
 ├── Dockerfile                         # Build + Nginx
 └── nginx.conf
 ```

@@ -251,7 +251,7 @@ npm run lint:fix   # korrigiert das automatisch Korrigierbare
 ### Regelsatz
 
 `eslint:recommended` + `plugin:vue/vue3-recommended`, konfiguriert in
-[`frontend/.eslintrc.cjs`](frontend/.eslintrc.cjs). `vue3-recommended` ist die strengste
+[`frontend/eslint.config.js`](frontend/eslint.config.js). `vue3-recommended` ist die strengste
 der drei Vue-Voreinstellungen — sie stapelt *essential* (echte Fehler),
 *strongly-recommended* (Lesbarkeit) und *recommended* (Reihenfolge und Benennung).
 Genau diese Kombination empfiehlt die Vue-Dokumentation selbst, wer sie kennt, muss hier
