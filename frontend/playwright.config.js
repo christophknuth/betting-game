@@ -18,6 +18,11 @@ export default defineConfig({
   reporter: 'list',
   globalSetup: './tests/e2e/global-setup.js',
 
+  // Overridable so a containerised run can drop traces and screenshots inside
+  // the container instead of into the bind-mounted repo, where they end up
+  // owned by a uid the host cannot clean up afterwards.
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results',
+
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'retain-on-failure',

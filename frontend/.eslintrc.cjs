@@ -45,6 +45,12 @@ module.exports = {
       // Vite's config runs in Node too, but as an ES module.
       files: ['vite.config.js'],
       env: { node: true, browser: false }
+    },
+    {
+      // Playwright's config and its global setup run in Node, not in the
+      // browser - the specs themselves drive a browser but are Node code too.
+      files: ['playwright.config.js', 'tests/e2e/**/*.js'],
+      env: { node: true, browser: false }
     }
   ],
 

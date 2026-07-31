@@ -39,6 +39,12 @@ async function token(username, password) {
  * participant rows the same way, directly against the database. Idempotent
  * (`ON DUPLICATE KEY UPDATE`) so re-running the suite against a stack that
  * already has these rows does not fail.
+ *
+ * Tolerates a missing `docker-compose`: the suite also runs from inside a
+ * container (there is no local Node on every dev machine), and there the
+ * compose CLI is not on PATH. The rows only have to exist - who created them
+ * does not matter - so a failure here is a warning, and the member-add below
+ * is what actually fails loudly if they are missing.
  */
 function ensureParticipants() {
   const sql = `
@@ -53,11 +59,22 @@ function ensureParticipants() {
     ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), is_active = 1;
   `
 
-  execSync('docker-compose exec -T db mariadb -uroot -psecret betting_game', {
-    cwd: REPO_ROOT,
-    input: sql,
-    stdio: ['pipe', 'pipe', 'inherit']
-  })
+  try {
+    execSync('docker-compose exec -T db mariadb -uroot -psecret betting_game', {
+      cwd: REPO_ROOT,
+      input: sql,
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
+  } catch (error) {
+    console.warn(
+      '[e2e] Could not bootstrap participants via docker-compose '
+      + `(${error.message.split('\n')[0]}).\n`
+      + '[e2e] Assuming participants 1 and 2 already exist. If the seeding below '
+      + 'fails, run this once from the repo root:\n'
+      + '[e2e]   docker-compose exec -T db mariadb -uroot -psecret betting_game '
+      + '< database/seed-demo-participants.sql'
+    )
+  }
 }
 
 function command(adminToken) {
@@ -79,6 +96,26 @@ function command(adminToken) {
 }
 
 /**
+ * The first calendar year no existing tipp year occupies.
+ *
+ * Tipp years may not overlap (`TippYear::assertNoOverlap`), so a fixed range
+ * would let the suite seed exactly once and answer 409 on every later run.
+ * Taking the year after the latest known `endDate` keeps each run in its own
+ * range without having to delete anything that came before.
+ */
+async function nextFreeYear(adminToken) {
+  const { data } = await axios.get(`${API_URL}/admin/tipp-years`, {
+    headers: { Authorization: `Bearer ${adminToken}` }
+  })
+
+  const latest = (data.tippYears ?? [])
+    .map(year => new Date(year.endDate).getFullYear())
+    .reduce((max, year) => Math.max(max, year), 0)
+
+  return Math.max(latest + 1, 2026)
+}
+
+/**
  * Seeds one full tipp year (period, two members, bet rows, a submitted
  * ticket, a recorded and evaluated draw) through the real command handlers -
  * the same walkthrough QUICKSTART.md documents via curl, run here so the E2E
@@ -88,13 +125,13 @@ function command(adminToken) {
  * running tipp year at a time, and leaving this one running would make a
  * second suite run fail with 409 before it even starts.
  */
-async function seedTippYear(api) {
+async function seedTippYear(api, calendarYear) {
   const suffix = Date.now()
 
   const year = await api('POST', '/admin/tipp-years', {
-    name: `E2E ${suffix}`,
-    startDate: '2026-01-01',
-    endDate: '2026-12-31',
+    name: `E2E ${calendarYear}`,
+    startDate: `${calendarYear}-01-01`,
+    endDate: `${calendarYear}-12-31`,
     ticketCostPerRow: 1.2
   })
   const tippYearId = year.resourceId
@@ -102,9 +139,9 @@ async function seedTippYear(api) {
   await api('PUT', `/admin/tipp-years/${tippYearId}/status`, { status: 'running' })
 
   const period = await api('POST', `/admin/tipp-years/${tippYearId}/bet-periods`, {
-    name: `Period ${suffix}`,
-    startDate: '2026-01-01',
-    endDate: '2026-12-31'
+    name: `Period ${calendarYear}`,
+    startDate: `${calendarYear}-01-01`,
+    endDate: `${calendarYear}-12-31`
   })
   const betPeriodId = period.resourceId
 
@@ -115,17 +152,16 @@ async function seedTippYear(api) {
   await api('PUT', '/admin/participants/2/bet-row', { betPeriodId, numbers: [7, 8, 9, 10, 11, 12] })
 
   const ticket = await api('POST', `/admin/tipp-years/${tippYearId}/tickets`, {
-    periodStart: '2026-01-01',
-    periodEnd: '2026-01-31',
+    periodStart: `${calendarYear}-01-01`,
+    periodEnd: `${calendarYear}-01-31`,
     drawCount: 1,
     superzahl: 7,
     lotteryReference: `E2E-${suffix}`
   })
 
-  const day = String((suffix % 28) + 1).padStart(2, '0')
   const draw = await api('POST', '/admin/draws', {
     tippYearId,
-    drawDate: `2026-01-${day}`,
+    drawDate: `${calendarYear}-01-07`,
     numbers: [7, 8, 9, 10, 11, 44],
     superzahl: 7
   })
@@ -133,11 +169,15 @@ async function seedTippYear(api) {
 
   await api('PUT', `/admin/draws/${drawId}/winnings`, { totalAmount: 50 })
 
+  // One fee per participant. They are handed out separately so no two specs
+  // write to the same row: the admin spec books participant 1's fee, while
+  // the participant spec reads participant 2's and still finds it open.
   const feesResponse = await axios.get(`${API_URL}/admin/fees`, {
     params: { tippYearId },
     headers: { Authorization: `Bearer ${await token('admin', 'admin123')}` }
   })
-  const feeForTestUser = feesResponse.data.fees.find(fee => fee.participantId === 2)
+  const feeOf = participantId =>
+    feesResponse.data.fees.find(fee => fee.participantId === participantId)?.feeId ?? null
 
   await api('PUT', `/admin/tipp-years/${tippYearId}/status`, { status: 'closed' })
 
@@ -146,7 +186,8 @@ async function seedTippYear(api) {
     betPeriodId,
     ticketId: ticket.resourceId,
     drawId,
-    feeId: feeForTestUser?.feeId ?? null
+    adminFeeId: feeOf(1),
+    participantFeeId: feeOf(2)
   }
 }
 
@@ -156,7 +197,7 @@ export default async function globalSetup() {
   const adminToken = await token('admin', 'admin123')
   const api = command(adminToken)
 
-  const fixture = await seedTippYear(api)
+  const fixture = await seedTippYear(api, await nextFreeYear(adminToken))
 
   writeFileSync(FIXTURE_PATH, JSON.stringify(fixture, null, 2))
 }

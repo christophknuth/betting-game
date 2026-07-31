@@ -19,12 +19,19 @@ test.describe('authentication and role gating', () => {
   test('a non-admin participant cannot reach an admin route (B-17)', async ({ page }) => {
     await loginAs(page, 'testuser', 'test123')
 
-    // No admin nav links should even be offered ...
+    // No admin nav links are offered - this part is meaningful on its own.
     await expect(page.getByRole('link', { name: 'Tippjahre' })).toHaveCount(0)
 
-    // ... and direct navigation is bounced home rather than shown.
+    // Typing the URL lands back on /bet-row and never renders the admin view.
+    //
+    // Weak on its own: a full load drops the requested deep link and settles
+    // on /bet-row for *every* route (see navigateTo in fixtures.js), so this
+    // would also pass with the guard removed. What actually pins the rule down
+    // is tests/unit/router/guard.spec.js, which drives the guard client-side.
+    // Kept because it still proves the admin view never reaches the screen.
     await page.goto('/admin/tipp-years')
     await expect(page).toHaveURL(/\/bet-row$/)
+    await expect(page.getByRole('heading', { name: 'Tippjahre', level: 2 })).toHaveCount(0)
   })
 
   test('logout clears the session and returns to the login page', async ({ page }) => {
