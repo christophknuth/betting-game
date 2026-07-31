@@ -352,15 +352,16 @@ make test-db-start && make test-integration && make test-db-stop
 
 **Fachlich**
 
-- **Eine Lücke in der HTTP-Oberfläche der Basis.** Es gibt keinen Endpunkt, der einen
-  `Participant` anlegt (Selbstregistrierung ist E1-01); Teilnehmer müssen vorbereitet
-  werden, siehe [QUICKSTART.md](QUICKSTART.md). Der Lebenszyklus des Tippjahres ist seit
-  B-18 über `PUT /admin/tipp-years/{id}/status` erreichbar.
+- **Die HTTP-Oberfläche der Basis ist vollständig.** Der Lebenszyklus des Tippjahres läuft
+  seit B-18 über `PUT /admin/tipp-years/{id}/status`, Teilnehmer entstehen seit B-21 über
+  `POST /admin/participants`. Ein Durchstich braucht damit kein `INSERT` von Hand mehr.
+  **Selbst**registrierung bleibt E1-01.
 - E1 (Selbstverwaltung) und E2 (Sportwetten) sind spezifiziert, aber nicht implementiert.
   Die E2-Artefakte liegen als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml)
   und [database/schema-e2-sports.sql](database/schema-e2-sports.sql) bereit.
-- Das [frontend/](frontend/) bedient die Basisversion vollständig, hat aber keine
-  automatisierten Tests — siehe [FRONTEND.md](FRONTEND.md).
+- Das [frontend/](frontend/) bedient die Basisversion vollständig und hat automatisierte
+  Tests: Vitest für Composables, Stores und den Router-Guard, Playwright für den Durchstich
+  gegen den laufenden Stack — siehe [FRONTEND.md](FRONTEND.md).
 
 **Technisch**
 
@@ -373,7 +374,9 @@ make test-db-start && make test-integration && make test-db-stop
 - **`snapshot`** existiert; es wird kein Snapshot geschrieben oder gelesen. Bei den
   aktuellen Streamlängen ist das kein Problem.
 - Die Tabelle `user` stammt aus der Zeit vor Keycloak und wird von keinem Projektor mehr
-  beschrieben.
+  beschrieben. Über B-21 angelegte Teilnehmer lassen `participant.user_id` deshalb `NULL`
+  — die Spalte war im Schema von jeher nullable („guest participants have no account"),
+  nur das Aggregat verlangte bis dahin einen Wert.
 - Kein Rate Limiting, keine Metriken, kein Tracing.
 
 **Bewusst nicht getan**

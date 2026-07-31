@@ -52,47 +52,39 @@ USER=$(token testuser test123)
 Ohne gültiges Token antwortet jede Route außer `/health` mit `401`. Ist Keycloak nicht
 erreichbar, kommt **503** — ein Schlüsselproblem ist kein ungültiges Token.
 
-## 3. Vorbereiten, was noch keinen Endpunkt hat
-
-Zwei Dinge fehlen der Basisversion als HTTP-Operation:
-
-- **Teilnehmer anlegen.** Selbstregistrierung ist E1-01, eine Admin-Route dafür gibt es
-  nicht.
-- **Lebenszyklus des Tippjahres.** `planned → running → closed` ist im Aggregat
-  durchgesetzt, hat aber weder Command noch Route. Ein frisch angelegtes Tippjahr steht auf
-  `planned` und nimmt in diesem Zustand **keinen Tippschein** an.
-
-Für einen Durchlauf werden beide von Hand vorbereitet:
+## 3. Teilnehmer anlegen (B-21)
 
 ```bash
-docker-compose exec db mariadb -uroot -psecret betting_game <<'SQL'
-INSERT INTO user (user_id, username, password_hash, email) VALUES
-  (1, 'admin',    'x', 'admin@example.com'),
-  (2, 'testuser', 'x', 'test@example.com');
+api() { curl -s -X "$1" "http://localhost:8080$2" \
+  -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" ${3:+-d "$3"}; }
 
-INSERT INTO participant (participant_id, user_id, display_name, is_active) VALUES
-  (1, 1, 'Admin',     1),
-  (2, 2, 'Test User', 1);
-SQL
+api POST /admin/participants '{"displayName":"Admin"}'
+api POST /admin/participants '{"displayName":"Test User"}'
+
+curl -s http://localhost:8080/admin/participants -H "Authorization: Bearer $ADMIN"
 ```
 
-> **Was das kostet:** `participant` und `tipp_year` sind Projektionen. Von Hand
-> geschriebene Zeilen stehen in keinem Event — ein
-> `POST /admin/projections/participant_read_model/rebuild` baut sie aus dem Event Log neu
-> auf und die manuellen Zeilen sind weg. Für einen Durchstich ist das in Ordnung; für
-> Produktivdaten ist es der falsche Weg. Sauber ist der Weg über die Aggregate, so wie es
-> [ApplicationTestCase](tests/Integration/Application/ApplicationTestCase.php) macht.
+Die vergebenen IDs stehen jeweils als `resourceId` in der Antwort. **Damit jemand seine
+eigenen Daten sieht, muss dieselbe ID im Realm als `participant_id`-Attribut des Benutzers
+stehen** — die Demo-Benutzer aus Schritt 2 tragen 1, 2 und 3, deshalb passt die Reihenfolge
+oben zu `admin` und `testuser`.
+
+Verknüpft wird **kein** Benutzerkonto: Die Identität kommt aus dem Token, und die Tabelle
+`user` stammt aus der Zeit davor. Eine Selbstregistrierung ist E1-01.
+
+> Bis B-21 stand hier ein `INSERT` von Hand, mit dem Hinweis, dass solche Zeilen in keinem
+> Event stehen und beim nächsten `POST /admin/projections/participant_read_model/rebuild`
+> verschwinden. Über den Command angelegte Teilnehmer überstehen einen Neuaufbau.
+> Für die E2E-Tests, die keine Admin-Route benutzen wollen, liegt der alte Weg noch als
+> [`database/seed-demo-participants.sql`](database/seed-demo-participants.sql) bereit.
 
 ## 4. Ein Tippjahr aufsetzen
 
 Jeder Command trägt einen `Idempotency-Key`, jeder antwortet mit `202` und einer
 `resourceId`.
 
-```bash
-api() { curl -s -X "$1" "http://localhost:8080$2" \
-  -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" \
-  -H "Idempotency-Key: $(uuidgen)" ${3:+-d "$3"}; }
-```
+Ab hier weiter mit dem `api()`-Helper aus Schritt 3.
 
 **B-10 — Tippjahr anlegen**
 
@@ -137,15 +129,17 @@ api PUT /admin/participants/2/bet-row \
   '{"betPeriodId":1,"numbers":[1,2,3,4,5,6],"replaceReason":"falsche Reihe übertragen"}'
 ```
 
-## 5. Tippjahr starten
+## 5. Tippjahr starten (B-18)
 
-Hier greift die Lücke aus Schritt 3 — ein Tippschein wird nur angenommen, solange das
-Tippjahr `running` ist:
+Ein Tippschein wird nur angenommen, solange das Tippjahr `running` ist:
 
 ```bash
-docker-compose exec db mariadb -uroot -psecret betting_game \
-  -e "UPDATE tipp_year SET status = 'running' WHERE tipp_year_id = 1;"
+api PUT /admin/tipp-years/1/status '{"status":"running"}'
 ```
+
+**Höchstens ein Tippjahr läuft gleichzeitig** — ein zweites beantwortet denselben Aufruf
+mit `409` und nennt das blockierende Jahr. Durchgesetzt wird das vom Unique Key
+`tipp_year.running_marker`, nicht von der Prüfung im Handler.
 
 ## 6. Tippschein, Ziehungen, Gewinne
 
@@ -195,12 +189,10 @@ api PUT /admin/fees/1/payment \
 
 ## 7. Jahresausschüttung
 
-Ausschütten geht nur aus dem Status `closed` und nur einmal — auch das hat noch keine
-Route:
+Ausschütten geht nur aus dem Status `closed` und nur einmal:
 
 ```bash
-docker-compose exec db mariadb -uroot -psecret betting_game \
-  -e "UPDATE tipp_year SET status = 'closed' WHERE tipp_year_id = 1;"
+api PUT /admin/tipp-years/1/status '{"status":"closed"}'
 ```
 
 **B-13 — Ausschüttung buchen.** `confirm` fehlt oder ist `false` → `409`: eine Ausschüttung
@@ -274,7 +266,7 @@ erreichbar ist. Eine grüne Ausgabe ohne laufende Datenbank beweist deshalb nich
 Persistenz. Eigene Testdatenbank:
 
 ```bash
-make test-db-start        # MariaDB 11.3 auf Port 3306, Schema geladen
+make test-db-start        # MariaDB 11.3 auf Port 3307, Schema geladen
 make test-integration
 make test-db-stop
 ```

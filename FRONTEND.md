@@ -18,9 +18,9 @@ Setup-Hinweise stehen in [`frontend/README.md`](frontend/README.md), die Auth-De
 
 | Metrik | Wert |
 |--------|------|
-| Views | 11 (1 Login, 5 Teilnehmer, 5 Admin) |
+| Views | 12 (1 Login, 5 Teilnehmer, 6 Admin) |
 | Komponenten | 2 gemeinsame + `App.vue` |
-| Routen | 13 (inkl. Redirect `/` → `/bet-row` und Catch-all) |
+| Routen | 14 (inkl. Redirect `/` → `/bet-row` und Catch-all) |
 | Services | 3 (API-Client, Fehlermeldungen, Keycloak-Wrapper) |
 | Sonstiges | 1 Composable, 1 Formatierungsmodul, 1 Auth-Store, 1 Stylesheet |
 
@@ -43,6 +43,7 @@ keinen Endpunkt gibt. Selbstverwaltung ist E1 und nicht implementiert.
 | FeesView | `/fees` | `GET /participants/{id}/fees` | B-03 |
 | PayoutShareView | `/payout-share` | `GET /participants/{id}/payout-share` | B-04 |
 | DrawsView | `/draws` | `GET /tipp-years/{id}/draws` | B-05 |
+| AdminParticipantsView | `/admin/participants` | `GET`/`POST /admin/participants` | B-21 |
 | AdminBetRowsView | `/admin/bet-rows` | `PUT /admin/participants/{id}/bet-row` | B-06 |
 | AdminFeesView | `/admin/fees` | `GET /admin/fees`, `PUT /admin/fees/{id}/payment` | B-07 |
 | AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09 |
@@ -319,6 +320,7 @@ docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine sh -c "npm instal
 | `auth.spec.js` | Echter Keycloak-Login (B-15), Admin-Bereich für Teilnehmer unerreichbar (B-17), Logout |
 | `participant-views.spec.js` | B-01, B-03, B-05 mit echten, gesäten Daten für `testuser` |
 | `admin-fee-payment.spec.js` | B-07 als echter Schreibvorgang durch die Oberfläche, nicht nur ein Read |
+| `admin-participants.spec.js` | B-21: Teilnehmer anlegen, und dass er danach in den Auswahlfeldern auftaucht |
 
 ```bash
 docker-compose up -d          # der volle Stack muss laufen, .env baut localhost:* fest ein
@@ -408,11 +410,11 @@ docker-compose logs frontend
 
 ## Offene Punkte
 
-- **Teilnehmer werden über IDs angesprochen.** „Teilnehmer-ID“ statt Name in
-  `AdminBetRowsView` und beim Aufnehmen — die Basisversion hat keinen Endpunkt, der
-  Teilnehmer auflistet. `GET /admin/fees` liefert `displayName` mit, deshalb steht dort
-  der Name.
-- **Kein Endpunkt, der einen Teilnehmer anlegt.** Selbstregistrierung ist E1-01; bis dahin
-  müssen Teilnehmer vorbereitet werden, und die Oberfläche kann in `AdminBetRowsView` nur
-  nach einer ID fragen.
+- **Teilnehmer sehen ihre `participant_id` nirgends verknüpft.** B-21 legt Teilnehmer an,
+  aber die Zuordnung zum Keycloak-Benutzer geschieht weiterhin von Hand über das
+  Realm-Attribut `participant_id`. Solange die beiden auseinanderlaufen, zeigen die
+  Teilnehmeransichten fremde oder gar keine Daten. Das sauber zu schließen heißt, Konten
+  zu verwalten — E1.
+- **Keine Selbstverwaltung.** Teilnehmer lesen ausschließlich; Registrierung, Profil und
+  eigene Reihenwahl sind E1-01 bis E1-03.
 - Danach erst: TypeScript, Dark Mode, Mehrsprachigkeit.
