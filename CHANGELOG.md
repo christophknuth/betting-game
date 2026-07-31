@@ -6,6 +6,38 @@ fest, was wann und warum geändert wurde.
 
 ---
 
+## Werkzeugstand aktualisiert (2026-07-31)
+
+**Der gesamte Werkzeugkasten war rund zwei Jahre alt**, teils ohne Sicherheitspatches:
+Node 18 (end-of-life seit April 2025), ESLint 8 (v9 läuft im August 2026 aus), Vite 5
+(drei Majors zurück), Keycloak 23 — ausgerechnet die Komponente, die jede Route schützt.
+
+In Stufen aktualisiert, jede einzeln verifiziert, damit ein Fehlschlag zuordenbar bleibt:
+
+| | von | auf |
+|---|---|---|
+| Node | 18 | 24 (Active LTS) |
+| PHP | 8.3 | 8.4 |
+| Vite / Vitest | 5 / 1 | 8 / 4 |
+| Vue / Router / Pinia | 3.4 / 4 / 2 | 3.5 / 5 / 4 |
+| ESLint | 8 | 10 (Flat Config) |
+| Keycloak (+ keycloak-js) | 23 | 26.7 |
+| MariaDB / Caddy / PostgreSQL | 11.3 / 2.7 / 16 | 11.4 LTS / 2.11 / 18 |
+
+**Vier Dinge brachen dabei wirklich** — der Grund, die Suiten laufen zu lassen statt nur
+Tags zu erhöhen:
+
+- PHP 8.4 verwirft implizit nullable Parameter (`FileCache::__construct`).
+- ESLint 9+ liest `.eslintrc.cjs` nicht mehr; die Konfiguration ist neu geschrieben.
+- Keycloak 26 hat `KEYCLOAK_ADMIN` und `KC_PROXY` ersetzt.
+- PostgreSQL 18 will den Mount auf `/var/lib/postgresql` statt auf `data/` — sonst
+  startet der Container gar nicht.
+
+Die Abhängigkeiten mussten für ESLint 10 komplett neu aufgelöst werden. Der neue
+Lockfile meldet **0 Schwachstellen** gegenüber 17 (davon 1 kritisch, 14 hoch) zuvor.
+
+---
+
 ## Teilnehmer anlegen (B-21, 2026-07-31)
 
 **Die Basis konnte keinen Teilnehmer erzeugen.** [QUICKSTART.md](QUICKSTART.md) wies

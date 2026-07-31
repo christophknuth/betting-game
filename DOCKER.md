@@ -12,14 +12,14 @@ The application uses a modern, high-performance Docker stack:
 | **Caddy** | `caddy:2.11-alpine` | 8080, 8443 | Modern web server with auto-HTTPS |
 | **MariaDB** | `mariadb:11.4` | 3306 | Latest stable database |
 | **PHPMyAdmin** | `phpmyadmin:latest` | 8081 | Database management UI |
-| **Frontend** | built from `frontend/Dockerfile` | 3000 | ⛔ Legacy Vue.js 3 SPA, see below |
+| **Frontend** | built from `frontend/Dockerfile` (Node 24 build, nginx) | 3000 | Vue 3 SPA for the lottery endpoints |
 | **Keycloak** | `quay.io/keycloak/keycloak:26.7` | 8090 | OAuth2/OIDC identity provider |
 | **Keycloak DB** | `postgres:18-alpine` | — (internal) | PostgreSQL for Keycloak |
 
-> ⛔ **The `frontend` service is legacy.** It serves the SPA of the sports prediction game
-> this project used to be; none of its endpoints exist in the API any more. Nothing else in
-> the stack depends on it — `docker-compose stop frontend` is safe. See
-> [FRONTEND.md](FRONTEND.md).
+> The `frontend` service used to be flagged as legacy here: it served the SPA of the sports
+> prediction game this project once was. That SPA has been replaced and now targets the
+> current API — see [FRONTEND.md](FRONTEND.md). Nothing else in the stack depends on it, so
+> `docker-compose stop frontend` is still safe if you only want the API.
 
 ### Why This Stack?
 
@@ -242,12 +242,13 @@ docker-compose exec php vendor/bin/phpstan analyse
 docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
 ```
 
-The integration tests use the `db` service and **skip themselves** when no database is
-reachable — a green run without one proves nothing about persistence.
+The integration tests **skip themselves** when no database is reachable — a green run
+without one proves nothing about persistence. They also refuse to run against a database
+whose name does not end in `_test`, because every test truncates every table.
 
-For a test run without the full stack there is `docker/Dockerfile.test` (PHP 8.4 CLI +
-`pdo_mysql` + `pcov`). It is deliberately not wired into any compose file and is built and
-run directly.
+`docker/Dockerfile.test` (PHP 8.4 CLI + `pdo_mysql` + `pcov`) is what
+`docker-compose.test.yml` builds, together with its own MariaDB on port 3307 — isolated
+from the development database on 3306 so both can run side by side.
 
 ## ⚙️ Configuration
 
