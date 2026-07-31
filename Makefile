@@ -59,17 +59,11 @@ logs-db: ## Show Database logs
 	docker-compose logs -f db
 
 test-db-start: ## Start the database the integration tests run against
-	docker run -d --name bg-test-db \
-		-e MARIADB_ROOT_PASSWORD=secret -e MARIADB_DATABASE=betting_game_test \
-		-p 3306:3306 mariadb:11.3
-	@echo "Waiting for the database..."
-	@until docker exec bg-test-db mariadb -uroot -psecret -e "SELECT 1" betting_game_test >/dev/null 2>&1; \
-		do sleep 1; done
-	docker exec -i bg-test-db mariadb -uroot -psecret betting_game_test < database/schema.sql
-	@echo "Test database ready on port 3306"
+	docker-compose -f docker-compose.test.yml up -d test-db
+	@echo "Test database ready on port 3307"
 
 test-db-stop: ## Remove the integration test database
-	docker rm -f bg-test-db
+	docker-compose -f docker-compose.test.yml rm -sfv test-db
 
 db-reset: ## Reset database
 	docker-compose exec db mysql -uroot -psecret betting_game < database/schema.sql
@@ -89,8 +83,11 @@ composer-install: ## Install composer dependencies in container
 composer-update: ## Update composer dependencies in container
 	docker-compose exec php composer update
 
-test-docker: ## Run tests inside Docker container
-	docker-compose exec php vendor/bin/phpunit --testdox
+test-docker: ## Run tests inside the dedicated test environment (builds it on first use)
+	docker-compose -f docker-compose.test.yml run --rm test
+
+phpstan-docker: ## Run static analysis inside the dedicated test environment
+	docker-compose -f docker-compose.test.yml run --rm test vendor/bin/phpstan analyse
 
 all-tests: ## Run all quality checks
 	@echo "Running PHPStan..."

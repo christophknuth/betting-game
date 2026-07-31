@@ -210,9 +210,20 @@ docker-compose exec php vendor/bin/phpstan analyse
 docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
 ```
 
-Für Tests ohne den vollen Stack existiert `docker/Dockerfile.test`
-(PHP 8.3 CLI + `pdo_mysql` + `pcov`). Sie ist in kein Compose-File eingebunden und wird
-direkt gebaut und gestartet.
+Für Tests ohne den vollen Stack existiert `docker-compose.test.yml`: ein PHP-8.3-CLI-Image
+(`docker/Dockerfile.test`, mit `pdo_mysql` + `pcov`) gegen eine eigene, vom Dev-Stack isolierte
+MariaDB (`betting_game_test` auf Port 3307). `composer install` läuft dabei bei jedem
+Containerstart neu (siehe Kommentar in der Dockerfile) — dadurch bleibt der Autoloader auch
+dann korrekt, wenn sich `src/` seit dem letzten Lauf geändert hat.
+
+```bash
+docker-compose -f docker-compose.test.yml up -d test-db
+docker-compose -f docker-compose.test.yml run --rm test                                  # phpunit --testdox
+docker-compose -f docker-compose.test.yml run --rm test vendor/bin/phpstan analyse
+docker-compose -f docker-compose.test.yml down -v
+```
+
+Äquivalent über `make test-db-start` / `test-docker` / `phpstan-docker` / `test-db-stop`.
 
 ### Makefile / Composer (mit lokalem PHP)
 
@@ -221,7 +232,7 @@ direkt gebaut und gestartet.
 | `make test` | Alle Tests; Integrationstests überspringen sich ohne DB |
 | `make test-unit` | Nur `tests/Unit` |
 | `make test-integration` | Nur `tests/Integration` (braucht `make test-db-start`) |
-| `make test-db-start` / `test-db-stop` | MariaDB 11.3 auf Port 3306 mit `betting_game_test` + Schema |
+| `make test-db-start` / `test-db-stop` | MariaDB 11.3 auf Port 3307 mit `betting_game_test` + Schema |
 | `make coverage` | HTML-Report nach `coverage/` |
 | `make phpstan` | Statische Analyse, **Level 10**, Ziel `src` |
 | `make cs-check` / `cs-fix` | PSR-12 prüfen / korrigieren |

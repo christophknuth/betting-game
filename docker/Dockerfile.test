@@ -11,4 +11,23 @@ RUN apk add --no-cache $PHPIZE_DEPS \
     && docker-php-ext-enable pcov \
     && apk del $PHPIZE_DEPS
 
+# The cli-alpine base image ships no php.ini, so PHP falls back to its
+# compiled-in default of 128M - too little for PHPStan's parallel workers.
+RUN echo "memory_limit=-1" > /usr/local/etc/php/conf.d/memory-limit.ini
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# `composer install` runs at container start, not here: docker-compose.test.yml
+# bind-mounts the whole repo over /app, which would shadow anything installed
+# during the build anyway (the same reason Dockerfile.php's own vendor/ never
+# survives past a container restart). Running it against the already-mounted
+# tree instead means it lands on the host's vendor/ directly - no shadowing,
+# and no separate volume needed to work around it.
+RUN printf '#!/bin/sh\nset -e\ncomposer install --no-interaction\nexec "$@"\n' \
+        > /usr/local/bin/test-entrypoint.sh \
+    && chmod +x /usr/local/bin/test-entrypoint.sh
+
 WORKDIR /app
+
+ENTRYPOINT ["test-entrypoint.sh"]
+CMD ["vendor/bin/phpunit", "--testdox"]
