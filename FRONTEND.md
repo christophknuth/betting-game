@@ -65,8 +65,10 @@ das Ziel verloren: Jeder Deep-Link und jeder Reload einer geschützten Seite lan
 `/bet-row`. `ready()` liefert dieselbe memoisierte Zusage, die auch der App-Start abwartet.
 
 ```javascript
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  await authStore.ready()
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
@@ -262,7 +264,7 @@ Der Bestand ist **fehlerfrei** — halte ihn so. Ohne lokales Node läuft die Pr
 Container:
 
 ```bash
-docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine \
+docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine \
   sh -c "npm install && npm run lint"
 ```
 
@@ -309,7 +311,7 @@ npm run test:watch
 Ohne lokales Node läuft das im selben Container wie Lint:
 
 ```bash
-docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine sh -c "npm install && npm test"
+docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine sh -c "npm install && npm test"
 ```
 
 **Playwright** deckt den Durchstich gegen den echten, laufenden Stack ab —

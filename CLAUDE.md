@@ -60,7 +60,7 @@ Das Frontend hat eigene Suiten (Vitest, Playwright) — siehe [FRONTEND.md](FRON
   Ohne lokales Node laufen Lint und Build im Container:
 
   ```bash
-  docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine \
+  docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine \
     sh -c "npm install && npm run lint"
   docker-compose build frontend      # führt npm run build aus
   ```
