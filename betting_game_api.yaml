@@ -54,7 +54,7 @@ info:
     - `401` — das Token wird abgelehnt. Der Grund steht bewusst nicht in der Antwort.
     - `503` — Keycloak ist nicht erreichbar, die Signatur lässt sich gerade nicht prüfen.
       Der Aufruf ist wiederholbar; das Token wegzuwerfen wäre falsch.
-  version: 2.2.0
+  version: 2.3.0
   contact:
     name: API Support
     email: support@bettinggame.com
@@ -76,6 +76,8 @@ tags:
     description: Ziehungen und Gewinne des laufenden Tippjahres
   - name: Admin - Tippjahr
     description: Tippjahr, Mitglieder, Tippscheine und Ausschüttung
+  - name: Admin - Teilnehmer
+    description: Anlegen und Auflisten der Teilnehmer
   - name: Admin - Tippreihen
     description: Zuordnung der Tippreihen
   - name: Admin - Ziehungen
@@ -297,6 +299,84 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  # ============================================
+  # ADMIN - Teilnehmer
+  # ============================================
+
+  /admin/participants:
+    get:
+      tags:
+        - Admin - Teilnehmer
+      summary: Teilnehmer auflisten (B-21)
+      description: |
+        Alle Teilnehmer, nach Anzeigename sortiert.
+
+        Bewusst nur für den Administrator: Ein Teilnehmer sieht ausschließlich eigene Daten
+        und hat die anderen nicht aufzuzählen (B-16). Die Liste füllt die Auswahlfelder der
+        Adminansichten, die sonst nach einer nackten Teilnehmer-ID fragen müssten.
+      operationId: getParticipants
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Liste der Teilnehmer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  participants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ParticipantSummary'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+    post:
+      tags:
+        - Admin - Teilnehmer
+      summary: Teilnehmer anlegen (B-21)
+      description: |
+        Legt einen Teilnehmer an (CQRS Command).
+
+        Es wird **kein Benutzerkonto verknüpft**: Die Identität kommt aus dem
+        Keycloak-Token, und die Tabelle `user` stammt aus der Zeit davor. Damit jemand seine
+        eigenen Daten sieht, muss die vergebene `resourceId` im Realm als
+        `participant_id`-Attribut hinterlegt sein. Selbstregistrierung ist E1-01.
+
+        Der Teilnehmer ist sofort aktiv - was der Administrator einträgt, ist mit dem
+        Eintragen genehmigt.
+      operationId: createParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateParticipantCommand'
+      responses:
+        '202':
+          description: Teilnehmer akzeptiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '503':
           $ref: '#/components/responses/ServiceUnavailableError'
 
@@ -1456,6 +1536,32 @@ components:
             Erforderlich, um eine bereits zugeordnete Reihe zu ersetzen. Ohne diesen Wert
             antwortet der Endpunkt mit 409 - regulär wechselt die Reihe erst mit der
             nächsten Periode.
+
+    CreateParticipantCommand:
+      type: object
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: Erika Mustermann
+
+    ParticipantSummary:
+      type: object
+      properties:
+        participantId:
+          type: integer
+          example: 3
+        displayName:
+          type: string
+          example: Erika Mustermann
+        isActive:
+          type: boolean
+        registeredAt:
+          type: string
+          format: date-time
 
     CreateBetPeriodCommand:
       type: object

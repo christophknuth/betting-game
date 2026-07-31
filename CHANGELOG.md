@@ -6,6 +6,57 @@ fest, was wann und warum geändert wurde.
 
 ---
 
+## Teilnehmer anlegen (B-21, 2026-07-31)
+
+**Die Basis konnte keinen Teilnehmer erzeugen.** [QUICKSTART.md](QUICKSTART.md) wies
+Leser an, die Zeilen von Hand zu `INSERT`en, und warnte im selben Atemzug: Solche Zeilen
+stehen in keinem Event und verschwinden beim nächsten Projektions-Neuaufbau. Damit war
+der einzige dokumentierte Weg in die Anwendung einer, den die Anwendung selbst wieder
+zurücknimmt.
+
+- `POST /admin/participants` und `GET /admin/participants` mit
+  `CreateParticipantHandler` / `GetParticipantsHandler`.
+- Ein Integrationstest legt einen Teilnehmer an, baut die Projektion neu auf und prüft,
+  dass er noch da ist — genau die Eigenschaft, die der Handarbeit fehlte.
+
+**Kein `user_id` mehr.** Die Tabelle `user` stammt aus der Zeit vor Keycloak und wird von
+keinem Projektor mehr geschrieben; die Identität kommt aus dem Token. `Participant`
+modelliert die Spalte deshalb als das `NULL`-bare, das sie im Schema von jeher war
+(„guest participants have no account") — bis dahin verlangte das Aggregat einen Wert, den
+niemand mehr liefern konnte. Ein Konto zu verknüpfen bleibt E1-01.
+
+**Nebeneffekt: die Teilnehmer-ID-Eingabefelder sind weg.** `AdminBetRowsView` und das
+Aufnehmen in ein Tippjahr fragten nach einer nackten Zahl, weil nichts Teilnehmer
+auflisten konnte. Beide bieten jetzt Namen an.
+
+---
+
+## Deep-Links überlebten keinen Reload (2026-07-31)
+
+Vue Router startet seine erste Navigation in `app.use(router)` — also bevor `main.js` den
+Keycloak-Start abgewartet hatte. Der Guard beurteilte einen angemeldeten Benutzer damit
+als anonym, schickte die angefragte Route auf `/login`, und bis die Session zurück war,
+war das Ziel verloren: Jedes Lesezeichen auf eine Unterseite und jeder Reload einer
+geschützten Seite landete auf `/bet-row`.
+
+Der Guard wartet jetzt auf `authStore.ready()`. Aufgefallen beim Aufsetzen der
+E2E-Tests, die deshalb zunächst über die Navigation klickten statt `page.goto` zu nutzen.
+
+---
+
+## Automatisierte Frontend-Tests (2026-07-31)
+
+Das Frontend hatte keine. Jetzt: **Vitest** für Composables, Services, den Auth-Store, den
+Router-Guard und `ParticipantScope`, jeweils an einer User Story verankert statt an der
+Implementierung (OPS-02 Idempotency-Key, B-01 404-als-Leerzustand, B-04 `null` ≠ 0, B-06
+Zahlenprüfung, B-17 Rollenschranke). **Playwright** fährt den Durchstich gegen den echten
+Stack — echter Keycloak-Login, echte API, echte Lesemodelle.
+
+`docker-compose.test.yml` verdrahtet dazu die bis dahin ungenutzte
+`docker/Dockerfile.test` gegen eine eigene, vom Dev-Stack isolierte MariaDB.
+
+---
+
 ## Lebenszyklus des Tippjahres über HTTP (B-18, 2026-07-29)
 
 **`TippYear::start()` und `close()` waren im Aggregat durchgesetzt, hatten aber weder

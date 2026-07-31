@@ -120,6 +120,7 @@ abzuarbeiten.
 | **B-12** | Als **Administrator** möchte ich den monatlichen Tippschein erfassen, damit Gebühren entstehen und Ziehungen zugeordnet werden können. | `POST /admin/tipp-years/{id}/tickets` | **Ticket**, **TicketRow**, **Fee** je Teilnehmer | 🟢 |
 | **B-13** | Als **Administrator** möchte ich die Jahresausschüttung buchen, damit jeder Teilnehmer seinen Anteil erhält. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | 🟢 |
 | **B-18** | Als **Administrator** möchte ich den Status eines Tippjahres setzen, damit ich es starten, beenden und eine falsche Buchung korrigieren kann. | `PUT /admin/tipp-years/{id}/status` | **TippYear** | 🟢 |
+| **B-21** | Als **Administrator** möchte ich einen Teilnehmer anlegen und die vorhandenen sehen, damit ich ihn einem Tippjahr zuordnen kann. | `POST`/`GET /admin/participants` | **Participant** | 🟢 |
 
 **Akzeptanzkriterien:**
 
@@ -131,6 +132,14 @@ abzuarbeiten.
 - B-12: die Reihen werden als Snapshot in **TicketRow** kopiert — eine spätere Korrektur der **BetRow** verändert eingereichte Scheine nicht
 - B-13: `total_winnings` = Summe aller **TicketDrawResult** des Jahres; `share_per_participant = total_winnings / participant_count`; Rundungsdifferenz geht auf den ersten Anteil
 - B-13: `409`, wenn das Tippjahr nicht `closed` ist oder bereits eine Ausschüttung existiert
+- B-21: kein `user_id` — die Identität kommt aus dem Keycloak-Token, die Tabelle `user`
+  stammt aus der Zeit davor und wird von keinem Projektor mehr geschrieben. Ein Konto zu
+  verknüpfen ist E1-01
+- B-21: der Teilnehmer ist sofort aktiv. `ParticipantApproved` bildet die Genehmigung einer
+  **Selbst**registrierung ab, und die ist E1; was der Administrator einträgt, ist mit dem
+  Eintragen genehmigt
+- B-21: `400` bei einem Anzeigenamen unter 2 oder über 50 Zeichen (`DisplayName`)
+- B-21: beides admin-only. Ein Teilnehmer darf die anderen nicht auflisten (B-16)
 
 ## Jahreswechsel — spezifiziert, noch nicht implementiert
 
@@ -306,7 +315,7 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 
 | Bereich | Auswirkung |
 |---|---|
-| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 338 Testmethoden (181 Unit, 157 Integration) |
+| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 386 Testmethoden (213 Unit, 173 Integration) |
 | `demo/` | Die Nur-Lese-Demo für Prediction/Result ist mit dem Kurswechsel entfallen und nicht ersetzt worden |
 | [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.2.0, 19 Pfade, 21 Operationen; `/health` steht bewusst nicht darin). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
 | PHPStan Level 10, PSR-12 | Unverändert gültig |
@@ -317,14 +326,14 @@ Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprech
 
 | Stufe | Stories | Fertig |
 |---|---|---|
-| Basis | 17 | **17** — alle |
+| Basis | 18 | **18** — alle |
 | E1 | 9 | 0 |
 | E2 | 7 | teilweise vorhanden, aber nicht mehr geroutet |
 | Betrieb | 4 | **4** — alle |
 
-Die Basisversion ist damit vollständig: 17 Routen, jede über HTTP getestet. Der bestehende
-Code deckt Sportwetten (E2) recht weit ab — davon ist für die Basis vor allem die Infrastruktur
-nutzbar, nicht die Fachlogik.
+Die Basisversion ist damit vollständig und ohne Handgriffe an der Datenbank durchspielbar.
+Der bestehende Code deckt Sportwetten (E2) recht weit ab — davon ist für die Basis vor allem
+die Infrastruktur nutzbar, nicht die Fachlogik.
 
 ## Schichten je Story
 
@@ -345,17 +354,20 @@ nutzbar, nicht die Fachlogik.
 | B-13 | `POST /admin/tipp-years/{id}/payout` | `DistributePayoutHandler` | — |
 | B-18 | `PUT /admin/tipp-years/{id}/status` | `ChangeTippYearStatusHandler` | — |
 | B-14 | `POST`/`GET /admin/tipp-years/{id}/bet-periods` | `CreateBetPeriodHandler` | `GetBetPeriodsHandler` |
+| B-21 | `POST`/`GET /admin/participants` | `CreateParticipantHandler` | `GetParticipantsHandler` |
 
 Handler geben `CommandResult` bzw. `QueryResult` zurück; Commands antworten mit `202`, Queries
 mit `200`. Die `commandId` der Antwort ist inzwischen der Primärschlüssel im `command_log`
 (OPS-01) — mit `EventStore.causation_id` ist sie weiterhin nicht verknüpft.
 
-**Zwei Lücken.** Der Lebenszyklus des Tippjahres (`planned → running → closed`) ist im
-Aggregat vollständig durchgesetzt, hat aber **weder Command noch Route**: `TippYear::start()`
-und `close()` werden nur aus Tests aufgerufen. Ebenso gibt es keinen Endpunkt, der einen
-`Participant` anlegt — Selbstregistrierung ist E1-01. Über HTTP allein lässt sich ein
-Tippjahr damit anlegen, aber nicht in `running` bringen, und ohne das nimmt es keinen
-Tippschein an. Für einen Durchstich siehe [QUICKSTART.md](QUICKSTART.md), Schritte 3 und 5.
+**Die Basis ist über HTTP vollständig durchspielbar.** Die beiden Lücken, die das lange
+verhinderten, sind geschlossen: der Lebenszyklus des Tippjahres über B-18
+(`PUT /admin/tipp-years/{id}/status`) und das Anlegen eines Teilnehmers über B-21
+(`POST /admin/participants`). Ein Durchstich braucht damit kein `INSERT` von Hand mehr —
+siehe [QUICKSTART.md](QUICKSTART.md).
+
+Was **Selbst**registrierung angeht, bleibt es bei E1-01: B-21 ist die Sicht des
+Administrators, nicht die des Teilnehmers.
 
 ## HTTP-Schicht
 
@@ -447,16 +459,20 @@ beschreibt.
 
 ## Tests
 
-338 Testmethoden (181 Unit in 19 Dateien, 157 Integration in 16 Dateien). Die
+386 Testmethoden (213 Unit in 19 Dateien, 173 Integration in 17 Dateien). Die
 Integrationstests brauchen eine Datenbank und überspringen sich selbst, wenn keine
 erreichbar ist — `make test` bleibt also auch ohne grün.
+
+Das Frontend hat eigene Suiten: Vitest für Composables, Stores und den Router-Guard,
+Playwright für den Durchstich gegen den laufenden Stack. Siehe [FRONTEND.md](FRONTEND.md),
+Abschnitt „Testing".
 
 Die Handler werden mit **echten** Repositories gegen eine echte Datenbank getestet. Mit
 gemockten Repositories bliebe kaum etwas übrig: welche Zeilen eine Query liefert, welcher
 Unique Key greift und ob eine Projektion konsistent endet, kann nur eine Datenbank beantworten.
 
 ```sh
-make test-db-start     # MariaDB 11.3 mit geladenem Schema
+make test-db-start     # MariaDB 11.3 auf Port 3307 mit geladenem Schema
 make test-integration
 make test-db-stop
 ```

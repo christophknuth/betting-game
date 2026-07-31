@@ -43,17 +43,17 @@ am 2026-07-29 nachgezogen worden.
 | Dokument | Stand |
 |---|---|
 | [USER_STORIES.md](USER_STORIES.md) | ✅ **Aktuell und maßgeblich.** Fachliche Referenz inkl. Status je Story |
-| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Aktuell** (v2.2.0, „Lotterie-Tippgemeinschaft API"). Maßgeblicher API-Vertrag |
+| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Aktuell** (v2.3.0, „Lotterie-Tippgemeinschaft API"). Maßgeblicher API-Vertrag |
 | [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) | ✅ Aktuell |
 | [database/schema.sql](database/schema.sql) | ✅ Aktuell |
 | [README.md](README.md) | ✅ Aktuell. Überblick, Endpunkte, Installation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | ✅ Aktuell. Schichten, Klassenlandkarte, offene Punkte |
-| [QUICKSTART.md](QUICKSTART.md) | ✅ Aktuell. Ein Tippjahr von Hand durchgespielt |
+| [QUICKSTART.md](QUICKSTART.md) | ✅ Aktuell. Ein Tippjahr durchgespielt, seit B-18/B-21 ohne Handgriffe an der Datenbank |
 | [KEYCLOAK.md](KEYCLOAK.md) | ✅ Aktuell |
 | [PSR.md](PSR.md) | ✅ Aktuell. Beachte den Lesehinweis: implementiert ≠ genutzt |
 | [DOCKER.md](DOCKER.md) | ✅ Aktuell, domänenneutral. Englisch, im Gegensatz zur übrigen Doku |
-| [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `de9215b` |
-| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ✅ Aktuell. Vue-SPA auf die Lotto-Endpunkte umgestellt (11 Views, Tabelle Ansicht → Endpunkt in FRONTEND.md) |
+| [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `b514e12` |
+| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ✅ Aktuell. Vue-SPA auf die Lotto-Endpunkte umgestellt (12 Views, Tabelle Ansicht → Endpunkt in FRONTEND.md). Vitest + Playwright |
 | [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | 📦 Bewusst aufgehoben für Ausbaustufe E2, nicht implementiert |
 
 `DEMO.md` beschrieb ein `demo/`-Verzeichnis, das mit dem Kurswechsel entfallen ist, und

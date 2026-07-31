@@ -21,7 +21,7 @@ sind spezifiziert, aber nicht implementiert — siehe [USER_STORIES.md](USER_STO
 | [PSR.md](PSR.md) | PSR-Standards: Stand und Verwendung |
 | [CHANGELOG.md](CHANGELOG.md) | Chronik der größeren Umbauten |
 
-Maschinenlesbar: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3, v2.2.0),
+Maschinenlesbar: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3, v2.3.0),
 [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid),
 [database/schema.sql](database/schema.sql).
 
@@ -126,6 +126,7 @@ fremde `participantId` mit `403` ab — auch für einen Admin, der dafür eigene
 
 | Endpunkt | Story |
 |---|---|
+| `GET` / `POST /admin/participants` | B-21 Teilnehmer auflisten und anlegen |
 | `PUT /admin/participants/{id}/bet-row` | B-06 Tippreihe zuordnen |
 | `GET /admin/fees` | B-07 Gebührenlage |
 | `PUT /admin/fees/{feeId}/payment` | B-07 Zahlungsstatus setzen |
