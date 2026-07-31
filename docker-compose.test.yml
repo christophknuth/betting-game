@@ -1,0 +1,50 @@
+# Dedicated test environment - separate from docker-compose.yml on purpose.
+#
+# The main stack's php-fpm image builds with `composer install --no-dev`, and
+# its container is served from a bind mount that shadows whatever the image
+# built anyway (see docker/Dockerfile.php) - so it never reliably has
+# phpunit/phpstan available. This file wires up docker/Dockerfile.test (a
+# plain PHP-CLI image, previously unused) against its own MariaDB, isolated
+# from the `betting_game` dev database so the integration suite can freely
+# INSERT/DELETE without touching real dev data.
+#
+# Own project name so it doesn't share containers/networks with the main
+# stack (both files would otherwise default to the same name, the directory's)
+# and docker-compose stops warning about "orphan containers" from the other file.
+name: betting-game-test
+
+services:
+  test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - APP_ENV=testing
+      - DB_HOST=test-db
+      - DB_PORT=3306
+      - DB_DATABASE=betting_game_test
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+    depends_on:
+      test-db:
+        condition: service_healthy
+
+  test-db:
+    image: mariadb:11.3
+    environment:
+      MARIADB_ROOT_PASSWORD: secret
+      MARIADB_DATABASE: betting_game_test
+    ports:
+      # Different host port than the dev `db` service (docker-compose.yml)
+      # on purpose, so both stacks can run at the same time.
+      - "3307:3306"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -psecret --silent"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
