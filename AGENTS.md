@@ -53,7 +53,7 @@ am 2026-07-29 nachgezogen worden.
 | [PSR.md](PSR.md) | ✅ Aktuell. Beachte den Lesehinweis: implementiert ≠ genutzt |
 | [DOCKER.md](DOCKER.md) | ✅ Aktuell, domänenneutral. Englisch, im Gegensatz zur übrigen Doku |
 | [.github/workflows/ci.yml](.github/workflows/ci.yml) | ✅ Aktuell. Vier Jobs, siehe Abschnitt 5 |
-| [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `b514e12` |
+| [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `dbe1b95` |
 | [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ✅ Aktuell. Vue-SPA auf die Lotto-Endpunkte umgestellt (12 Views, Tabelle Ansicht → Endpunkt in FRONTEND.md). Vitest + Playwright |
 | [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | 📦 Bewusst aufgehoben für Ausbaustufe E2, nicht implementiert |
 
