@@ -19,7 +19,7 @@ curl http://localhost:8080/health          # {"status":"healthy","timestamp":"..
 | MariaDB | localhost:3306 | root / secret, DB `betting_game` |
 
 Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import:
-`docker-compose logs -f keycloak`, warten auf `Keycloak 23.0.x started`.
+`docker-compose logs -f keycloak`, warten auf `Keycloak 26.7.x started`.
 
 Das Schema wird beim ersten Start der Datenbank automatisch aus
 [database/schema.sql](database/schema.sql) geladen. Neu einspielen: `make db-reset`.

@@ -181,7 +181,7 @@ kommt aus dem Benutzerattribut im Realm.
 ## Stack
 
 Vue 3.5 (Composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0, Axios 1.19,
-keycloak-js 23, Vite 8.
+keycloak-js 26, Vite 8.
 
 ## Offene Punkte
 
