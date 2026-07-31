@@ -9,12 +9,12 @@ The application uses a modern, high-performance Docker stack:
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
 | **PHP** | `php:8.4-fpm-alpine` (built from `docker/Dockerfile.php`) | 9000 (internal) | PHP-FPM with OPcache optimization |
-| **Caddy** | `caddy:2.7-alpine` | 8080, 8443 | Modern web server with auto-HTTPS |
-| **MariaDB** | `mariadb:11.3` | 3306 | Latest stable database |
+| **Caddy** | `caddy:2.11-alpine` | 8080, 8443 | Modern web server with auto-HTTPS |
+| **MariaDB** | `mariadb:11.4` | 3306 | Latest stable database |
 | **PHPMyAdmin** | `phpmyadmin:latest` | 8081 | Database management UI |
 | **Frontend** | built from `frontend/Dockerfile` | 3000 | ⛔ Legacy Vue.js 3 SPA, see below |
 | **Keycloak** | `quay.io/keycloak/keycloak:26.7` | 8090 | OAuth2/OIDC identity provider |
-| **Keycloak DB** | `postgres:16-alpine` | — (internal) | PostgreSQL for Keycloak |
+| **Keycloak DB** | `postgres:18-alpine` | — (internal) | PostgreSQL for Keycloak |
 
 > ⛔ **The `frontend` service is legacy.** It serves the SPA of the sports prediction game
 > this project used to be; none of its endpoints exist in the API any more. Nothing else in
@@ -30,7 +30,7 @@ The application uses a modern, high-performance Docker stack:
 - **JIT compilation**: PHP 8.4 JIT for performance boost
 - **OPcache enabled**: Code cache for maximum speed
 
-#### Caddy 2.7
+#### Caddy 2.11
 - **Automatic HTTPS**: Free SSL certificates via Let's Encrypt
 - **Modern**: HTTP/2 and HTTP/3 support
 - **Simple config**: No complex directives
@@ -38,8 +38,8 @@ The application uses a modern, high-performance Docker stack:
 - **Zero downtime**: Graceful reloads
 - **Built-in compression**: Gzip and Zstd
 
-#### MariaDB 11.3
-- **Latest stable**: Most recent features and fixes
+#### MariaDB 11.4
+- **LTS**: 11.4 is a long-term support release, maintained into 2029
 - **Better performance**: Optimized query execution
 - **Enhanced security**: Latest security patches
 - **Full MySQL compatibility**: Drop-in replacement

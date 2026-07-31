@@ -34,7 +34,7 @@ services:
       - betting-game-network
 
   caddy:
-    image: caddy:2.7-alpine
+    image: caddy:2.11-alpine
     container_name: betting-game-caddy
     ports:
       - "8080:80"
@@ -50,7 +50,7 @@ services:
       - betting-game-network
 
   db:
-    image: mariadb:11.3
+    image: mariadb:11.4
     container_name: betting-game-db
     ports:
       - "3306:3306"
@@ -127,14 +127,18 @@ services:
       - betting-game-network
 
   keycloak-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: betting-game-keycloak-db
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
       POSTGRES_PASSWORD: keycloak
     volumes:
-      - keycloak_db_data:/var/lib/postgresql/data
+      # Ab PostgreSQL 18 gehört der Mount auf /var/lib/postgresql, nicht auf
+      # dessen data/-Unterverzeichnis: Das Image legt die Daten darunter ab,
+      # damit `pg_upgrade --link` nicht über eine Mount-Grenze stolpert. Mit dem
+      # alten Pfad startet der Container gar nicht erst.
+      - keycloak_db_data:/var/lib/postgresql
     networks:
       - betting-game-network
 

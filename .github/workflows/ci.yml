@@ -40,7 +40,7 @@ jobs:
       # andere ablehnt: Die Suite leert vor jedem Test jede Tabelle, und diese
       # Schranke verhindert, dass das je eine Entwicklungsdatenbank trifft.
       mariadb:
-        image: mariadb:11.3
+        image: mariadb:11.4
         env:
           MARIADB_ROOT_PASSWORD: secret
           MARIADB_DATABASE: betting_game_test
@@ -72,7 +72,7 @@ jobs:
       # mitbringt.
       - name: Load schema
         run: |
-          docker run --rm -i --network host mariadb:11.3 \
+          docker run --rm -i --network host mariadb:11.4 \
             mariadb -h 127.0.0.1 -uroot -psecret betting_game_test < database/schema.sql
 
       # `--fail-on-skipped` ist hier der eigentliche Punkt: Ohne erreichbare

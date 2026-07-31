@@ -256,7 +256,7 @@ eine Lüge über die Persistenz. Der Job stellt eine Datenbank bereit, also ist 
 | `make test` | Alle Tests; Integrationstests überspringen sich ohne DB |
 | `make test-unit` | Nur `tests/Unit` |
 | `make test-integration` | Nur `tests/Integration` (braucht `make test-db-start`) |
-| `make test-db-start` / `test-db-stop` | MariaDB 11.3 auf Port 3307 mit `betting_game_test` + Schema |
+| `make test-db-start` / `test-db-stop` | MariaDB 11.4 auf Port 3307 mit `betting_game_test` + Schema |
 | `make coverage` | HTML-Report nach `coverage/` |
 | `make phpstan` | Statische Analyse, **Level 10**, Ziel `src` |
 | `make cs-check` / `cs-fix` | PSR-12 prüfen / korrigieren |

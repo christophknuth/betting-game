@@ -270,7 +270,7 @@ Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import
 
 ### Ohne Docker
 
-Voraussetzungen: PHP 8.4 mit `pdo_mysql`, MariaDB 11.3 oder MySQL 8.0, Composer 2.
+Voraussetzungen: PHP 8.4 mit `pdo_mysql`, MariaDB 11.4 oder MySQL 8.0, Composer 2.
 
 ```bash
 composer install
@@ -289,7 +289,7 @@ Tests laufen in einer eigenen Umgebung mit eigener Datenbank; nur lesende Prüfu
 im Dev-Container unbedenklich:
 
 ```bash
-make test-db-start        # MariaDB 11.3 auf Port 3307
+make test-db-start        # MariaDB 11.4 auf Port 3307
 make test-docker          # phpunit --testdox
 make test-db-stop
 

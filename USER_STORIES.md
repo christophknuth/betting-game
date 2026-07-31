@@ -472,7 +472,7 @@ gemockten Repositories bliebe kaum etwas übrig: welche Zeilen eine Query liefer
 Unique Key greift und ob eine Projektion konsistent endet, kann nur eine Datenbank beantworten.
 
 ```sh
-make test-db-start     # MariaDB 11.3 auf Port 3307 mit geladenem Schema
+make test-db-start     # MariaDB 11.4 auf Port 3307 mit geladenem Schema
 make test-integration
 make test-db-stop
 ```
