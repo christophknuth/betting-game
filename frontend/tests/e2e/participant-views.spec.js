@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAs, readFixture } from './fixtures'
+import { loginAs, navigateTo, readFixture } from './fixtures'
 
 /**
  * B-01/B-03/B-05 end to end: real login, real API, real MariaDB read models -
@@ -13,8 +13,7 @@ test.describe('participant read views (testuser, participant 2)', () => {
   })
 
   test('B-01: sees the assigned bet row with its six numbers', async ({ page }) => {
-    await page.goto('/bet-row')
-
+    // Login lands on /bet-row, so this view is already open.
     const numbers = page.locator('.numbers .ball')
 
     await expect(numbers).toHaveCount(6)
@@ -22,12 +21,25 @@ test.describe('participant read views (testuser, participant 2)', () => {
   })
 
   test('B-03: sees the fee the ticket submission created, still open', async ({ page }) => {
-    const { feeId } = readFixture()
+    // participantFeeId, not the admin's: admin-fee-payment.spec books the
+    // admin's own fee, and sharing one row would make these two specs depend
+    // on the order they happen to run in.
+    const { participantFeeId: feeId } = readFixture()
     test.skip(feeId === null, 'no fee was seeded for participant 2')
 
-    await page.goto('/fees')
+    const { tippYearId } = readFixture()
 
-    const row = page.locator('tr', { hasText: `#${feeId}` })
+    await navigateTo(page, 'Gebühren', '/fees')
+
+    // Narrow to the seeded year: the stack keeps the fees of every previous
+    // run, and this spec is only making a claim about its own.
+    await page.locator('#tippYearId').fill(String(tippYearId))
+    await page.getByRole('button', { name: 'Filtern' }).click()
+
+    // Matched on the first cell alone, not on the row's text: a row also
+    // carries a ticket id in the same `#N` shape, so a substring match over
+    // the whole row silently picks a different fee once the ids line up.
+    const row = page.locator(`tr:has(td:nth-child(1):text-is("#${feeId}"))`)
 
     // total_cost 2.4 (2 rows x 1 draw x 1.20/row) split evenly over 2 rows
     await expect(row).toContainText('1,20')
@@ -37,20 +49,16 @@ test.describe('participant read views (testuser, participant 2)', () => {
   test('B-05: sees the recorded draw with its winning numbers', async ({ page }) => {
     const { tippYearId } = readFixture()
 
-    await page.goto('/draws')
+    await navigateTo(page, 'Ziehungen', '/draws')
 
-    // The field is a <select> once the participant's own memberships loaded
-    // (which includes the one global-setup just created) and an <input>
-    // otherwise - a shared dev stack may already have other tipp years, so
-    // pick the seeded one explicitly rather than trust auto-selection.
-    const field = page.locator('#tippYearId')
-    const tagName = await field.evaluate(el => el.tagName)
-
-    if (tagName === 'SELECT') {
-      await field.selectOption(String(tippYearId))
-    } else {
-      await field.fill(String(tippYearId))
-    }
+    // The field starts as an <input> and becomes a <select> once the
+    // participant's own memberships have loaded. Waiting for the select
+    // rather than branching on whatever is rendered at this instant: the
+    // seed makes testuser a member, so it is certain to arrive, and reading
+    // the tag name mid-flight raced the swap.
+    const field = page.locator('select#tippYearId')
+    await expect(field).toBeVisible()
+    await field.selectOption(String(tippYearId))
 
     await page.getByRole('button', { name: 'Anzeigen' }).click()
 

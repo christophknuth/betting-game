@@ -305,11 +305,7 @@ docker run --rm -v "$PWD/frontend:/app" -w /app node:18-alpine sh -c "npm instal
 ```
 
 **Playwright** deckt den Durchstich gegen den echten, laufenden Stack ab —
-[`tests/e2e/`](frontend/tests/e2e/). `global-setup.js` sät dafür einmalig ein komplettes
-Tippjahr durch die echten Command-Handler (derselbe Ablauf wie in
-[QUICKSTART.md](QUICKSTART.md), nur automatisiert statt mit `curl`), und lässt es
-`closed` zurück, damit ein zweiter Lauf nicht an B-18s „nur ein laufendes Tippjahr"
-scheitert.
+[`tests/e2e/`](frontend/tests/e2e/): echter Keycloak-Login, echte API, echte Lesemodelle.
 
 | Datei | Prüft |
 |---|---|
@@ -322,10 +318,49 @@ docker-compose up -d          # der volle Stack muss laufen, .env baut localhost
 npm run test:e2e
 ```
 
-> **Noch nicht gegen den echten Stack verifiziert.** Geschrieben und gegen den tatsächlichen
-> Quellcode der Views abgeglichen, aber auf der Entwicklungsmaschine durch ein
-> WSL2/Hyper-V-Portforwarding-Problem noch nicht real ausgeführt worden — vor dem ersten
-> Vertrauen in einen grünen Lauf einmal `npm run test:e2e` selbst beobachten.
+Ohne lokales Node im offiziellen Playwright-Image. `--network host`, damit `localhost` im
+Browser dieselben Ports trifft wie auf dem Entwicklungsrechner; die Artefakte landen
+absichtlich **im Container**, sonst gehören sie hinterher einer UID, die der Host nicht mehr
+aufräumen kann:
+
+```bash
+docker run --rm --network host -e PLAYWRIGHT_OUTPUT_DIR=/tmp/pw-results \
+  -v "$PWD:/repo" -w /repo/frontend \
+  mcr.microsoft.com/playwright:v1.61.1-noble sh -c "npm run test:e2e"
+```
+
+### Was `global-setup.js` vorbereitet
+
+Es sät ein komplettes Tippjahr durch die echten Command-Handler — derselbe Ablauf wie in
+[QUICKSTART.md](QUICKSTART.md), nur automatisiert statt mit `curl`. Drei Eigenheiten, die
+nicht offensichtlich sind und ohne die die Suite beim **zweiten** Lauf bricht:
+
+- **Jeder Lauf bekommt ein eigenes Kalenderjahr.** Tippjahre dürfen sich nicht überlappen
+  (`TippYear::assertNoOverlap`), also wählt das Setup das erste Jahr nach dem spätesten
+  vorhandenen `endDate`. Ein fester Zeitraum ließe genau einen Lauf zu und danach nur noch `409`.
+- **Das Jahr bleibt am Ende `closed`.** B-18 erlaubt höchstens ein laufendes Tippjahr; ein
+  laufend zurückgelassenes Jahr blockiert den nächsten Lauf.
+- **Jeder Test bekommt seine eigene Gebühr.** Der Admin-Test bucht die des Administrators,
+  der Teilnehmer-Test liest die von `testuser` — sonst hinge das Ergebnis daran, in welcher
+  Reihenfolge die Dateien zufällig laufen.
+
+Teilnehmer anzulegen hat keinen Endpunkt (Selbstregistrierung ist E1-01), deshalb liegt das
+als [`database/seed-demo-participants.sql`](database/seed-demo-participants.sql) daneben. Das
+Setup spielt es über `docker-compose` ein; ist die Compose-CLI nicht erreichbar (etwa im
+Container oben), warnt es und setzt voraus, dass die Zeilen schon da sind:
+
+```bash
+docker-compose exec -T db mariadb -uroot -psecret betting_game < database/seed-demo-participants.sql
+```
+
+### Warum die Tests über die Navigation klicken statt `page.goto`
+
+Ein harter Aufruf einer geschützten Route verliert das Ziel: Die SPA startet neu, der
+Router-Guard entscheidet, bevor Keycloak die Session wiederhergestellt hat, und die
+Anwendung landet auf `/bet-row` statt auf dem angefragten Pfad. **Das ist ein echter
+Mangel der Anwendung** (Deep-Links überleben einen Reload nicht) und steht unter „Offene
+Punkte". Bis er behoben ist, navigieren die Tests über `navigateTo()` aus `fixtures.js` —
+so, wie ein Benutzer es täte.
 
 Manuelle Checkliste für das, was auch Playwright nicht abdeckt:
 
@@ -368,9 +403,11 @@ docker-compose logs frontend
 
 ## Offene Punkte
 
-- **Vitest ist eingerichtet und läuft grün** (57 Tests, siehe „Testing" oben). **Playwright
-  ist geschrieben, aber auf dieser Maschine noch nicht gegen den echten Stack gelaufen**
-  (WSL2/Hyper-V-Portforwarding-Problem, siehe „Testing").
+- **Deep-Links überleben keinen Reload.** Wer `/fees` direkt aufruft oder eine geschützte
+  Route neu lädt, landet auf `/bet-row`: Der Router-Guard entscheidet, bevor Keycloaks
+  `check-sso` die Session wiederhergestellt hat, und das angefragte Ziel geht dabei
+  verloren. Ein Lesezeichen auf eine Unterseite führt damit immer zur Startseite. Beim
+  Aufsetzen der E2E-Tests aufgefallen (siehe „Testing"), noch nicht behoben.
 - **Teilnehmer werden über IDs angesprochen.** „Teilnehmer-ID“ statt Name in
   `AdminBetRowsView` und beim Aufnehmen — die Basisversion hat keinen Endpunkt, der
   Teilnehmer auflistet. `GET /admin/fees` liefert `displayName` mit, deshalb steht dort
