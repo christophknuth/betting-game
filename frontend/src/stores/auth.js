@@ -15,7 +15,30 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => authenticated.value)
   const displayName = computed(() => username.value || email.value || 'User')
 
-  async function initKeycloak() {
+  // Memoised so `ready()` below can await the very same initialisation the
+  // app start kicked off, no matter which of the two runs first.
+  let initPromise = null
+
+  function initKeycloak() {
+    initPromise ??= runInitialisation()
+
+    return initPromise
+  }
+
+  /**
+   * Resolves once Keycloak has had its say about the current session.
+   *
+   * The router guard has to await this. Vue Router runs its first navigation
+   * inside `app.use(router)`, which happens before `main.js` gets to await
+   * the Keycloak bootstrap - so without this the guard judged every deep link
+   * as "not logged in", sent it to /login, and the requested route was gone
+   * by the time the session came back.
+   */
+  function ready() {
+    return initKeycloak()
+  }
+
+  async function runInitialisation() {
     try {
       const isAuth = await keycloakService.initKeycloak()
       keycloakInitialized.value = true
@@ -23,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (isAuth) {
         authenticated.value = true
         updateUserInfo()
-        
+
         // Setup token refresh
         keycloakService.onTokenExpired(() => {
           keycloakService.updateToken(30).then(() => {
@@ -104,6 +127,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     // Actions
     initKeycloak,
+    ready,
     updateUserInfo,
     login,
     logout,

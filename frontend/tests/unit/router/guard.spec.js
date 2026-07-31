@@ -44,6 +44,31 @@ describe('router navigation guard', () => {
     expect(router.currentRoute.value.path).toBe('/login')
   })
 
+  it('keeps a deep link when Keycloak only reports back after the navigation began', async () => {
+    // The regression this guards: Vue Router runs its first navigation from
+    // inside `app.use(router)`, before main.js has awaited the Keycloak
+    // bootstrap. The guard used to judge that navigation as anonymous, send
+    // it to /login, and the session then arrived too late to matter - every
+    // deep link and every reload of a protected page landed on HOME.
+    setActivePinia(createPinia())
+
+    let reportSession
+    keycloakService.initKeycloak.mockReturnValue(new Promise(resolve => {
+      reportSession = resolve
+    }))
+    keycloakService.getUserInfo.mockReturnValue({
+      username: 'user', email: 'user@example.com', roles: ['user'], participantId: 1, subject: 's1'
+    })
+
+    // Deliberately not awaited: the navigation has to be in flight while
+    // Keycloak is still undecided, which is the situation at app start.
+    const navigation = router.push('/fees')
+    reportSession(true)
+    await navigation
+
+    expect(router.currentRoute.value.path).toBe('/fees')
+  })
+
   it('lets an authenticated participant reach a participant-only route', async () => {
     await loginAs(['user'])
 
