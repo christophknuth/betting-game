@@ -481,11 +481,28 @@ ports:
 
 ### Permission Denied
 
-```bash
-# Fix file permissions
-docker-compose exec php chown -R www-data:www-data /var/www/html
+**Symptom: `/health` answers 200, but every authenticated route answers 500.**
+The log shows `file_put_contents(.../var/cache/...): Permission denied` from
+`FileCache.php`.
 
-# Fix local permissions
+`var/cache` holds the compiled DI container and the cached JWKS, and php-fpm writes
+both as `www-data`. `docker-compose.yml` bind-mounts the checkout over
+`/var/www/html`, and a bind mount carries the *host's* ownership into the container.
+Where the container user does not map onto the owner of the checkout - rootful Docker
+on Linux, and CI runners - `www-data` cannot write there. `/health` still works
+because it is the one route that needs neither the container cache nor a token.
+
+```bash
+chmod -R 777 var        # what .github/workflows/ci.yml does before starting the stack
+```
+
+Rootless Docker and Podman map the container user onto the host user, so the same
+stack works there without this step - which is why the problem tends to surface first
+in CI.
+
+```bash
+# Other permission fixes
+docker-compose exec php chown -R www-data:www-data /var/www/html
 sudo chown -R $USER:$USER .
 ```
 

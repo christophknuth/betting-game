@@ -139,6 +139,15 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # `var/cache` nimmt den kompilierten DI-Container und den JWKS-Cache auf,
+      # geschrieben von php-fpm als `www-data`. Der Checkout gehört hier dem
+      # Runner-Benutzer, und der Bind-Mount nimmt dessen Besitzrechte mit in den
+      # Container — ohne diesen Schritt scheitert jede authentifizierte Route mit
+      # `Permission denied` und damit `500`. Lokal fällt das nicht auf, wo der
+      # Container-Benutzer auf den Host-Benutzer abgebildet wird.
+      - name: Make var/ writable for php-fpm
+        run: chmod -R 777 var
+
       - name: Start the stack
         run: docker compose up -d --build
 
