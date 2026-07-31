@@ -337,7 +337,7 @@ aufräumen kann:
 ```bash
 docker run --rm --network host -e PLAYWRIGHT_OUTPUT_DIR=/tmp/pw-results \
   -v "$PWD:/repo" -w /repo/frontend \
-  mcr.microsoft.com/playwright:v1.61.1-noble sh -c "npm run test:e2e"
+  mcr.microsoft.com/playwright:v1.62.1-noble sh -c "npm run test:e2e"
 ```
 
 ### Was `global-setup.js` vorbereitet
