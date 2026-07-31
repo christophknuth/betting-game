@@ -81,14 +81,23 @@
     <form @submit.prevent="assign">
       <div class="field-row">
         <div class="field">
-          <label for="participantId">Teilnehmer-ID</label>
-          <input
+          <label for="participantId">Teilnehmer</label>
+          <select
             id="participantId"
             v-model="form.participantId"
-            type="number"
-            min="1"
             required
           >
+            <option value="">
+              bitte wählen
+            </option>
+            <option
+              v-for="participant in participants"
+              :key="participant.participantId"
+              :value="participant.participantId"
+            >
+              {{ participant.displayName }} (#{{ participant.participantId }})
+            </option>
+          </select>
         </div>
         <div class="field">
           <label for="numbers">Sechs Zahlen</label>
@@ -145,6 +154,7 @@ import { formatDate, parseNumbers } from '@/support/format'
 
 const years = useQuery()
 const periods = useQuery()
+const people = useQuery()
 const command = useCommand()
 
 const tippYearId = ref('')
@@ -159,6 +169,7 @@ const form = reactive({
 
 const tippYears = computed(() => years.data?.tippYears ?? [])
 const betPeriods = computed(() => periods.data?.betPeriods ?? [])
+const participants = computed(() => people.data?.participants ?? [])
 
 function loadPeriods() {
   form.betPeriodId = ''
@@ -192,5 +203,8 @@ async function assign() {
   }
 }
 
-onMounted(() => years.load(() => api.admin.getTippYears()))
+onMounted(() => {
+  years.load(() => api.admin.getTippYears())
+  people.load(() => api.admin.getParticipants())
+})
 </script>

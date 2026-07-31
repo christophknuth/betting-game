@@ -60,6 +60,20 @@ final class Router
                 'method' => 'draws',
             ]);
 
+            // --- Admin: participants (B-21) ---
+
+            $r->addRoute('GET', '/admin/participants', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'list',
+                'role' => 'admin',
+            ]);
+            $r->addRoute('POST', '/admin/participants', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'create',
+                'role' => 'admin',
+                'command' => true,
+            ]);
+
             // --- Admin: bet rows (B-06) ---
 
             $r->addRoute('PUT', '/admin/participants/{participantId:\d+}/bet-row', [

@@ -11,6 +11,9 @@ interface ParticipantRepositoryInterface
     /** @return array<string, mixed>|null */
     public function findById(int $id): ?array;
 
+    /** @return list<array<string, mixed>> */
+    public function findAll(): array;
+
     public function findParticipant(int $id): ?Participant;
 
     public function exists(int $id): bool;

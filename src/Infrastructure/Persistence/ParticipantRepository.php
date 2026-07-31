@@ -20,6 +20,16 @@ final class ParticipantRepository extends EventSourcedRepository implements Part
         return $this->db->fetchOne('SELECT * FROM participant WHERE participant_id = ?', [$id]);
     }
 
+    /** @return list<array<string, mixed>> */
+    public function findAll(): array
+    {
+        // By name, not by id: this feeds a picker, and a reader looking for
+        // someone scans names.
+        return $this->db->fetchAll(
+            'SELECT * FROM participant ORDER BY display_name, participant_id'
+        );
+    }
+
     public function findParticipant(int $id): ?Participant
     {
         $row = $this->findById($id);
@@ -30,7 +40,7 @@ final class ParticipantRepository extends EventSourcedRepository implements Part
 
         return Participant::reconstitute(
             id: Row::int($row, 'participant_id'),
-            userId: Row::int($row, 'user_id'),
+            userId: Row::nullableInt($row, 'user_id'),
             displayName: new DisplayName(Row::string($row, 'display_name')),
             isActive: Row::bool($row, 'is_active'),
             registeredAt: new DateTimeImmutable(Row::string($row, 'registered_at')),

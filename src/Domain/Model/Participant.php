@@ -16,16 +16,22 @@ final class Participant
 
     private function __construct(
         private int $id,
-        private int $userId,
+        private ?int $userId,
         private DisplayName $displayName,
         private bool $isActive,
         private DateTimeImmutable $registeredAt
     ) {
     }
 
+    /**
+     * @param int|null $userId the legacy `user` row this participant belongs to,
+     *                         if any. The administrator creates participants
+     *                         without one: identity comes from Keycloak, and
+     *                         `user` predates it and is no longer written.
+     */
     public static function create(
         int $id,
-        int $userId,
+        ?int $userId,
         DisplayName $displayName,
         bool $autoApprove = false
     ): self {
@@ -52,7 +58,7 @@ final class Participant
      */
     public static function reconstitute(
         int $id,
-        int $userId,
+        ?int $userId,
         DisplayName $displayName,
         bool $isActive,
         DateTimeImmutable $registeredAt,
@@ -84,7 +90,7 @@ final class Participant
         return $this->id;
     }
 
-    public function userId(): int
+    public function userId(): ?int
     {
         return $this->userId;
     }

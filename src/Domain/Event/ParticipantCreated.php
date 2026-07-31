@@ -8,9 +8,14 @@ use DateTimeImmutable;
 
 final class ParticipantCreated extends DomainEvent
 {
+    /**
+     * @param int|null $userId the legacy `user` row, when there is one. Null for
+     *                         a participant the administrator entered directly:
+     *                         identity comes from Keycloak, and `user` predates it.
+     */
     public function __construct(
         private string $participantId,
-        private int $userId,
+        private ?int $userId,
         private string $displayName,
         private bool $autoApproved,
         ?string $eventId = null,
@@ -36,7 +41,7 @@ final class ParticipantCreated extends DomainEvent
         return 'participant.created';
     }
 
-    public function userId(): int
+    public function userId(): ?int
     {
         return $this->userId;
     }

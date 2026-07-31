@@ -421,7 +421,7 @@ final class PdoEventStore implements EventStoreInterface
             ),
             'participant.created' => new ParticipantCreated(
                 Row::string($eventData, 'participant_id'),
-                Row::int($eventData, 'user_id'),
+                Row::nullableInt($eventData, 'user_id'),
                 Row::string($eventData, 'display_name'),
                 Row::bool($eventData, 'auto_approved'),
                 $domainEventId,
