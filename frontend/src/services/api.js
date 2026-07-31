@@ -119,6 +119,16 @@ export default {
   },
 
   admin: {
+    // --- Participants (B-21) ---
+
+    getParticipants() {
+      return client.get('/admin/participants')
+    },
+
+    createParticipant(data, idempotencyKey) {
+      return client.post('/admin/participants', data, command(idempotencyKey))
+    },
+
     // --- Bet rows (B-06) ---
 
     assignBetRow(participantId, data, idempotencyKey) {

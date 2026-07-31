@@ -319,14 +319,23 @@
       <form @submit.prevent="addMember">
         <div class="field-row">
           <div class="field">
-            <label for="m-participant">Teilnehmer-ID</label>
-            <input
+            <label for="m-participant">Teilnehmer</label>
+            <select
               id="m-participant"
               v-model="newMember.participantId"
-              type="number"
-              min="1"
               required
             >
+              <option value="">
+                bitte wählen
+              </option>
+              <option
+                v-for="participant in participants"
+                :key="participant.participantId"
+                :value="participant.participantId"
+              >
+                {{ participant.displayName }} (#{{ participant.participantId }})
+              </option>
+            </select>
           </div>
           <div class="field">
             <label for="m-joined">Beitritt</label>
@@ -462,6 +471,7 @@ import { TIPP_YEAR_STATUSES, formatAmount, formatDate, statusLabel } from '@/sup
 
 const years = useQuery()
 const periods = useQuery()
+const people = useQuery()
 
 const createYear = useCommand()
 const createPeriod = useCommand()
@@ -473,6 +483,7 @@ const selectedId = ref(null)
 
 const tippYears = computed(() => years.data?.tippYears ?? [])
 const betPeriods = computed(() => periods.data?.betPeriods ?? [])
+const participants = computed(() => people.data?.participants ?? [])
 
 const newYear = reactive({ name: '', startDate: '', endDate: '', ticketCostPerRow: '' })
 const newPeriod = reactive({ name: '', startDate: '', endDate: '', sequence: '' })
@@ -596,7 +607,10 @@ async function distributePayout() {
   }
 }
 
-onMounted(loadYears)
+onMounted(() => {
+  loadYears()
+  people.load(() => api.admin.getParticipants())
+})
 </script>
 
 <style scoped>

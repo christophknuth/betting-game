@@ -9,6 +9,7 @@ use BettingGame\Application\Command\AssignBetRowHandler;
 use BettingGame\Application\Command\ChangeTippYearStatusCommand;
 use BettingGame\Application\Command\ChangeTippYearStatusHandler;
 use BettingGame\Application\Command\CreateBetPeriodHandler;
+use BettingGame\Application\Command\CreateParticipantHandler;
 use BettingGame\Application\Command\CreateTippYearHandler;
 use BettingGame\Application\Command\DistributePayoutHandler;
 use BettingGame\Application\Command\RecordDrawHandler;
@@ -21,6 +22,7 @@ use BettingGame\Application\Query\GetDrawsHandler;
 use BettingGame\Application\Query\GetFeesHandler;
 use BettingGame\Application\Query\GetMembershipsHandler;
 use BettingGame\Application\Query\GetParticipantFeesHandler;
+use BettingGame\Application\Query\GetParticipantsHandler;
 use BettingGame\Application\Query\GetPayoutShareHandler;
 use BettingGame\Application\Query\GetTippYearsHandler;
 use BettingGame\Application\Projection\ProjectionManager;
@@ -111,6 +113,11 @@ abstract class ApplicationTestCase extends IntegrationTestCase
         return new AddMemberHandler($this->tippYears, $this->participants);
     }
 
+    protected function createParticipant(): CreateParticipantHandler
+    {
+        return new CreateParticipantHandler($this->participants);
+    }
+
     protected function assignBetRow(): AssignBetRowHandler
     {
         return new AssignBetRowHandler($this->betRows, $this->betPeriods, $this->participants);
@@ -161,6 +168,11 @@ abstract class ApplicationTestCase extends IntegrationTestCase
     protected function getParticipantFees(): GetParticipantFeesHandler
     {
         return new GetParticipantFeesHandler($this->fees);
+    }
+
+    protected function getParticipants(): GetParticipantsHandler
+    {
+        return new GetParticipantsHandler($this->participants);
     }
 
     protected function getPayoutShare(): GetPayoutShareHandler

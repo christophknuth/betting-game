@@ -58,6 +58,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
+      path: '/admin/participants',
+      name: 'AdminParticipants',
+      component: () => import('@/views/AdminParticipantsView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
       path: '/admin/bet-rows',
       name: 'AdminBetRows',
       component: () => import('@/views/AdminBetRowsView.vue'),

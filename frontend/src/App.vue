@@ -31,6 +31,9 @@
             <router-link to="/admin/tipp-years">
               Tippjahre
             </router-link>
+            <router-link to="/admin/participants">
+              Teilnehmer
+            </router-link>
             <router-link to="/admin/bet-rows">
               Reihen
             </router-link>
