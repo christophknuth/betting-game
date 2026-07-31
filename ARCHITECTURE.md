@@ -1,168 +1,168 @@
-# Architektur
+# Architecture
 
-Wie die Anwendung aufgebaut ist und warum. Die Fachlichkeit steht in
-[USER_STORIES.md](USER_STORIES.md), die Arbeitsanleitung in [AGENTS.md](AGENTS.md).
+How the application is built, and why. The domain is in
+[USER_STORIES.md](USER_STORIES.md), the working guide in [AGENTS.md](AGENTS.md).
 
-Stand: Ausbaustufe Basis, vollständig implementiert — 18 fachliche Stories, 4 Betriebsstories,
-23 Routen.
+State: expansion stage base, fully implemented — 18 domain stories, 4 operations stories,
+23 routes.
 
 ---
 
-## 1. Onion Architecture
+## 1. Onion architecture
 
 ```
 ┌──────────────────────────────────────────────┐
-│ Presentation   Controller, Router, Kernel    │ → hängt an Application
+│ Presentation   controllers, router, kernel   │ → depends on Application
 ├──────────────────────────────────────────────┤
-│ Application    Commands, Queries, Projection │ → hängt an Domain
+│ Application    commands, queries, projection │ → depends on Domain
 ├──────────────────────────────────────────────┤
-│ Domain         Aggregate, VOs, Events        │ → hängt an nichts
+│ Domain         aggregates, VOs, events       │ → depends on nothing
 ├──────────────────────────────────────────────┤
-│ Infrastructure PDO, EventStore, Auth, Cache  │ → implementiert Domain-Interfaces
+│ Infrastructure PDO, event store, auth, cache │ → implements domain interfaces
 └──────────────────────────────────────────────┘
 ```
 
-`src/Domain/` importiert nichts außerhalb von `BettingGame\Domain` — kein PDO, kein HTTP,
-keine PSR-Pakete. Wer dort ein `use BettingGame\Infrastructure\…` schreibt, hat die
-Architektur gebrochen. Der praktische Nutzen ist nicht Austauschbarkeit im Prospekt, sondern
-dass die Domänenregeln ohne Datenbank testbar sind: `tests/Unit/Domain/` läuft ohne alles.
+`src/Domain/` imports nothing outside `BettingGame\Domain` — no PDO, no HTTP, no PSR
+packages. Anyone writing a `use BettingGame\Infrastructure\…` in there has broken the
+architecture. The practical benefit is not exchangeability on a brochure, but that the
+domain rules are testable without a database: `tests/Unit/Domain/` runs without anything.
 
-Die einzige Stelle, die alle Schichten kennt, ist
+The only place that knows all the layers is
 [Container.php](src/Infrastructure/DI/Container.php).
 
 ---
 
-## 2. Request-Fluss
+## 2. Request flow
 
 ```
-public/index.php          Globals → Request, Container bauen, Response senden
+public/index.php          globals → request, build the container, send the response
   └─ Kernel::handle()     src/Presentation/Http/Kernel.php
-       ├─ Router          FastRoute, Routentabelle in Presentation/Router/Router.php
-       ├─ AuthMiddleware  außer bei 'public' => true
-       ├─ Authorization   bei 'role' => 'admin'
-       ├─ command_log     bei 'command' => true
-       ├─ Controller      Input::* validiert, Command/Query-DTO, Handler
-       └─ ErrorMapper     Domain-Exception → HTTP-Status
+       ├─ Router          FastRoute, routing table in Presentation/Router/Router.php
+       ├─ AuthMiddleware  except where 'public' => true
+       ├─ Authorization   where 'role' => 'admin'
+       ├─ command_log     where 'command' => true
+       ├─ Controller      Input::* validates, command/query DTO, handler
+       └─ ErrorMapper     domain exception → HTTP status
 ```
 
-Der ganze Ablauf steht im [Kernel](src/Presentation/Http/Kernel.php), nicht in
-`index.php` und nicht in den Controllern. Das ist der Grund, warum
-[HttpTestCase](tests/Integration/Http/HttpTestCase.php) die komplette Kette ohne Webserver
-fahren kann. Neue Querschnittslogik gehört genau dorthin.
+The whole sequence lives in the [Kernel](src/Presentation/Http/Kernel.php), not in
+`index.php` and not in the controllers. That is why
+[HttpTestCase](tests/Integration/Http/HttpTestCase.php) can drive the complete chain without
+a web server. New cross-cutting logic belongs exactly there.
 
-### Routen-Flags
+### Route flags
 
-| Flag | Wirkung |
+| Flag | Effect |
 |---|---|
-| `'public' => true` | Keine Authentifizierung. **Nur** `/health` |
-| `'role' => 'admin'` | Kernel erzwingt die Admin-Rolle vor dem Controller |
-| `'command' => true` | Läuft unter Command-Log und Idempotency-Key |
-| (nichts) | Authentifiziert; die Eigentumsprüfung macht der Controller |
+| `'public' => true` | No authentication. **Only** `/health` |
+| `'role' => 'admin'` | The kernel enforces the admin role before the controller |
+| `'command' => true` | Runs under the command log and the idempotency key |
+| (nothing) | Authenticated; the ownership check is the controller's job |
 
-Eine Route ist **per Default authentifiziert**. Andersherum würde ein vergessenes Flag sie
-still öffentlich machen. Pfadparameter sind mit `{id:\d+}` eingeschränkt, damit eine
-vertippte URL `404` gibt statt `400` aus der Tiefe eines Handlers.
+A route is **authenticated by default**. The other way round, a forgotten flag would
+silently make it public. Path parameters are constrained with `{id:\d+}` so that a mistyped
+URL gives `404` instead of a `400` from the depths of a handler.
 
-### Zugriffsschutz
+### Access protection
 
-`Authorization::requireSelf()` vergleicht die `participantId` aus dem Pfad mit dem
-`participant_id`-Claim des Tokens. Die Identität kommt **aus dem Token**, sonst bestätigte
-die Prüfung nur sich selbst. Sie ist bewusst so streng, dass auch ein Admin nicht
-durchkommt — der hat eigene Endpunkte, sonst wären die Teilnehmerrouten eine zweite,
-leisere Admin-API.
+`Authorization::requireSelf()` compares the `participantId` from the path with the token's
+`participant_id` claim. Identity comes **from the token**, otherwise the check would only
+confirm itself. It is deliberately strict enough that an admin does not get through either —
+they have their own endpoints, otherwise the participant routes would be a second, quieter
+admin API.
 
-Die Prüfung läuft **vor** der Query. Andernfalls verriete ein `404` bereits, dass zu einem
-fremden Teilnehmer nichts existiert.
+The check runs **before** the query. Otherwise a `404` would already reveal that nothing
+exists for someone else's participant.
 
 ---
 
-## 3. Event Sourcing und CQRS
+## 3. Event sourcing and CQRS
 
-### Schreibweg
+### Write path
 
 ```
-Command-DTO
-  → Handler                lädt Aggregat über Repository-Interface
-    → Domänenmethode       setzt die Regel durch, recordEvent()
-      → Repository         transactionally(): Events + Projektion, ein COMMIT
+command DTO
+  → handler                loads the aggregate through a repository interface
+    → domain method        enforces the rule, recordEvent()
+      → repository         transactionally(): events + projection, one COMMIT
         → CommandResult    202 accepted
 ```
 
-Aggregate zeichnen ihre Events über das Trait
-[RecordsEvents](src/Domain/Model/RecordsEvents.php) auf. Das Speichern läuft über
-[EventSourcedRepository](src/Infrastructure/Persistence/EventSourcedRepository.php), die
-gemeinsame `abstract`-Basis aller Repositories — eine der wenigen Vererbungen im Projekt.
+Aggregates record their events through the trait
+[RecordsEvents](src/Domain/Model/RecordsEvents.php). Saving goes through
+[EventSourcedRepository](src/Infrastructure/Persistence/EventSourcedRepository.php), the
+shared `abstract` base of all repositories — one of the few inheritances in the project.
 
-### Leseweg
+### Read path
 
-Query-Handler lesen direkt die Projektionstabellen. Keine Events, keine Rekonstruktion,
-keine Joins über den Event Store. Deshalb bleibt eine Leseabfrage ein einfaches `SELECT`,
-auch wenn das Aggregat dahinter 200 Events hat.
+Query handlers read the projection tables directly. No events, no reconstruction, no joins
+across the event store. That is why a read query stays a simple `SELECT`, even when the
+aggregate behind it has 200 events.
 
-### Die zwei Wege zu denselben Zeilen
+### The two paths to the same rows
 
-Repositories schreiben ihre Projektion **synchron** beim Speichern — ein `load()` direkt
-danach muss die Zeile sehen. Die sieben Projektoren in `src/Infrastructure/Projection/`
-sind der *zweite* Weg: sie spielen das Event-Log nach, angestoßen über
+Repositories write their projection **synchronously** while saving — a `load()` right
+afterwards has to see the row. The seven projectors in `src/Infrastructure/Projection/`
+are the *second* path: they replay the event log, triggered through
 `POST /admin/projections/{name}/rebuild`.
 
-Zwei Wege zu denselben Tabellen driften auseinander, wenn niemand nachsieht. Deshalb spielt
-[ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) ein ganzes
-Tippjahr durch die Command-Handler, fotografiert alle 13 Read-Model-Tabellen, baut aus dem
-Event Store neu auf und vergleicht zeilenweise. Einzige zugelassene Abweichung:
-`ticket_row_match.calculated_at` — das hält fest, *wann* gerechnet wurde.
+Two paths to the same tables drift apart when nobody looks. That is why
+[ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) plays a
+whole tipp year through the command handlers, photographs all 13 read-model tables, rebuilds
+from the event store and compares row by row. The only deviation allowed:
+`ticket_row_match.calculated_at` — that records *when* the calculation happened.
 
-**Wer eine Projektion ändert, ändert beide Seiten.**
+**Whoever changes a projection changes both sides.**
 
-### Optimistic Locking
+### Optimistic locking
 
-Der Event Store schreibt mit erwarteter Streamversion. Stimmt sie nicht, wirft er
-`ConcurrencyException` → `409`. Der Verlierer wiederholt; dank Idempotency-Key ist das
-gefahrlos.
+The event store writes with an expected stream version. If it does not match, it throws
+`ConcurrencyException` → `409`. The loser retries; thanks to the idempotency key that is
+harmless.
 
-IDs vergibt `nextId()` als `MAX(id) + 1`. Bei Nebenläufigkeit entscheidet der Unique Key
-auf der Zieltabelle, nicht eine Prüfung im Code.
+IDs are handed out by `nextId()` as `MAX(id) + 1`. Under concurrency the unique key on the
+target table decides, not a check in code.
 
-### Ehrlich zur Asynchronität
+### Honest about asynchrony
 
-Die OpenAPI-Spezifikation beschreibt Commands als asynchron (`202 accepted`). Diese
-Implementierung schreibt synchron: wenn der Aufrufer die `202` hat, ist der Command bereits
-`completed` und `projectionsUpToDate` immer `true`. Der Statusendpunkt bleibt trotzdem
-sinnvoll — dort schlägt ein Retry nach, was der erste Versuch erzeugt hat.
+The OpenAPI specification describes commands as asynchronous (`202 accepted`). This
+implementation writes synchronously: by the time the caller holds the `202` the command is
+already `completed` and `projectionsUpToDate` is always `true`. The status endpoint remains
+useful nonetheless — that is where a retry looks up what the first attempt produced.
 
 ---
 
-## 4. Klassenlandkarte
+## 4. Class map
 
-155 Dateien unter `src/`, eine Klasse pro Datei, PSR-4 1:1 zur Namespace-Struktur.
-Namespace-Wurzel ist historisch `BettingGame\`, trotz Lotto-Domäne.
+155 files under `src/`, one class per file, PSR-4 mapping 1:1 onto the namespace structure.
+The namespace root is historically `BettingGame\`, despite the lotto domain.
 
 ### Domain (`src/Domain/`)
 
-| Verzeichnis | Inhalt |
+| Directory | Contents |
 |---|---|
-| `Model/` | 7 Aggregate — `TippYear`, `BetPeriod`, `BetRow`, `Ticket`, `Draw`, `Fee`, `Participant` — plus das Trait `RecordsEvents` |
+| `Model/` | 7 aggregates — `TippYear`, `BetPeriod`, `BetRow`, `Ticket`, `Draw`, `Fee`, `Participant` — plus the trait `RecordsEvents` |
 | `ValueObject/` | `LottoNumbers`, `Superzahl`, `DateRange`, `EvenSplit`, `WinningClass`, `TippYearStatus`, `ParticipantId`, `Email`, `DisplayName` |
-| `Event/` | `DomainEvent` + 14 konkrete Events |
-| `Repository/` | 10 Interfaces + `RecordedEvent` |
+| `Event/` | `DomainEvent` + 14 concrete events |
+| `Repository/` | 10 interfaces + `RecordedEvent` |
 | `Service/` | `WinningsDistribution` |
-| `Exception/` | 7 Klassen unter `DomainException` |
+| `Exception/` | 7 classes under `DomainException` |
 
-**Value Objects sind immutable und validieren im Konstruktor.** `LottoNumbers` nimmt genau
-sechs verschiedene Zahlen aus 1–49 und speichert sie aufsteigend; `Superzahl` 0–9. Ein
-Aggregat kann damit gar nicht erst in einen ungültigen Zustand geraten.
+**Value objects are immutable and validate in the constructor.** `LottoNumbers` takes
+exactly six distinct numbers from 1–49 and stores them ascending; `Superzahl` 0–9. An
+aggregate therefore cannot even get into an invalid state.
 
-`EvenSplit` teilt Geldbeträge **in ganzen Cent** und legt den Rest auf den ersten Anteil.
-In Fließkomma zu teilen und je Anteil zu runden erzeugt oder vernichtet Geld: 100,00 € auf
-drei ergibt dreimal 33,33 € und ein Cent verschwindet. Betrifft die Jahresausschüttung
-(B-13) und die Verteilung eines Scheingewinns auf die Reihen (B-09).
+`EvenSplit` divides monetary amounts **in whole cents** and puts the remainder onto the
+first share. Dividing in floating point and rounding per share creates or destroys money:
+€100.00 across three gives three times €33.33 and one cent disappears. This affects the
+yearly distribution (B-13) and the split of a ticket's winnings across the rows (B-09).
 
-`WinningsDistribution` liegt im **Domain-Service**, weil zwei Aufrufer dieselbe Rechnung
-brauchen: der Command-Handler beim Eintragen der Gewinne und der `DrawProjector` beim
-Neuaufbau. `ticket_row_match` steht in keinem Event — der Projektor muss die Zeilen neu
-rechnen, und zwar mit derselben Logik.
+`WinningsDistribution` lives in the **domain service**, because two callers need the same
+calculation: the command handler when recording the winnings, and the `DrawProjector` on a
+rebuild. `ticket_row_match` appears in no event — the projector has to recompute the rows,
+and with the same logic.
 
-### Exception-Hierarchie
+### Exception hierarchy
 
 ```
 DomainException
@@ -174,22 +174,22 @@ DomainException
 └── UnauthorizedAccessException       → 403
 ```
 
-`DuplicateEntryException` gibt es, weil Regeln wie „eine Reihe pro Teilnehmer und Periode"
-im Schema stehen, nicht im Code. Ohne sie müsste die Application-Schicht `PDOException`
-fangen und SQLSTATE lesen, um zu erkennen, dass eine *Fachregel* abgelehnt hat.
+`DuplicateEntryException` exists because rules such as "one row per participant and period"
+live in the schema, not in code. Without it the application layer would have to catch a
+`PDOException` and read SQLSTATE to recognise that a *domain rule* said no.
 
 ### Application (`src/Application/`)
 
-| Verzeichnis | Inhalt |
+| Directory | Contents |
 |---|---|
-| `Command/` | 9 Commands + Handler, `CommandResult` |
-| `Query/` | 10 Queries + Handler, `QueryResult` |
+| `Command/` | 9 commands + handlers, `CommandResult` |
+| `Query/` | 10 queries + handlers, `QueryResult` |
 | `Projection/` | `ProjectionManager`, `Projector`, `ProjectionStatus` |
 
-Handler kennen kein HTTP: sie nehmen ein DTO, arbeiten über Repository-Interfaces und
-werfen Domänen-Ausnahmen.
+Handlers know nothing about HTTP: they take a DTO, work through repository interfaces and
+throw domain exceptions.
 
-| Story | Command-Handler | Query-Handler |
+| Story | Command handler | Query handler |
 |---|---|---|
 | B-01 … B-04 | — | `GetBetRow`, `GetMemberships`, `GetParticipantFees`, `GetPayoutShare` |
 | B-05 | — | `GetDraws` |
@@ -202,20 +202,20 @@ werfen Domänen-Ausnahmen.
 
 ### Infrastructure (`src/Infrastructure/`)
 
-| Verzeichnis | Inhalt |
+| Directory | Contents |
 |---|---|
 | `Auth/` | `TokenVerifier`, `JwkSet`, `KeycloakKeys`, `StaticKeys`, `KeycloakService`, `AuthMiddleware`, `CurlFetcher` |
 | `Cache/` | `FileCache`, `RedisCache` (PSR-16) |
-| `Config/` | `Config` — typisierter Zugriff auf das Config-Array |
+| `Config/` | `Config` — typed access to the config array |
 | `DI/` | `Container` (PHP-DI), `PsrContainer` (PSR-11) |
 | `EventStore/` | `PdoEventStore` |
-| `Persistence/` | `Db` + 9 Repositories, `EventSourcedRepository` als Basis |
-| `Projection/` | 7 Projektoren, einer je Read Model |
+| `Persistence/` | `Db` + 9 repositories, `EventSourcedRepository` as the base |
+| `Projection/` | 7 projectors, one per read model |
 | `Logging/` | `LoggerFactory` (Monolog, PSR-3) |
 
-Welches Aggregat welche Projektionen schreibt:
+Which aggregate writes which projections:
 
-| Aggregat | Repository | Projektionen |
+| Aggregate | Repository | Projections |
 |---|---|---|
 | `TippYear` | `TippYearRepository` | `tipp_year`, `membership`, `payout`, `payout_share` |
 | `BetPeriod` | `BetPeriodRepository` | `bet_period` |
@@ -225,110 +225,105 @@ Welches Aggregat welche Projektionen schreibt:
 | `Fee` | `FeeRepository` | `fee` |
 | `Participant` | `ParticipantRepository` | `participant` |
 
-**Zwei Entscheidungen, die man beim Lesen sonst übersieht:**
+**Two decisions that are easy to miss while reading:**
 
-Ein neues Aggregat wird mit einem reinen `INSERT` geschrieben, ein geladenes mit `UPDATE` —
-kein `ON DUPLICATE KEY UPDATE`. Das trifft *jeden* Unique Key und würde bei einer zweiten
-Tippreihe für dieselbe Periode die vorhandene stillschweigend überschreiben, statt den
-`409` auszulösen, den B-06 verlangt.
+A new aggregate is written with a plain `INSERT`, a loaded one with an `UPDATE` — no
+`ON DUPLICATE KEY UPDATE`. That would hit *every* unique key and, on a second bet row for
+the same period, would silently overwrite the existing one instead of raising the `409`
+that B-06 requires.
 
-Append und Projektionsschreiben laufen in **einer** Transaktion. Sonst bliebe nach einer
-vom Unique Key abgelehnten Reihe ein `bet_row.assigned`-Event im Store stehen, das keine
-Zeile beschreibt.
+Appending and writing the projection run in **one** transaction. Otherwise a row rejected by
+the unique key would leave a `bet_row.assigned` event in the store that describes no row.
 
 ### Presentation (`src/Presentation/`)
 
-| Verzeichnis | Inhalt |
+| Directory | Contents |
 |---|---|
-| `Controller/` | 9 Controller |
+| `Controller/` | 9 controllers |
 | `Http/` | `Kernel`, `Request`, `JsonResponse`, `Input`, `Authorization`, `ErrorMapper`, `InvalidInputException` |
 | `Router/` | `Router` (FastRoute) |
 
 ### Support (`src/Support/`)
 
-`Row` — typisierter Zugriff auf eine Datenbankzeile. Zusammen mit `Http\Input` (für
-Request-Bodies) ist das der Grund, warum PHPStan Level 10 ohne Casts durchgeht: `mixed` aus
-externen Quellen wird an genau zwei Stellen geprüft statt überall geraten.
+`Row` — typed access to a database row. Together with `Http\Input` (for request bodies) it
+is the reason PHPStan level 10 passes without casts: `mixed` from external sources is
+checked in exactly two places instead of guessed everywhere.
 
 ---
 
-## 5. Betrieb
+## 5. Operations
 
-| Story | Umsetzung |
+| Story | Implementation |
 |---|---|
-| OPS-01 | `GET /commands/{commandId}` — Verarbeitungsstand aus `command_log` |
-| OPS-02 | Header `Idempotency-Key` auf allen Command-Routen |
-| OPS-03 | `GET /admin/audit/{type}/{id}` — Event-Historie eines Aggregats |
+| OPS-01 | `GET /commands/{commandId}` — processing state out of `command_log` |
+| OPS-02 | The `Idempotency-Key` header on all command routes |
+| OPS-03 | `GET /admin/audit/{type}/{id}` — event history of an aggregate |
 | OPS-04 | `GET /admin/projections`, `POST /admin/projections/{name}/rebuild` |
 
-**Der Idempotency-Key wird beansprucht, *bevor* der Command läuft.** Erst prüfen und dann
-ausführen ließe ein Fenster, in dem zwei parallele Wiederholungen beide durchkommen — genau
-die Doppelbuchung, gegen die der Schlüssel existiert. Der Unique Key auf der Spalte
-entscheidet das Rennen. Ein Retry liefert die gespeicherte Antwort mit ihrem ursprünglichen
-Statuscode und dem Header `Idempotent-Replay: true`.
+**The idempotency key is claimed *before* the command runs.** Checking first and executing
+afterwards would leave a window in which two parallel retries both get through — exactly the
+double booking the key exists to prevent. The unique key on the column decides the race. A
+retry returns the stored response with its original status code and the header
+`Idempotent-Replay: true`.
 
-Die `commandId` der Antwort ist der Primärschlüssel im `command_log`: der Handler erzeugt
-eine eigene, der Kernel überschreibt sie mit der protokollierten, damit
-`GET /commands/{id}` sie auch findet.
+The response's `commandId` is the primary key in `command_log`: the handler creates one of
+its own, and the kernel overwrites it with the logged one so that `GET /commands/{id}`
+actually finds it.
 
-**Ein Neuaufbau ist kein Command.** `POST /admin/projections/{name}/rebuild` ist bewusst
-*nicht* mit `'command' => true` markiert — er ändert keinen Domänenzustand und gehört nicht
-in die Command-Historie.
+**A rebuild is not a command.** `POST /admin/projections/{name}/rebuild` is deliberately
+*not* marked `'command' => true` — it changes no domain state and does not belong in the
+command history.
 
-**Ein Neuaufbau zieht nach unten durch.** Die Read Models hängen über
-`ON DELETE CASCADE` zusammen: `participant` zu leeren leert auch `membership`, `bet_row`
-und `fee`. Ein Rebuild baut die abhängigen Projektionen deshalb mit auf — sonst blieben sie
-leer und niemand merkte es. Die Antwort listet alle tatsächlich neu aufgebauten.
+**A rebuild reaches downwards.** The read models hang together through
+`ON DELETE CASCADE`: emptying `participant` also empties `membership`, `bet_row` and `fee`.
+A rebuild therefore rebuilds the dependent projections along with it — otherwise they would
+stay empty and nobody would notice. The response lists everything that was actually rebuilt.
 
 ---
 
-## 6. Authentifizierung
+## 6. Authentication
 
-Die Identität kommt aus dem Token — also hängt jede Regel oben daran, dass das Token
-wirklich von Keycloak stammt. Geprüft wird in dieser Reihenfolge:
+Identity comes from the token — so every rule above hangs on the token really coming from
+Keycloak. Verification happens in this order:
 
-| Prüfung | Wogegen |
+| Check | Against what |
 |---|---|
-| `alg` gegen eine Allowlist | `alg: none`; HS256 mit dem öffentlichen Schlüssel als „Secret" |
-| Signatur gegen den Public Key aus dem JWKS | gefälschte und nachträglich geänderte Tokens |
-| `exp`, `nbf`, `iat` (mit Leeway) | abgelaufene Tokens, Uhrendrift |
-| `iss` exakt | ein gültig signiertes Token des falschen Realms |
-| `aud`, wenn konfiguriert | ein Token für einen anderen Client |
+| `alg` against an allowlist | `alg: none`; HS256 with the public key as the "secret" |
+| Signature against the public key from the JWKS | forged and subsequently altered tokens |
+| `exp`, `nbf`, `iat` (with leeway) | expired tokens, clock drift |
+| `iss` verbatim | a validly signed token from the wrong realm |
+| `aud`, where configured | a token for a different client |
 
-Die Allowlist **kann nur asymmetrische Verfahren enthalten** — der Konstruktor lehnt alles
-andere ab. Beide klassischen Fälschungen scheitern damit an derselben Stelle, und ein
-`HS256` in der Konfiguration fällt beim Start auf statt auf dem Request, der damit
-gefälscht worden wäre.
+The allowlist **can only contain asymmetric algorithms** — the constructor rejects anything
+else. Both classic forgeries therefore fail at the same place, and an `HS256` in the
+configuration shows up at startup rather than on the request that would have been forged
+with it.
 
-Der Schlüssel kommt **immer aus dem Key Set, nie aus dem Token**. Eine unbekannte `kid`
-löst genau einen gedrosselten Refetch aus. Nicht erreichbares Keycloak ist **503, nicht
-401**. Ein zuletzt bekanntes Key Set überlebt einen Ausfall — Signaturschlüssel rotieren im
-Monatsrhythmus, Tokens laufen binnen einer Stunde ab.
+The key always comes **from the key set, never from the token**. An unknown `kid` triggers
+exactly one throttled refetch. An unreachable Keycloak is **503, not 401**. A last-known key
+set survives an outage — signing keys rotate monthly, tokens expire within an hour.
 
-Details und Konfiguration: [KEYCLOAK.md](KEYCLOAK.md).
+Details and configuration: [KEYCLOAK.md](KEYCLOAK.md).
 
 ---
 
 ## 7. Tests
 
-| Suite | Dateien | Testmethoden | Voraussetzung |
+| Suite | Files | Test methods | Prerequisite |
 |---|---|---|---|
-| `tests/Unit` | 19 | 181 | keine |
+| `tests/Unit` | 19 | 181 | none |
 | `tests/Integration` | 16 | 157 | MariaDB |
 
-- Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist
-  (`IntegrationTestCase::setUpBeforeClass()`). „Alle Tests grün" ohne laufende Datenbank
-  heißt deshalb nicht, dass die Persistenz geprüft wurde.
-- Repositories werden **nicht** gegen eine gemockte PDO getestet. Sie sind fast vollständig
-  SQL — Unique Keys, Joins, Upserts; ein Mock würde nur bestätigen, dass wir die Strings
-  geschrieben haben, die wir geschrieben haben.
-- Auch Handler laufen mit **echten** Repositories: welche Zeilen eine Query liefert, welcher
-  Unique Key greift und ob eine Projektion konsistent endet, kann nur eine Datenbank
-  beantworten.
-- `HttpTestCase` / `ApplicationTestCase` fahren die volle Kette Kernel → Controller →
-  Handler → Repository.
-- `tests/Support/SigningKey.php` erzeugt Tokens für die Auth-Tests — keine echte Keycloak
-  nötig.
+- Integration tests **skip themselves** when no database is reachable
+  (`IntegrationTestCase::setUpBeforeClass()`). "All tests green" without a running database
+  therefore does not mean persistence was checked.
+- Repositories are **not** tested against a mocked PDO. They are almost entirely SQL —
+  unique keys, joins, upserts; a mock would only confirm that we wrote the strings we wrote.
+- Handlers, too, run with **real** repositories: which rows a query returns, which unique key
+  bites and whether a projection ends up consistent can only be answered by a database.
+- `HttpTestCase` / `ApplicationTestCase` drive the full chain kernel → controller →
+  handler → repository.
+- `tests/Support/SigningKey.php` creates tokens for the auth tests — no real Keycloak needed.
 
 ```bash
 make test-db-start && make test-integration && make test-db-stop
@@ -336,54 +331,54 @@ make test-db-start && make test-integration && make test-db-stop
 
 ---
 
-## 8. Codequalität
+## 8. Code quality
 
-- **PHPStan Level 10** auf `src`, `treatPhpDocTypesAsCertain: false`, fehlerfrei.
-  `array<string, mixed>` aus externen Quellen wird explizit geprüft (`is_int`, `is_string`,
-  `assert(… instanceof …)`), nie blind gecastet. Kein `@phpstan-ignore` ohne Not.
-- **PSR-12**, geprüft über `phpcs` auf `src tests public config`.
-- `declare(strict_types=1);` in jeder Datei unter `src/` und `tests/`.
-- `final` als Standard; `EventSourcedRepository` ist eine der wenigen `abstract`-Basen.
-- Kommentare erklären **warum**, nicht was. Klassen-Docblocks nennen die Story-ID.
+- **PHPStan level 10** on `src`, `treatPhpDocTypesAsCertain: false`, clean.
+  `array<string, mixed>` from external sources is checked explicitly (`is_int`, `is_string`,
+  `assert(… instanceof …)`), never blindly cast. No `@phpstan-ignore` without need.
+- **PSR-12**, checked through `phpcs` on `src tests public config`.
+- `declare(strict_types=1);` in every file under `src/` and `tests/`.
+- `final` by default; `EventSourcedRepository` is one of the few `abstract` bases.
+- Comments explain **why**, not what. Class docblocks name the story ID.
 
 ---
 
-## 9. Offene Punkte
+## 9. Open points
 
-**Fachlich**
+**Domain**
 
-- **Die HTTP-Oberfläche der Basis ist vollständig.** Der Lebenszyklus des Tippjahres läuft
-  seit B-18 über `PUT /admin/tipp-years/{id}/status`, Teilnehmer entstehen seit B-21 über
-  `POST /admin/participants`. Ein Durchstich braucht damit kein `INSERT` von Hand mehr.
-  **Selbst**registrierung bleibt E1-01.
-- E1 (Selbstverwaltung) und E2 (Sportwetten) sind spezifiziert, aber nicht implementiert.
-  Die E2-Artefakte liegen als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml)
-  und [database/schema-e2-sports.sql](database/schema-e2-sports.sql) bereit.
-- Das [frontend/](frontend/) bedient die Basisversion vollständig und hat automatisierte
-  Tests: Vitest für Composables, Stores und den Router-Guard, Playwright für den Durchstich
-  gegen den laufenden Stack — siehe [FRONTEND.md](FRONTEND.md).
+- **The HTTP surface of the base version is complete.** The tipp year's lifecycle has run
+  through `PUT /admin/tipp-years/{id}/status` since B-18, participants come into being
+  through `POST /admin/participants` since B-21. A walkthrough therefore no longer needs a
+  hand-written `INSERT`. **Self**-registration remains E1-01.
+- E1 (self-service) and E2 (sports betting) are specified but not implemented.
+  The E2 artefacts are ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml)
+  and [database/schema-e2-sports.sql](database/schema-e2-sports.sql).
+- The [frontend/](frontend/) serves the base version completely and has automated tests:
+  Vitest for composables, stores and the router guard, Playwright for the pass against the
+  running stack — see [FRONTEND.md](FRONTEND.md).
 
-**Technisch**
+**Technical**
 
-- **Cache:** PSR-16 ist implementiert und wird produktiv nur von `KeycloakKeys` genutzt
-  (JWKS-Cache). Read Models werden nicht gecacht.
-- **Logging:** PSR-3 ist verdrahtet, aber nur `AuthMiddleware` schreibt. Command- und
-  Query-Handler loggen nicht.
-- **`event_publisher`** existiert als Outbox-Tabelle; es gibt keinen Publisher, der sie
-  leert. Ereignisse verlassen das System nicht.
-- **`snapshot`** existiert; es wird kein Snapshot geschrieben oder gelesen. Bei den
-  aktuellen Streamlängen ist das kein Problem.
-- Die Tabelle `user` stammt aus der Zeit vor Keycloak und wird von keinem Projektor mehr
-  beschrieben. Über B-21 angelegte Teilnehmer lassen `participant.user_id` deshalb `NULL`
-  — die Spalte war im Schema von jeher nullable („guest participants have no account"),
-  nur das Aggregat verlangte bis dahin einen Wert.
-- Kein Rate Limiting, keine Metriken, kein Tracing.
+- **Cache:** PSR-16 is implemented and in production is used only by `KeycloakKeys`
+  (the JWKS cache). Read models are not cached.
+- **Logging:** PSR-3 is wired up, but only `AuthMiddleware` writes. Command and query
+  handlers do not log.
+- **`event_publisher`** exists as an outbox table; there is no publisher draining it.
+  Events do not leave the system.
+- **`snapshot`** exists; no snapshot is written or read. At the current stream lengths that
+  is not a problem.
+- The `user` table dates from before Keycloak and is no longer written by any projector.
+  Participants created through B-21 therefore leave `participant.user_id` as `NULL` — the
+  column was nullable in the schema all along ("guest participants have no account"), only
+  the aggregate demanded a value until then.
+- No rate limiting, no metrics, no tracing.
 
-**Bewusst nicht getan**
+**Deliberately not done**
 
-- Kein Framework. Die Kosten wären Autoload- und Bootstrap-Overhead für Bausteine, die hier
-  aus je einer Klasse bestehen.
-- Keine PSR-7/PSR-15-Umstellung. `Request`/`JsonResponse` sind klein und tun, was sie
-  sollen; sinnvoll wäre der Wechsel nur zusammen, siehe [PSR.md](PSR.md).
-- Keine gemessenen Performance-Zahlen. Es gibt kein Benchmark-Setup im Repository, und
-  geschätzte Zahlen in einer Architekturdoku sind schlimmer als keine.
+- No framework. The cost would be autoload and bootstrap overhead for building blocks that
+  here consist of one class each.
+- No move to PSR-7/PSR-15. `Request`/`JsonResponse` are small and do what they should; the
+  switch would only make sense as a pair, see [PSR.md](PSR.md).
+- No measured performance figures. There is no benchmark setup in the repository, and
+  estimated numbers in an architecture document are worse than none.

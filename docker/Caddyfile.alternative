@@ -1,5 +1,5 @@
 # Alternative Caddyfile mit expliziter Konfiguration
-# Verwende diese, falls die Standard-Caddyfile nicht funktioniert
+# Use this one if the default Caddyfile does not work
 
 {
     admin off

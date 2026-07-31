@@ -1,9 +1,9 @@
-# Schnelleinstieg
+# Quick start
 
-Vom leeren Repository zu einem durchgespielten Tippjahr. Fachlicher Hintergrund:
-[USER_STORIES.md](USER_STORIES.md), Architektur: [ARCHITECTURE.md](ARCHITECTURE.md).
+From an empty repository to a tipp year played through. Domain background:
+[USER_STORIES.md](USER_STORIES.md), architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## 1. Stack starten
+## 1. Start the stack
 
 ```bash
 docker-compose up -d
@@ -11,28 +11,28 @@ docker-compose exec php composer install
 curl http://localhost:8080/health          # {"status":"healthy","timestamp":"..."}
 ```
 
-| Dienst | URL | Zugang |
+| Service | URL | Access |
 |---|---|---|
-| API (Caddy) | http://localhost:8080 | Bearer-Token |
+| API (Caddy) | http://localhost:8080 | bearer token |
 | PHPMyAdmin | http://localhost:8081 | root / secret |
-| Keycloak | http://localhost:8090 | Admin Console `/admin`, admin / admin |
+| Keycloak | http://localhost:8090 | admin console `/admin`, admin / admin |
 | MariaDB | localhost:3306 | root / secret, DB `betting_game` |
 
-Keycloak braucht beim ersten Start 30–60 Sekunden für den Realm-Import:
-`docker-compose logs -f keycloak`, warten auf `Keycloak 26.7.x started`.
+On its first start Keycloak needs 30–60 seconds for the realm import:
+`docker-compose logs -f keycloak`, wait for `Keycloak 26.7.x started`.
 
-Das Schema wird beim ersten Start der Datenbank automatisch aus
-[database/schema.sql](database/schema.sql) geladen. Neu einspielen: `make db-reset`.
+The schema is loaded automatically from [database/schema.sql](database/schema.sql) on the
+database's first start. To load it again: `make db-reset`.
 
-> Dieser Durchstich läuft bewusst über `curl`. Dieselben Schritte gibt es auch als
-> Oberfläche im Container `frontend` auf Port 3000 ([FRONTEND.md](FRONTEND.md)); wer sie
-> nicht braucht, hält ihn an: `docker-compose stop frontend`.
+> This walkthrough deliberately goes through `curl`. The same steps also exist as a user
+> interface in the `frontend` container on port 3000 ([FRONTEND.md](FRONTEND.md)); if you
+> do not need it, stop it: `docker-compose stop frontend`.
 
-## 2. Token holen
+## 2. Get a token
 
-Die Demo-Benutzer stehen in [keycloak/realm-export.json](keycloak/realm-export.json):
+The demo users are listed in [keycloak/realm-export.json](keycloak/realm-export.json):
 
-| Username | Passwort | Rollen | `participant_id` |
+| Username | Password | Roles | `participant_id` |
 |---|---|---|---|
 | `admin` | `admin123` | user, admin | 1 |
 | `testuser` | `test123` | user | 2 |
@@ -49,10 +49,10 @@ ADMIN=$(token admin admin123)
 USER=$(token testuser test123)
 ```
 
-Ohne gültiges Token antwortet jede Route außer `/health` mit `401`. Ist Keycloak nicht
-erreichbar, kommt **503** — ein Schlüsselproblem ist kein ungültiges Token.
+Without a valid token every route except `/health` answers `401`. If Keycloak is
+unreachable the answer is **503** — a key problem is not an invalid token.
 
-## 3. Teilnehmer anlegen (B-21)
+## 3. Create participants (B-21)
 
 ```bash
 api() { curl -s -X "$1" "http://localhost:8080$2" \
@@ -65,28 +65,28 @@ api POST /admin/participants '{"displayName":"Test User"}'
 curl -s http://localhost:8080/admin/participants -H "Authorization: Bearer $ADMIN"
 ```
 
-Die vergebenen IDs stehen jeweils als `resourceId` in der Antwort. **Damit jemand seine
-eigenen Daten sieht, muss dieselbe ID im Realm als `participant_id`-Attribut des Benutzers
-stehen** — die Demo-Benutzer aus Schritt 2 tragen 1, 2 und 3, deshalb passt die Reihenfolge
-oben zu `admin` und `testuser`.
+The IDs handed out come back as `resourceId` in each response. **For someone to see their
+own data, that same ID has to be stored in the realm as the user's `participant_id`
+attribute** — the demo users from step 2 carry 1, 2 and 3, which is why the order above
+matches `admin` and `testuser`.
 
-Verknüpft wird **kein** Benutzerkonto: Die Identität kommt aus dem Token, und die Tabelle
-`user` stammt aus der Zeit davor. Eine Selbstregistrierung ist E1-01.
+**No** user account is linked: identity comes from the token, and the `user` table dates
+from before that. Self-registration is E1-01.
 
-> Bis B-21 stand hier ein `INSERT` von Hand, mit dem Hinweis, dass solche Zeilen in keinem
-> Event stehen und beim nächsten `POST /admin/projections/participant_read_model/rebuild`
-> verschwinden. Über den Command angelegte Teilnehmer überstehen einen Neuaufbau.
-> Für die E2E-Tests, die keine Admin-Route benutzen wollen, liegt der alte Weg noch als
-> [`database/seed-demo-participants.sql`](database/seed-demo-participants.sql) bereit.
+> Until B-21 there was a hand-written `INSERT` here, with the note that such rows appear in
+> no event and vanish on the next `POST /admin/projections/participant_read_model/rebuild`.
+> Participants created through the command survive a rebuild.
+> For the E2E tests, which would rather not use an admin route, the old way is still
+> available as [`database/seed-demo-participants.sql`](database/seed-demo-participants.sql).
 
-## 4. Ein Tippjahr aufsetzen
+## 4. Set up a tipp year
 
-Jeder Command trägt einen `Idempotency-Key`, jeder antwortet mit `202` und einer
+Every command carries an `Idempotency-Key`, every one answers with `202` and a
 `resourceId`.
 
-Ab hier weiter mit dem `api()`-Helper aus Schritt 3.
+From here on use the `api()` helper from step 3.
 
-**B-10 — Tippjahr anlegen**
+**B-10 — create the tipp year**
 
 ```bash
 api POST /admin/tipp-years \
@@ -97,80 +97,79 @@ api POST /admin/tipp-years \
 {"commandId":"8f14e45f-…","status":"accepted","resourceId":1,"timestamp":"…"}
 ```
 
-**B-14 — Tippperioden festlegen.** Sie müssen im Tippjahr liegen und dürfen sich nicht
-überlappen. Eine einzige Periode über das ganze Jahr ergibt „eine Reihe pro Jahr".
+**B-14 — define the bet periods.** They have to lie inside the tipp year and must not
+overlap. A single period spanning the whole year yields "one row per year".
 
 ```bash
 api POST /admin/tipp-years/1/bet-periods '{"name":"Q1 2026","startDate":"2026-01-01","endDate":"2026-03-31"}'
 api POST /admin/tipp-years/1/bet-periods '{"name":"Q2 2026","startDate":"2026-04-01","endDate":"2026-06-30"}'
 ```
 
-**B-11 — Teilnehmer aufnehmen**
+**B-11 — add the participants**
 
 ```bash
 api POST /admin/tipp-years/1/members '{"participantId":1}'
 api POST /admin/tipp-years/1/members '{"participantId":2}'
 ```
 
-**B-06 — Tippreihen zuordnen.** Sechs verschiedene Zahlen aus 1–49; gespeichert wird
-aufsteigend.
+**B-06 — assign the bet rows.** Six distinct numbers from 1–49; stored ascending.
 
 ```bash
 api PUT /admin/participants/1/bet-row '{"betPeriodId":1,"numbers":[3,12,19,27,33,45]}'
 api PUT /admin/participants/2/bet-row '{"betPeriodId":1,"numbers":[7,8,9,10,11,12]}'
 ```
 
-Ein zweiter Versuch für dieselbe Periode wird mit `409` abgelehnt — durchgesetzt vom Unique
-Key, nicht von einer Prüfung im Code. Eine Korrektur innerhalb der laufenden Periode
-verlangt einen ausdrücklichen Grund:
+A second attempt for the same period is rejected with `409` — enforced by the unique key,
+not by a check in code. A correction within the running period requires an explicit
+reason:
 
 ```bash
 api PUT /admin/participants/2/bet-row \
-  '{"betPeriodId":1,"numbers":[1,2,3,4,5,6],"replaceReason":"falsche Reihe übertragen"}'
+  '{"betPeriodId":1,"numbers":[1,2,3,4,5,6],"replaceReason":"wrong row transcribed"}'
 ```
 
-## 5. Tippjahr starten (B-18)
+## 5. Start the tipp year (B-18)
 
-Ein Tippschein wird nur angenommen, solange das Tippjahr `running` ist:
+A ticket is only accepted while the tipp year is `running`:
 
 ```bash
 api PUT /admin/tipp-years/1/status '{"status":"running"}'
 ```
 
-**Höchstens ein Tippjahr läuft gleichzeitig** — ein zweites beantwortet denselben Aufruf
-mit `409` und nennt das blockierende Jahr. Durchgesetzt wird das vom Unique Key
-`tipp_year.running_marker`, nicht von der Prüfung im Handler.
+**At most one tipp year runs at a time** — for a second one the same call answers `409` and
+names the year that blocks it. This is enforced by the unique key
+`tipp_year.running_marker`, not by the check in the handler.
 
-## 6. Tippschein, Ziehungen, Gewinne
+## 6. Ticket, draws, winnings
 
-**B-12 — Tippschein einreichen.** Bündelt die Reihen aller Teilnehmer, deren Periode den
-`periodStart` enthält, kopiert sie als Snapshot nach `ticket_row` und erzeugt je Teilnehmer
-eine `Fee`. `total_cost = row_count × drawCount × ticketCostPerRow`.
+**B-12 — submit the ticket.** Bundles the rows of all participants whose period contains
+`periodStart`, copies them as a snapshot into `ticket_row` and creates one `Fee` per
+participant. `total_cost = row_count × drawCount × ticketCostPerRow`.
 
 ```bash
 api POST /admin/tipp-years/1/tickets \
   '{"periodStart":"2026-01-01","periodEnd":"2026-01-31","drawCount":9,"superzahl":7,"lotteryReference":"LOT-2026-01"}'
 ```
 
-Der Snapshot ist der Punkt: eine spätere Korrektur einer `BetRow` verändert bereits
-eingereichte Scheine nicht.
+The snapshot is the point: a later correction to a `BetRow` does not change tickets that
+have already been submitted.
 
-**B-08 — Ziehung eintragen.** Doppeltes Ziehungsdatum → `409`. Superzahl 0–9.
+**B-08 — record a draw.** A duplicate draw date → `409`. Bonus number 0–9.
 
 ```bash
 api POST /admin/draws '{"tippYearId":1,"drawDate":"2026-01-07","numbers":[3,12,19,27,40,41],"superzahl":7}'
 ```
 
-**B-09 — Gewinne eintragen.** Der Betrag ist der Gewinn des *gesamten* Scheins. Die Treffer
-je Reihe rechnet das System aus den Gewinnzahlen und den Reihen-Snapshots; die Verteilung
-läuft in ganzen Cent über `EvenSplit`.
+**B-09 — record the winnings.** The amount is the winnings of the *whole* ticket. The
+system computes the hits per row from the winning numbers and the row snapshots; the split
+runs in whole cents through `EvenSplit`.
 
 ```bash
 api PUT /admin/draws/1/winnings '{"totalAmount":123.45}'
 ```
 
-Optional lässt sich der Betrag nach Gewinnklassen aufschlüsseln; ohne diese Angabe rechnet
-das System die Treffer selbst und verteilt die Summe darauf:
+The amount can optionally be broken down by winning class; without that the system computes
+the hits itself and distributes the total across them:
 
 ```bash
 api POST /admin/draws '{"tippYearId":1,"drawDate":"2026-01-10","numbers":[3,12,19,33,44,45],"superzahl":7}'
@@ -178,7 +177,7 @@ api PUT /admin/draws/2/winnings \
   '{"totalAmount":500.00,"winningClasses":[{"winningClass":5,"amount":300.00}]}'
 ```
 
-**B-07 — Zahlung buchen.** Die Fee-IDs liefert `GET /admin/fees`.
+**B-07 — record a payment.** `GET /admin/fees` returns the fee IDs.
 
 ```bash
 curl -s http://localhost:8080/admin/fees -H "Authorization: Bearer $ADMIN"
@@ -187,27 +186,27 @@ api PUT /admin/fees/1/payment \
   '{"paymentStatus":"paid","paidAt":"2026-01-20 10:00:00","paymentMethod":"bank_transfer"}'
 ```
 
-## 7. Jahresausschüttung
+## 7. Yearly distribution
 
-Ausschütten geht nur aus dem Status `closed` und nur einmal:
+Distributing works only out of the status `closed`, and only once:
 
 ```bash
 api PUT /admin/tipp-years/1/status '{"status":"closed"}'
 ```
 
-**B-13 — Ausschüttung buchen.** `confirm` fehlt oder ist `false` → `409`: eine Ausschüttung
-lässt sich nicht rückgängig machen und wird deshalb nie angenommen, sondern nur bestätigt.
+**B-13 — record the distribution.** `confirm` missing or `false` → `409`: a distribution
+cannot be undone and is therefore never accepted, only confirmed.
 
 ```bash
-api POST /admin/tipp-years/1/payout '{"confirm":true,"note":"Jahresabschluss 2026"}'
+api POST /admin/tipp-years/1/payout '{"confirm":true,"note":"Year-end 2026"}'
 ```
 
-Verteilt wird **gleichmäßig auf alle Teilnehmer des Tippjahres**, unabhängig davon, wie
-viele Perioden jemand bezahlt hat. Die Rundungsdifferenz geht auf den ersten Anteil.
+It is distributed **evenly across all participants of the tipp year**, regardless of how
+many periods anyone paid for. The rounding difference goes onto the first share.
 
-## 8. Teilnehmersicht
+## 8. The participant's view
 
-Mit dem Token von `testuser` (`participant_id: 2`):
+With `testuser`'s token (`participant_id: 2`):
 
 ```bash
 curl -s http://localhost:8080/participants/2/bet-row       -H "Authorization: Bearer $USER"
@@ -217,101 +216,101 @@ curl -s http://localhost:8080/participants/2/payout-share  -H "Authorization: Be
 curl -s http://localhost:8080/tipp-years/1/draws           -H "Authorization: Bearer $USER"
 ```
 
-Ein Zugriff auf fremde Daten wird mit `403` abgelehnt — auch mit dem Admin-Token:
+Access to someone else's data is rejected with `403` — with the admin token too:
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' \
   http://localhost:8080/participants/1/fees -H "Authorization: Bearer $USER"   # 403
 ```
 
-Die Identität kommt aus dem Token, nie aus dem Pfad. Der Admin hat eigene Endpunkte —
-sonst wären die Teilnehmerrouten eine zweite, leisere Admin-API.
+Identity comes from the token, never from the path. The admin has their own endpoints —
+otherwise the participant routes would be a second, quieter admin API.
 
-## 9. Betrieb ansehen
+## 9. Look at operations
 
 ```bash
-# OPS-01: Was ist aus einem Command geworden?
+# OPS-01: what became of a command?
 curl -s http://localhost:8080/commands/8f14e45f-… -H "Authorization: Bearer $ADMIN"
 
-# OPS-03: Event-Historie eines Aggregats
+# OPS-03: event history of an aggregate
 curl -s http://localhost:8080/admin/audit/tipp_year/1 -H "Authorization: Bearer $ADMIN"
 
-# OPS-04: Projektionen überwachen und neu aufbauen
+# OPS-04: monitor and rebuild projections
 curl -s http://localhost:8080/admin/projections -H "Authorization: Bearer $ADMIN"
 curl -s -X POST http://localhost:8080/admin/projections/tipp_year_read_model/rebuild \
   -H "Authorization: Bearer $ADMIN"
 ```
 
-**OPS-02 ausprobieren:** denselben Command zweimal mit demselben `Idempotency-Key`
-schicken. Der zweite Aufruf führt nichts aus, sondern liefert die gespeicherte Antwort mit
-ihrem ursprünglichen Statuscode und dem Header `Idempotent-Replay: true`.
+**Try OPS-02 out:** send the same command twice with the same `Idempotency-Key`. The second
+call executes nothing and returns the stored response with its original status code and the
+header `Idempotent-Replay: true`.
 
-Ein Rebuild zieht nach unten durch: `participant` zu leeren leert über
-`ON DELETE CASCADE` auch `membership`, `bet_row` und `fee`, also werden die abhängigen
-Projektionen mit aufgebaut. Die Antwort listet alle tatsächlich neu aufgebauten.
+A rebuild reaches downwards: emptying `participant` also empties `membership`, `bet_row`
+and `fee` through `ON DELETE CASCADE`, so the dependent projections are rebuilt along with
+it. The response lists everything that was actually rebuilt.
 
-## 10. Tests und Prüfungen
+## 10. Tests and checks
 
-Tests laufen in einer **eigenen** Umgebung mit eigener Datenbank:
+Tests run in a **dedicated** environment with its own database:
 
 ```bash
-make test-db-start        # MariaDB 11.4 auf Port 3307, Schema geladen
+make test-db-start        # MariaDB 11.4 on port 3307, schema loaded
 make test-docker          # phpunit --testdox
 make phpstan-docker
 make test-db-stop
 ```
 
-> **Nicht im `php`-Container testen.** Dort ist `DB_DATABASE` die Entwicklungsdatenbank,
-> und die Integration-Suite leert vor jedem Test jede Tabelle — ein Lauf würde das
-> Tippjahr aus diesem Durchstich wegräumen. `IntegrationTestCase` lehnt jede Datenbank ab,
-> deren Name nicht auf `_test` endet, und überspringt sich mit einem Hinweis.
+> **Do not test in the `php` container.** There `DB_DATABASE` is the development database,
+> and the integration suite truncates every table before each test — a run would clear away
+> the tipp year from this walkthrough. `IntegrationTestCase` rejects any database whose name
+> does not end in `_test`, and skips itself with a note.
 
-Nur lesende Prüfungen sind im Dev-Container unbedenklich:
+Read-only checks are harmless in the dev container:
 
 ```bash
 docker-compose exec php vendor/bin/phpstan analyse
 docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
 ```
 
-Die Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist.
-Eine grüne Ausgabe ohne laufende Datenbank beweist deshalb nichts über die Persistenz —
-auf die Zeile `Tests: N … Skipped: N` achten, nicht auf den Exit-Code.
+The integration tests **skip themselves** when no database is reachable. Green output
+without a running database therefore proves nothing about persistence — watch the line
+`Tests: N … Skipped: N`, not the exit code.
 
-Das Frontend hat eigene Suiten (Vitest, Playwright) — siehe [FRONTEND.md](FRONTEND.md).
+The frontend has its own suites (Vitest, Playwright) — see [FRONTEND.md](FRONTEND.md).
 
-## Häufige Probleme
+## Common problems
 
-**`401` auf jede Route** — Token abgelaufen (Lebensdauer 60 Minuten) oder für den falschen
-Realm ausgestellt. Neu holen, siehe Schritt 2.
+**`401` on every route** — token expired (lifetime 60 minutes) or issued for the wrong
+realm. Fetch a new one, see step 2.
 
-**`503` statt `401`** — die API erreicht Keycloak nicht.
+**`503` instead of `401`** — the API cannot reach Keycloak.
 
 ```bash
 docker-compose exec php curl -s http://keycloak:8080/realms/betting-game | head -c 100
 ```
 
-Das Backend spricht Keycloak unter dem internen Namen `keycloak:8080` an, das Frontend
-unter `localhost:8090`.
+The backend talks to Keycloak under the internal name `keycloak:8080`, the frontend under
+`localhost:8090`.
 
-**`409` beim Tippschein** — das Tippjahr ist nicht `running`, siehe Schritt 5.
+**`409` on the ticket** — the tipp year is not `running`, see step 5.
 
-**`409` bei einer Tippreihe** — für diese Periode existiert bereits eine. Mit
-`replaceReason` ersetzen oder die nächste Periode wählen.
+**`409` on a bet row** — one already exists for this period. Replace it with
+`replaceReason` or pick the next period.
 
-**„Connection refused" zur Datenbank**
+**"Connection refused" to the database**
 
 ```bash
 docker-compose ps
 docker-compose logs db
 ```
 
-**Schema neu laden** — `make db-reset` (löscht nichts, spielt `schema.sql` erneut ein;
-für einen wirklich leeren Stand `docker-compose down -v`).
+**Reload the schema** — `make db-reset` (deletes nothing, replays `schema.sql`; for a
+genuinely empty state use `docker-compose down -v`).
 
-## Weiter
+## Where to go next
 
-- [USER_STORIES.md](USER_STORIES.md) — was das System fachlich kann, Story für Story
-- [ARCHITECTURE.md](ARCHITECTURE.md) — Schichten, Event Sourcing, offene Punkte
-- [KEYCLOAK.md](KEYCLOAK.md) — Benutzer, Rollen, Token-Prüfung
-- [DOCKER.md](DOCKER.md) — Stack, Tuning, Troubleshooting
-- [betting_game_api.yaml](betting_game_api.yaml) — der vollständige API-Vertrag
+- [USER_STORIES.md](USER_STORIES.md) — what the system does in domain terms, story by story
+- [ARCHITECTURE.md](ARCHITECTURE.md) — layers, event sourcing, open points
+- [KEYCLOAK.md](KEYCLOAK.md) — users, roles, token verification
+- [DOCKER.md](DOCKER.md) — stack, tuning, troubleshooting
+- [betting_game_api.yaml](betting_game_api.yaml) — the complete API contract

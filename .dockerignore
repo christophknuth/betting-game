@@ -41,18 +41,17 @@ var/log/
 .phpunit.result.cache
 
 # Frontend
-# Das PHP-Image kopiert den gesamten Kontext (COPY . /var/www/html) und braucht
-# davon nichts: Die SPA hat ein eigenes Image mit eigenem Kontext (./frontend).
+# The PHP image copies the whole context (COPY . /var/www/html) and needs none
+# of this: the SPA has its own image with its own context (./frontend).
 #
-# Ohne diesen Eintrag bricht der Build unter Windows ab, sobald jemand im
-# frontend/ ein `npm install` laufen lässt: npm legt die Einträge in
-# node_modules/.bin als Symlinks an, und für die findet der Windows-Client
-# keinen Dateimodus, den er in das Kontext-Tar schreiben könnte
-# ("unknown file mode ?rw-rw-rw-").
+# Without this entry the build breaks on Windows as soon as someone runs
+# `npm install` inside frontend/: npm creates the entries in node_modules/.bin
+# as symlinks, and the Windows client finds no file mode for those to write
+# into the context tar ("unknown file mode ?rw-rw-rw-").
 frontend/
 
-# Node - falls anderswo im Baum doch einmal node_modules auftaucht.
-# Ein Muster ohne ** greift nur auf oberster Ebene.
+# Node - in case node_modules ever turns up elsewhere in the tree.
+# A pattern without ** only matches at the top level.
 **/node_modules
 
 # Composer

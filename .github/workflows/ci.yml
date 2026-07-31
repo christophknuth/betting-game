@@ -1,6 +1,6 @@
-# Vier getrennte Jobs statt einem: Die statische Analyse ist in einer Minute
-# durch, der E2E-Durchstich braucht den kompletten Stack samt Keycloak-Import.
-# In einem Job gebündelt würde jede Rückmeldung auf den langsamsten Teil warten.
+# Four separate jobs instead of one: static analysis is done in a minute, the
+# end-to-end pass needs the whole stack including the Keycloak import. Bundled
+# into one job, every piece of feedback would wait on the slowest part.
 name: CI
 
 on:
@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress
 
-      # Level 10, siehe phpstan.neon. Der Bestand ist fehlerfrei - das soll er bleiben.
+      # Level 10, see phpstan.neon. The codebase is clean - keep it that way.
       - name: PHPStan
         run: vendor/bin/phpstan analyse --no-progress
 
@@ -36,9 +36,9 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # Der Datenbankname endet auf `_test`, weil IntegrationTestCase alles
-      # andere ablehnt: Die Suite leert vor jedem Test jede Tabelle, und diese
-      # Schranke verhindert, dass das je eine Entwicklungsdatenbank trifft.
+      # The database name ends in `_test` because IntegrationTestCase refuses
+      # anything else: the suite truncates every table before each test, and
+      # that guard keeps it from ever hitting a development database.
       mariadb:
         image: mariadb:11.4
         env:
@@ -55,9 +55,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # `coverage: pcov`, nicht `none`: phpunit.xml konfiguriert Coverage-Reports,
-      # und ohne Treiber meldet PHPUnit eine Warnung — Warnungen führen zu
-      # Exit 1, also schlägt der Job fehl, obwohl kein Test kaputt ist.
+      # `coverage: pcov`, not `none`: phpunit.xml configures coverage reports,
+      # and without a driver PHPUnit emits a warning - warnings mean exit 1, so
+      # the job fails even though no test is broken.
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -67,19 +67,18 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress
 
-      # Über das mariadb-Image statt über einen Client auf dem Runner: so hängt
-      # der Schritt nicht daran, welche Clientversion das Runner-Image gerade
-      # mitbringt.
+      # Through the mariadb image rather than a client on the runner: that way
+      # the step does not depend on whichever client version the runner image
+      # currently ships.
       - name: Load schema
         run: |
           docker run --rm -i --network host mariadb:11.4 \
             mariadb -h 127.0.0.1 -uroot -psecret betting_game_test < database/schema.sql
 
-      # `--fail-on-skipped` ist hier der eigentliche Punkt: Ohne erreichbare
-      # Datenbank überspringen sich die Integrationstests selbst und melden
-      # trotzdem grün. Genau das darf in CI nicht durchgehen, denn ein solcher
-      # Lauf sagt nichts über die Persistenz aus. Hier steht eine Datenbank
-      # bereit, also ist jedes Überspringen ein Fehler.
+      # `--fail-on-skipped` is the actual point here: without a reachable
+      # database the integration tests skip themselves and still report green.
+      # That must not pass in CI, because such a run says nothing about
+      # persistence. A database stands ready here, so any skip is a failure.
       - name: PHPUnit
         env:
           DB_HOST: 127.0.0.1
@@ -107,15 +106,15 @@ jobs:
 
       - run: npm ci
 
-      # Der Bestand ist fehlerfrei; eslint:recommended + vue3-recommended.
+      # The codebase is clean; eslint:recommended + vue3-recommended.
       - run: npm run lint
 
       - run: npm test
 
   e2e:
-    name: Playwright (voller Stack)
+    name: Playwright (full stack)
     runs-on: ubuntu-latest
-    # Der langsamste Job: Keycloak importiert seinen Realm beim ersten Start.
+    # The slowest job: Keycloak imports its realm on the first start.
     timeout-minutes: 20
 
     steps:
@@ -127,9 +126,9 @@ jobs:
           extensions: pdo, pdo_mysql, json
           coverage: none
 
-      # docker-compose.yml mountet das Repository nach /var/www/html und
-      # überdeckt damit das vendor/ aus dem Image. Ohne diesen Schritt findet
-      # der Container keinen Autoloader.
+      # docker-compose.yml mounts the repository at /var/www/html and thereby
+      # covers up the vendor/ from the image. Without this step the container
+      # finds no autoloader.
       - name: Install PHP dependencies for the bind mount
         run: composer install --no-interaction --no-progress
 
@@ -139,12 +138,12 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # `var/cache` nimmt den kompilierten DI-Container und den JWKS-Cache auf,
-      # geschrieben von php-fpm als `www-data`. Der Checkout gehört hier dem
-      # Runner-Benutzer, und der Bind-Mount nimmt dessen Besitzrechte mit in den
-      # Container — ohne diesen Schritt scheitert jede authentifizierte Route mit
-      # `Permission denied` und damit `500`. Lokal fällt das nicht auf, wo der
-      # Container-Benutzer auf den Host-Benutzer abgebildet wird.
+      # `var/cache` holds the compiled DI container and the JWKS cache, written
+      # by php-fpm as `www-data`. The checkout belongs to the runner user here,
+      # and the bind mount carries those ownership bits into the container -
+      # without this step every authenticated route fails with `Permission
+      # denied` and thus `500`. It goes unnoticed locally, where the container
+      # user is mapped onto the host user.
       - name: Make var/ writable for php-fpm
         run: chmod -R 777 var
 
@@ -171,9 +170,9 @@ jobs:
           docker compose logs keycloak
           exit 1
 
-      # Teilnehmer anzulegen hat zwar seit B-21 eine Route, aber die Demo-IDs
-      # müssen zu den `participant_id`-Claims des Realms passen - und die stehen
-      # dort fest. Deshalb weiterhin über den Seed.
+      # Creating participants does have a route since B-21, but the demo IDs
+      # have to match the realm's `participant_id` claims - and those are fixed
+      # there. Hence still via the seed.
       - name: Seed demo participants
         run: |
           docker compose exec -T db mariadb -uroot -psecret betting_game \

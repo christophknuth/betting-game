@@ -1,12 +1,12 @@
-# Wird im Build-Stage selbst per `npm install` erzeugt. Die Kopie vom Host
-# einzuschleusen wäre nicht nur langsam, sondern falsch: Sie enthält Symlinks
-# und plattformabhängige Binaries (esbuild), die zum Linux-Image nicht passen.
+# Created by `npm install` in the build stage itself. Smuggling in the copy
+# from the host would be not just slow but wrong: it holds symlinks and
+# platform-dependent binaries (esbuild) that do not fit the Linux image.
 node_modules
 
-# Ergebnis des Builds, nicht seine Eingabe
+# The build's output, not its input
 dist
 
-# .env bleibt bewusst drin: Vite backt die VITE_-Variablen beim Build ein.
-# Ohne die Datei fiele der Build auf die Defaults in services/keycloak.js zurück.
+# .env deliberately stays in: Vite bakes the VITE_ variables in at build time.
+# Without the file the build would fall back to the defaults in services/keycloak.js.
 
 *.log

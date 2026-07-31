@@ -1,192 +1,195 @@
-# Frontend – Lotterie-Tippgemeinschaft
+# Frontend – lottery syndicate
 
-Vue-3-SPA für die **Lotto-6-aus-49-Tippgemeinschaft**. Sie bedient die Endpunkte aus
-[`../betting_game_api.yaml`](../betting_game_api.yaml); die Zuordnung Ansicht → Endpunkt
-steht in [`../FRONTEND.md`](../FRONTEND.md), die Fachlichkeit in
-[`../USER_STORIES.md`](../USER_STORIES.md), die Anmeldung in
+A Vue 3 SPA for the **Lotto 6 aus 49 syndicate**. It drives the endpoints from
+[`../betting_game_api.yaml`](../betting_game_api.yaml); the mapping view → endpoint is in
+[`../FRONTEND.md`](../FRONTEND.md), the domain in
+[`../USER_STORIES.md`](../USER_STORIES.md), the login in
 [`../KEYCLOAK.md`](../KEYCLOAK.md).
 
-**Ausbaustufe Basis:** Teilnehmer lesen ausschließlich, der Administrator schreibt alles.
-Die SPA bildet genau das ab — die Teilnehmeransichten haben keinen einzigen Absende-Button.
+**Expansion stage base:** participants only read, the administrator writes everything.
+The SPA mirrors exactly that — the participant views have not a single submit button.
 
-## Voraussetzungen
+> The user interface is German, deliberately: it is the language of the syndicate using it.
+> Everything else in this repository — code, comments, documentation — is English.
 
-- Node.js 24 (Active LTS; 18 und 20 sind end-of-life)
-- API auf `http://localhost:8080` (`curl http://localhost:8080/health`)
-- Keycloak auf `http://localhost:8090`, Realm `betting-game`
+## Prerequisites
 
-## Entwicklung
+- Node.js 24 (active LTS; 18 and 20 are end-of-life)
+- API on `http://localhost:8080` (`curl http://localhost:8080/health`)
+- Keycloak on `http://localhost:8090`, realm `betting-game`
+
+## Development
 
 ```bash
 cd frontend
 npm install
 npm run dev        # http://localhost:3000
-npm run build      # Ausgabe nach dist/
-npm run lint       # prüft, ändert nichts
-npm run lint:fix   # korrigiert, was automatisch korrigierbar ist
-npm test           # Vitest, einmaliger Lauf
+npm run build      # output into dist/
+npm run lint       # checks, changes nothing
+npm run lint:fix   # fixes whatever can be fixed automatically
+npm test           # Vitest, single run
 npm run test:watch
-npm run test:e2e   # Playwright, braucht den laufenden Stack (docker-compose up -d)
+npm run test:e2e   # Playwright, needs the running stack (docker-compose up -d)
 ```
 
-Ohne lokales Node läuft beides im Container:
+Without a local Node both run in the container:
 
 ```bash
 docker run --rm -v "$PWD:/app" -w /app node:24-alpine sh -c "npm install && npm run lint"
 ```
 
-Regelsatz: `eslint:recommended` + `plugin:vue/vue3-recommended` (siehe
-[`eslint.config.js`](eslint.config.js)). `vue3-recommended` ist die strengste der drei
-Vue-Voreinstellungen; sie enthält neben den Fehlerregeln auch die Formatierungs- und
-Reihenfolgeregeln. Der Bestand ist fehlerfrei — **halte ihn so**.
+Rule set: `eslint:recommended` + `plugin:vue/vue3-recommended` (see
+[`eslint.config.js`](eslint.config.js)). `vue3-recommended` is the strictest of the three
+Vue presets; besides the error rules it also carries the formatting and ordering rules.
+The codebase is clean — **keep it that way**.
 
-Läuft parallel der Frontend-Container aus `docker-compose.yml`, belegt der Port 3000 —
-vorher `docker-compose stop frontend`.
+If the frontend container from `docker-compose.yml` runs in parallel it occupies port 3000 —
+`docker-compose stop frontend` first.
 
-## Projektstruktur
+## Project structure
 
 ```
 frontend/
 ├── src/
 │   ├── views/
-│   │   ├── LoginView.vue              # Keycloak-Anmeldung
-│   │   ├── BetRowView.vue             # B-01 eigene Tippreihe
-│   │   ├── MembershipsView.vue        # B-02 eigene Teilnahmen
-│   │   ├── FeesView.vue               # B-03 eigene Gebühren
-│   │   ├── PayoutShareView.vue        # B-04 eigener Gewinnanteil
-│   │   ├── DrawsView.vue              # B-05 Ziehungen des Tippjahres
-│   │   ├── AdminTippYearsView.vue     # B-10 bis B-14
-│   │   ├── AdminBetRowsView.vue       # B-06 Reihe zuordnen
+│   │   ├── LoginView.vue              # Keycloak login
+│   │   ├── BetRowView.vue             # B-01 own bet row
+│   │   ├── MembershipsView.vue        # B-02 own memberships
+│   │   ├── FeesView.vue               # B-03 own fees
+│   │   ├── PayoutShareView.vue        # B-04 own payout share
+│   │   ├── DrawsView.vue              # B-05 draws of the tipp year
+│   │   ├── AdminTippYearsView.vue     # B-10 through B-14
+│   │   ├── AdminBetRowsView.vue       # B-06 assign a row
 │   │   ├── AdminDrawsView.vue         # B-08, B-09
-│   │   ├── AdminFeesView.vue          # B-07 Gebühren buchen
+│   │   ├── AdminFeesView.vue          # B-07 record fees
 │   │   └── AdminOperationsView.vue    # OPS-01, OPS-03, OPS-04
 │   ├── components/
-│   │   ├── CommandFeedback.vue        # Antwort eines Commands inkl. commandId
-│   │   └── ParticipantScope.vue       # Hinweis, wenn dem Token participant_id fehlt
-│   ├── composables/useCommand.js      # Command-/Query-Zustand, Idempotency-Key
+│   │   ├── CommandFeedback.vue        # a command's response including commandId
+│   │   └── ParticipantScope.vue       # note shown when the token lacks participant_id
+│   ├── composables/useCommand.js      # command/query state, idempotency key
 │   ├── services/
-│   │   ├── api.js                     # Axios-Client, eine Methode je Route
-│   │   ├── errors.js                  # Fehlermeldung aus der API-Antwort
-│   │   └── keycloak.js                # keycloak-js-Wrapper
-│   ├── stores/auth.js                 # Pinia-Auth-Store
-│   ├── support/format.js              # Geld, Datum, Lottozahlen, Statuslabels
-│   ├── assets/app.css                 # gemeinsames Design System
+│   │   ├── api.js                     # axios client, one method per route
+│   │   ├── errors.js                  # error message out of the API response
+│   │   └── keycloak.js                # keycloak-js wrapper
+│   ├── stores/auth.js                 # Pinia auth store
+│   ├── support/format.js              # money, dates, lotto numbers, status labels
+│   ├── assets/app.css                 # shared design system
 │   ├── router/index.js
 │   ├── App.vue
 │   └── main.js
-├── tests/unit/                     # Vitest, gespiegelt zur src/-Struktur
+├── tests/unit/                     # Vitest, mirroring the src/ structure
 ├── public/silent-check-sso.html
-├── .env                               # Keycloak- und API-URLs
-├── vite.config.js                     # inkl. Vitest-Konfiguration (test:)
-├── eslint.config.js                   # Flat Config (ESLint 9+)
-├── Dockerfile                         # Build + Nginx
+├── .env                               # Keycloak and API URLs
+├── vite.config.js                     # including the Vitest configuration (test:)
+├── eslint.config.js                   # flat config (ESLint 9+)
+├── Dockerfile                         # build + nginx
 └── nginx.conf
 ```
 
-## Anmeldung
+## Login
 
-Login über Keycloak (OIDC mit PKCE). Das Token liegt im Speicher des Adapters, **nicht**
-im localStorage. `participant_id`, Username und Rollen kommen als Claims aus dem JWT.
+Login through Keycloak (OIDC with PKCE). The token lives in the adapter's memory, **not**
+in localStorage. `participant_id`, username and roles come as claims out of the JWT.
 
-Demo-Benutzer aus `keycloak/realm-export.json`:
-
-```
-admin    / admin123   (Rollen user + admin, participant_id 1)
-testuser / test123    (Rolle  user,         participant_id 2)
-john.doe / password   (Rolle  user,         participant_id 3)
-```
-
-Ohne `participant_id` im Token zeigen die Teilnehmeransichten einen Hinweis statt Daten.
-Das ist keine Lücke: Die API leitet die Identität aus dem Token ab und lässt dort auch
-einen Administrator nicht durch — der hat eigene Endpunkte.
-
-## API-Anbindung
+Demo users from `keycloak/realm-export.json`:
 
 ```
-Vue-Komponente → api.js (Axios) → Request-Interceptor (Token) →
-Proxy /api → Backend → Response-Interceptor (401) → Komponente
+admin    / admin123   (roles user + admin, participant_id 1)
+testuser / test123    (role  user,         participant_id 2)
+john.doe / password   (role  user,         participant_id 3)
 ```
 
-Der Proxy steht in `vite.config.js` (`/api` → `http://localhost:8080`, Präfix wird
-entfernt); im Container übernimmt das `nginx.conf`.
+Without a `participant_id` in the token the participant views show a note instead of data.
+That is not a gap: the API derives identity from the token and does not let an administrator
+through there either — they have their own endpoints.
 
-`api.js` hat für jede Route in
-[`../src/Presentation/Router/Router.php`](../src/Presentation/Router/Router.php) genau eine
-Methode — Teilnehmerrouten direkt, Adminrouten unter `api.admin.*`.
+## API integration
 
-### Commands und der Idempotency-Key
+```
+Vue component → api.js (axios) → request interceptor (token) →
+proxy /api → backend → response interceptor (401) → component
+```
 
-Schreibende Aufrufe nehmen einen `Idempotency-Key` entgegen. Vergeben wird er in
-`composables/useCommand.js`, und zwar bewusst nicht bei jedem Klick neu:
+The proxy is configured in `vite.config.js` (`/api` → `http://localhost:8080`, the prefix is
+stripped); in the container `nginx.conf` takes over.
 
-- Kommt **keine Antwort** zurück (Timeout, Netzwerk), bleibt der Schlüssel bestehen. Ein
-  erneuter Klick wiederholt denselben Command; die API antwortet mit dem gespeicherten
-  Ergebnis und `Idempotent-Replay: true`, statt ein zweites Mal zu buchen.
-- Kommt **irgendein Status** zurück, ist der Schlüssel verbraucht. Ein Schlüssel, dessen
-  erster Versuch fehlschlug, bleibt serverseitig vergeben — ihn nach einem `400`
-  weiterzuverwenden, würde einen behebbaren Eingabefehler dauerhaft in ein `409` verwandeln.
+`api.js` has exactly one method per route in
+[`../src/Presentation/Router/Router.php`](../src/Presentation/Router/Router.php) —
+participant routes directly, admin routes under `api.admin.*`.
 
-Antworten auf Commands sind `202` mit einer `commandId`. Sie wird angezeigt und verlinkt
-auf **Betrieb → Verarbeitungsstand**; das ist der einzige Weg, später nachzusehen, was ein
-Versuch erzeugt hat.
+### Commands and the idempotency key
 
-### Ehrlich zur Asynchronität
+Writing calls take an `Idempotency-Key`. It is issued in `composables/useCommand.js`, and
+deliberately not anew on every click:
 
-Die API beschreibt Commands als asynchron, die Implementierung schreibt synchron: Wer die
-`202` hat, sieht in den Lesemodellen bereits das Ergebnis. Deshalb laden die Admin-Ansichten
-unmittelbar nach einem Command neu — das ist hier kein Rennen.
+- If **no response** comes back (timeout, network), the key stays. Clicking again repeats
+  the same command; the API answers with the stored result and `Idempotent-Replay: true`
+  instead of recording a second time.
+- If **any status** comes back, the key is used up. A key whose first attempt failed stays
+  taken on the server side — reusing it after a `400` would turn a fixable input error
+  permanently into a `409`.
 
-## Fehlerbehandlung
+Responses to commands are `202` with a `commandId`. It is displayed and links to
+**Operations → processing state**; that is the only way to look up later what an attempt
+produced.
 
-`services/errors.js` zeigt die `message` aus der API-Antwort, nicht die von Axios: „Request
-failed with status code 409“ sagt nicht, welche Regel Nein gesagt hat.
+### Honest about asynchrony
 
-Zwei Statuscodes werden unterschiedlich behandelt:
+The API describes commands as asynchronous, the implementation writes synchronously: whoever
+holds the `202` already sees the result in the read models. That is why the admin views
+reload immediately after a command — there is no race here.
 
-- `401` — das Token wurde abgelehnt, der Interceptor schickt zur Anmeldung.
-- `503` — Keycloak ist nicht erreichbar. Der Aufruf ist wiederholbar, das Token bleibt
-  gültig; hier zur Anmeldung zu schicken hieße, den Benutzer ausgerechnet zu dem Dienst zu
-  schicken, von dem wir wissen, dass er gerade nicht antwortet.
+## Error handling
 
-Ein `404` ist in den Leseansichten eine Aussage („für diese Periode ist keine Reihe
-hinterlegt“) und wird als Leerzustand gezeigt, nicht als Fehler.
+`services/errors.js` shows the `message` from the API response, not the one from axios:
+"Request failed with status code 409" does not say which rule said no.
+
+Two status codes are treated differently:
+
+- `401` — the token was rejected, the interceptor sends the user to the login.
+- `503` — Keycloak is unreachable. The call is repeatable and the token stays valid; sending
+  the user to the login here would mean sending them to precisely the service we know is not
+  answering right now.
+
+In the read views a `404` is a statement ("no row is stored for this period") and is shown
+as an empty state, not as an error.
 
 ## Deployment
 
 ```bash
 docker-compose build frontend && docker-compose up -d
-# Frontend :3000 | API :8080 | PHPMyAdmin :8081 | Keycloak :8090
+# frontend :3000 | API :8080 | PHPMyAdmin :8081 | Keycloak :8090
 ```
 
-Statisches Hosting: `npm run build`, dann `dist/` ausliefern. Bei eigenem Nginx zusätzlich
-`try_files $uri $uri/ /index.html;` und einen `/api/`-Proxy konfigurieren.
+Static hosting: `npm run build`, then serve `dist/`. With your own nginx, additionally
+configure `try_files $uri $uri/ /index.html;` and an `/api/` proxy.
 
 ## Troubleshooting
 
-**API-Aufrufe schlagen fehl** — läuft das Backend? `curl http://localhost:8080/health`.
-Proxy in `vite.config.js` prüfen; CORS-Header setzt Caddy.
+**API calls fail** — is the backend running? `curl http://localhost:8080/health`.
+Check the proxy in `vite.config.js`; Caddy sets the CORS headers.
 
-**Anmeldung schlägt fehl** — Keycloak erreichbar (`curl http://localhost:8090/realms/betting-game`)?
-Werte in `.env` prüfen, Redirect-URI des Clients `betting-game-frontend` muss zur
-aufgerufenen URL passen. Nach Änderungen an `.env` den Dev-Server neu starten.
+**Login fails** — is Keycloak reachable (`curl http://localhost:8090/realms/betting-game`)?
+Check the values in `.env`; the redirect URI of the client `betting-game-frontend` has to
+match the URL being called. After changes to `.env`, restart the dev server.
 
-**Teilnehmeransichten bleiben leer** — trägt das Token einen `participant_id`-Claim? Der
-kommt aus dem Benutzerattribut im Realm.
+**Participant views stay empty** — does the token carry a `participant_id` claim? It comes
+from the user attribute in the realm.
 
-**Alles ist leer, aber ohne Fehler** — vermutlich sind schlicht keine Daten angelegt.
-[`../QUICKSTART.md`](../QUICKSTART.md) spielt ein Tippjahr von Hand durch.
+**Everything is empty, but without an error** — most likely no data has been created.
+[`../QUICKSTART.md`](../QUICKSTART.md) plays a tipp year through by hand.
 
-**Build-Fehler** — `rm -rf node_modules dist && npm install && npm run build`
+**Build errors** — `rm -rf node_modules dist && npm install && npm run build`
 
 ## Stack
 
-Vue 3.5 (Composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0, Axios 1.19,
+Vue 3.5 (composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0, axios 1.19,
 keycloak-js 26, Vite 8.
 
-## Offene Punkte
+## Open points
 
-- Vitest (`tests/unit/`, 58 Tests) und Playwright (`tests/e2e/`, 8 Tests gegen den echten
-  Stack) laufen grün. Siehe [FRONTEND.md](../FRONTEND.md) Abschnitt „Testing".
-- Kein TypeScript.
-- Teilnehmer- und Adminlisten arbeiten teils mit IDs statt mit Namen, weil die Basisversion
-  keinen Endpunkt hat, der Teilnehmer auflistet.
+- Vitest (`tests/unit/`, 58 tests) and Playwright (`tests/e2e/`, 8 tests against the real
+  stack) are green. See [FRONTEND.md](../FRONTEND.md), section "Testing".
+- No TypeScript.
+- Participant and admin lists partly work with IDs instead of names, because the base
+  version has no endpoint that lists participants.
