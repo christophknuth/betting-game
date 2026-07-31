@@ -285,11 +285,21 @@ erledigt das die `docker/Caddyfile`.
 
 ## Tests und Codequalität
 
+Tests laufen in einer eigenen Umgebung mit eigener Datenbank; nur lesende Prüfungen sind
+im Dev-Container unbedenklich:
+
 ```bash
-docker-compose exec php vendor/bin/phpunit --testdox
+make test-db-start        # MariaDB 11.3 auf Port 3307
+make test-docker          # phpunit --testdox
+make test-db-stop
+
 docker-compose exec php vendor/bin/phpstan analyse
 docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
 ```
+
+> Die Integration-Suite leert vor jedem Test jede Tabelle. Im `php`-Container zeigt
+> `DB_DATABASE` auf die Entwicklungsdatenbank, deshalb lehnt `IntegrationTestCase` alles
+> ab, was nicht auf `_test` endet, und überspringt sich.
 
 Ohne Docker stehen dieselben Ziele als `make test`, `make phpstan`, `make cs-check`
 bereit — sie setzen ein PHP im PATH voraus. `make all-tests` fasst alle drei zusammen.

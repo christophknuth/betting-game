@@ -30,11 +30,31 @@ abstract class IntegrationTestCase extends TestCase
             return;
         }
 
+        $database = getenv('DB_DATABASE') ?: 'betting_game_test';
+
+        // Every test truncates all 19 tables, so pointing this suite at the
+        // development database empties it - silently, and only noticed later
+        // when the stack looks freshly installed. The default above is safe;
+        // what is not is `docker-compose exec php vendor/bin/phpunit`, because
+        // that container carries DB_DATABASE=betting_game for serving.
+        //
+        // Refusing anything not named *_test turns that data loss into a
+        // skipped suite with a note. Use docker-compose.test.yml, which brings
+        // its own database.
+        if (!str_ends_with($database, '_test')) {
+            self::markTestSkipped(sprintf(
+                'Refusing to run against "%s": this suite truncates every table, and the '
+                . 'name does not end in _test. Run it via docker-compose.test.yml '
+                . '(make test-docker), which supplies an isolated database.',
+                $database
+            ));
+        }
+
         $dsn = sprintf(
             'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
             getenv('DB_HOST') ?: '127.0.0.1',
             getenv('DB_PORT') ?: '3306',
-            getenv('DB_DATABASE') ?: 'betting_game_test'
+            $database
         );
 
         try {
