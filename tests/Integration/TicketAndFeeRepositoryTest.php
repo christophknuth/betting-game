@@ -88,7 +88,7 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
         self::assertSame(2, $loaded->rowCount());
         self::assertSame(9, $loaded->drawCount());
         self::assertSame(21.60, $loaded->totalCost(), '2 rows x 9 draws x 1.20');
-        self::assertSame(10.80, $loaded->feePerParticipant());
+        self::assertSame(10.80, $loaded->feeShares()[0]);
         self::assertSame(7, $loaded->superzahl()?->value());
         self::assertSame('LOT-2026-01', $loaded->lotteryReference());
         self::assertSame([7, 8], $loaded->participantIds());
@@ -157,7 +157,7 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
     {
         $ticket = $this->givenTicket();
 
-        $fee = Fee::charge(1, 7, $ticket->id(), $ticket->feePerParticipant(), new DateTimeImmutable('2026-01-31'));
+        $fee = Fee::charge(1, 7, $ticket->id(), $ticket->feeShares()[0], new DateTimeImmutable('2026-01-31'));
         $this->fees->save($fee);
 
         $loaded = $this->fees->find(1);

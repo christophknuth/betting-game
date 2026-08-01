@@ -58,9 +58,41 @@
         </div>
       </div>
 
+      <h4 class="subheading">
+        Bearbeitungsentgelt je Spielauftrag
+      </h4>
+      <div class="field-row">
+        <div class="field">
+          <label for="wz-fee-single">Einwöchiger Spielauftrag</label>
+          <input
+            id="wz-fee-single"
+            v-model="draft.processingFeeSingleWeek"
+            type="number"
+            step="0.01"
+            min="0"
+          >
+        </div>
+        <div class="field">
+          <label for="wz-fee-multi">Mehrwöchiger Spielauftrag</label>
+          <input
+            id="wz-fee-multi"
+            v-model="draft.processingFeeMultiWeek"
+            type="number"
+            step="0.01"
+            min="0"
+          >
+          <span class="hint">gilt für den üblichen Monatsschein</span>
+        </div>
+      </div>
+
       <p class="state note">
-        Der Zeitraum ist frei wählbar und muss kein Kalenderjahr sein. Mit
-        <strong>Weiter</strong> wird das Tippjahr angelegt; es steht dann auf
+        Der Zeitraum ist frei wählbar und muss kein Kalenderjahr sein. Das Entgelt fällt
+        <strong>einmal je Tippschein</strong> an, nicht je Reihe — welcher der beiden Sätze
+        gilt, entscheidet die Länge des jeweiligen Scheins. Wer keines zahlt, lässt beide
+        auf 0.
+      </p>
+      <p class="state note">
+        Mit <strong>Weiter</strong> wird das Tippjahr angelegt; es steht dann auf
         <em>geplant</em> und nimmt noch keine Tippscheine an.
       </p>
 
@@ -314,7 +346,14 @@ const STEP_LABELS = ['Eckdaten', 'Perioden', 'Teilnehmer', 'Start']
 const step = ref(1)
 const createdYear = ref(null)
 
-const draft = reactive({ name: '', startDate: '', endDate: '', ticketCostPerRow: '1.20' })
+const draft = reactive({
+  name: '',
+  startDate: '',
+  endDate: '',
+  ticketCostPerRow: '1.20',
+  processingFeeSingleWeek: '0.60',
+  processingFeeMultiWeek: '1.00'
+})
 const chosenTemplate = ref('month')
 const chosenParticipants = ref([])
 
@@ -364,7 +403,9 @@ async function createYear() {
     name: draft.name,
     startDate: draft.startDate,
     endDate: draft.endDate,
-    ticketCostPerRow: Number(draft.ticketCostPerRow)
+    ticketCostPerRow: Number(draft.ticketCostPerRow),
+    processingFeeSingleWeek: Number(draft.processingFeeSingleWeek),
+    processingFeeMultiWeek: Number(draft.processingFeeMultiWeek)
   }, key))
 
   if (!accepted) {
@@ -429,6 +470,13 @@ async function start() {
 <style scoped>
 .wizard {
   border-top: 3px solid var(--blue);
+}
+
+.subheading {
+  color: var(--gray-900);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
 }
 
 /* --- Step indicator --------------------------------------------------- */

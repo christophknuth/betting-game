@@ -82,7 +82,11 @@ final class AdminTippYearController
                 Input::string($body, 'name'),
                 Input::string($body, 'startDate'),
                 Input::string($body, 'endDate'),
-                Input::float($body, 'ticketCostPerRow')
+                Input::float($body, 'ticketCostPerRow'),
+                // Optional: a syndicate that is not charged a
+                // Bearbeitungsentgelt leaves both at zero.
+                Input::optionalFloat($body, 'processingFeeSingleWeek') ?? 0.0,
+                Input::optionalFloat($body, 'processingFeeMultiWeek') ?? 0.0
             ))->toArray()
         );
     }

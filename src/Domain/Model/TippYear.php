@@ -10,6 +10,7 @@ use BettingGame\Domain\Event\TippYearCreated;
 use BettingGame\Domain\Event\TippYearStatusChanged;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\ValueObject\DateRange;
+use BettingGame\Domain\ValueObject\ProcessingFees;
 use BettingGame\Domain\ValueObject\TippYearStatus;
 use DateTimeImmutable;
 
@@ -31,6 +32,7 @@ final class TippYear
         private DateTimeImmutable $endDate,
         private TippYearStatus $status,
         private float $ticketCostPerRow,
+        private ProcessingFees $processingFees,
         private DateTimeImmutable $createdAt
     ) {
     }
@@ -40,7 +42,8 @@ final class TippYear
         string $name,
         DateTimeImmutable $startDate,
         DateTimeImmutable $endDate,
-        float $ticketCostPerRow
+        float $ticketCostPerRow,
+        ?ProcessingFees $processingFees = null
     ): self {
         if ($endDate <= $startDate) {
             throw new BusinessRuleViolationException('End date must be after start date');
@@ -50,6 +53,8 @@ final class TippYear
             throw new BusinessRuleViolationException('Cost per row must be positive');
         }
 
+        $fees = $processingFees ?? ProcessingFees::none();
+
         $year = new self(
             $id,
             $name,
@@ -57,6 +62,7 @@ final class TippYear
             $endDate,
             new TippYearStatus(TippYearStatus::PLANNED),
             $ticketCostPerRow,
+            $fees,
             new DateTimeImmutable()
         );
 
@@ -65,7 +71,9 @@ final class TippYear
             $name,
             $startDate->format('Y-m-d'),
             $endDate->format('Y-m-d'),
-            $ticketCostPerRow
+            $ticketCostPerRow,
+            $fees->singleWeek(),
+            $fees->multiWeek()
         ));
 
         return $year;
@@ -81,10 +89,20 @@ final class TippYear
         DateTimeImmutable $endDate,
         TippYearStatus $status,
         float $ticketCostPerRow,
+        ProcessingFees $processingFees,
         DateTimeImmutable $createdAt,
         int $version
     ): self {
-        $year = new self($id, $name, $startDate, $endDate, $status, $ticketCostPerRow, $createdAt);
+        $year = new self(
+            $id,
+            $name,
+            $startDate,
+            $endDate,
+            $status,
+            $ticketCostPerRow,
+            $processingFees,
+            $createdAt
+        );
         $year->markCommitted($version);
 
         return $year;
@@ -237,6 +255,11 @@ final class TippYear
     public function status(): TippYearStatus
     {
         return $this->status;
+    }
+
+    public function processingFees(): ProcessingFees
+    {
+        return $this->processingFees;
     }
 
     public function ticketCostPerRow(): float

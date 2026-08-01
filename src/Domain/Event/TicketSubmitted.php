@@ -21,6 +21,7 @@ final class TicketSubmitted extends DomainEvent
         private array $rows,
         private ?int $superzahl = null,
         private ?string $lotteryReference = null,
+        private float $processingFee = 0.0,
         ?string $eventId = null,
         ?DateTimeImmutable $occurredAt = null,
         ?string $causationId = null,
@@ -57,6 +58,7 @@ final class TicketSubmitted extends DomainEvent
             'rows' => $this->rows,
             'superzahl' => $this->superzahl,
             'lottery_reference' => $this->lotteryReference,
+            'processing_fee' => $this->processingFee,
         ];
     }
 }

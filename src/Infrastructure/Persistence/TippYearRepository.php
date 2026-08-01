@@ -10,6 +10,7 @@ use BettingGame\Domain\Event\PayoutDistributed;
 use BettingGame\Domain\Model\TippYear;
 use BettingGame\Domain\Repository\TippYearRepositoryInterface;
 use BettingGame\Domain\ValueObject\DateRange;
+use BettingGame\Domain\ValueObject\ProcessingFees;
 use BettingGame\Domain\ValueObject\TippYearStatus;
 use DateTimeImmutable;
 use BettingGame\Infrastructure\Projection\TippYearProjector;
@@ -215,7 +216,8 @@ final class TippYearRepository extends EventSourcedRepository implements TippYea
                 '
                 UPDATE tipp_year
                 SET name = ?, start_date = ?, end_date = ?, status = ?,
-                    ticket_cost_per_row = ?, version = ?
+                    ticket_cost_per_row = ?, processing_fee_single_week = ?,
+                    processing_fee_multi_week = ?, version = ?
                 WHERE tipp_year_id = ?
                 ',
                 [
@@ -224,6 +226,8 @@ final class TippYearRepository extends EventSourcedRepository implements TippYea
                     $tippYear->endDate()->format('Y-m-d'),
                     $tippYear->status()->value(),
                     $tippYear->ticketCostPerRow(),
+                    $tippYear->processingFees()->singleWeek(),
+                    $tippYear->processingFees()->multiWeek(),
                     $version,
                     $tippYear->id(),
                 ]
@@ -236,8 +240,9 @@ final class TippYearRepository extends EventSourcedRepository implements TippYea
             '
             INSERT INTO tipp_year (
                 tipp_year_id, name, start_date, end_date, status,
-                ticket_cost_per_row, created_at, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ticket_cost_per_row, processing_fee_single_week,
+                processing_fee_multi_week, created_at, version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ',
             [
                 $tippYear->id(),
@@ -246,6 +251,8 @@ final class TippYearRepository extends EventSourcedRepository implements TippYea
                 $tippYear->endDate()->format('Y-m-d'),
                 $tippYear->status()->value(),
                 $tippYear->ticketCostPerRow(),
+                $tippYear->processingFees()->singleWeek(),
+                $tippYear->processingFees()->multiWeek(),
                 $tippYear->createdAt()->format('Y-m-d H:i:s'),
                 $version,
             ]
@@ -339,6 +346,10 @@ final class TippYearRepository extends EventSourcedRepository implements TippYea
             endDate: new DateTimeImmutable(Row::string($row, 'end_date')),
             status: new TippYearStatus(Row::string($row, 'status')),
             ticketCostPerRow: Row::float($row, 'ticket_cost_per_row'),
+            processingFees: new ProcessingFees(
+                Row::nullableFloat($row, 'processing_fee_single_week') ?? 0.0,
+                Row::nullableFloat($row, 'processing_fee_multi_week') ?? 0.0
+            ),
             createdAt: new DateTimeImmutable(Row::string($row, 'created_at')),
             version: Row::int($row, 'version')
         );

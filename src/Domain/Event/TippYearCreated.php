@@ -14,6 +14,8 @@ final class TippYearCreated extends DomainEvent
         private string $startDate,
         private string $endDate,
         private float $ticketCostPerRow,
+        private float $processingFeeSingleWeek = 0.0,
+        private float $processingFeeMultiWeek = 0.0,
         ?string $eventId = null,
         ?DateTimeImmutable $occurredAt = null,
         ?string $causationId = null,
@@ -46,6 +48,8 @@ final class TippYearCreated extends DomainEvent
             'start_date' => $this->startDate,
             'end_date' => $this->endDate,
             'ticket_cost_per_row' => $this->ticketCostPerRow,
+            'processing_fee_single_week' => $this->processingFeeSingleWeek,
+            'processing_fee_multi_week' => $this->processingFeeMultiWeek,
         ];
     }
 }

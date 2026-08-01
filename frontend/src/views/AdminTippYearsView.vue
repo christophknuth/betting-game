@@ -282,6 +282,15 @@
           Der Schein bündelt alle Reihen mit aktiver Teilnahme als Snapshot und erzeugt je
           Teilnehmer eine Gebühr. Eine spätere Korrektur einer Reihe ändert ihn nicht mehr.
         </p>
+        <p
+          v-if="applicableFee !== null"
+          class="state note"
+        >
+          Für diesen Zeitraum gilt das <strong>{{ applicableFee.label }}</strong>
+          Bearbeitungsentgelt von {{ formatAmount(applicableFee.amount) }}. Es fällt einmal
+          je Schein an und wird zusammen mit den Reihenkosten cent-genau auf die Teilnehmer
+          aufgeteilt.
+        </p>
         <button
           class="btn-primary"
           :disabled="submitTicketCmd.pending"
@@ -338,6 +347,7 @@ import TippYearSetupWizard from '@/components/TippYearSetupWizard.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
 import { TIPP_YEAR_STATUSES, formatAmount, formatDate, statusLabel } from '@/support/format'
+import { applicableProcessingFee } from '@/support/processingFee'
 
 const years = useQuery()
 const periods = useQuery()
@@ -371,6 +381,14 @@ const newTicket = reactive({
   lotteryReference: ''
 })
 const payout = reactive({ confirm: false, note: '' })
+
+// Shown while the dates are being filled in, so the cost is visible before the
+// ticket is submitted rather than after. The API decides the actual rate.
+const applicableFee = computed(() => applicableProcessingFee(
+  newTicket.periodStart,
+  newTicket.periodEnd,
+  selectedYear.value
+))
 
 const loadYears = () => years.load(() => api.admin.getTippYears())
 const loadPeriods = () => periods.load(() => api.admin.getBetPeriods(selectedId.value))

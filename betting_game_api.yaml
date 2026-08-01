@@ -633,8 +633,12 @@ paths:
         - Admin - Tipp Year
       summary: Create tipp year (B-10)
       description: |
-        Creates a tipp year with a freely chosen period and the price of one row per draw
-        (CQRS command). Overlapping periods are rejected with `409`.
+        Creates a tipp year with a freely chosen period and its price list (CQRS command).
+        Overlapping periods are rejected with `409`.
+
+        The price list is two-part, the way the lottery company charges: a price per row and
+        draw, plus a Bearbeitungsentgelt per Spielauftrag whose rate depends on whether the
+        order runs one week or longer.
       operationId: createTippYear
       security:
         - bearerAuth: []
@@ -837,9 +841,18 @@ paths:
         Records the monthly ticket (CQRS command).
 
         Bundles all rows with an active membership, copies them onto the ticket as a
-        snapshot, computes `rowCount × drawCount × ticketCostPerRow` and creates one fee
-        per participant over an equal share of it. A later correction to a bet row no
-        longer changes a submitted ticket.
+        snapshot, computes
+        `rowCount × drawCount × ticketCostPerRow + processingFee` and creates one fee per
+        participant over an equal share of it. A later correction to a bet row no longer
+        changes a submitted ticket.
+
+        The Bearbeitungsentgelt comes from the tipp year's price list, picked by the length
+        of this Spielauftrag, and is recorded on the ticket - a later change to the rates
+        does not rewrite what a submitted ticket cost.
+
+        Because the fee is charged once rather than per row, the total is generally not a
+        multiple of the row count. The shares are therefore split in whole cents with the
+        remainder on the first one, so they add back up to the ticket exactly.
       operationId: submitTicket
       security:
         - bearerAuth: []
@@ -1389,6 +1402,14 @@ components:
         ticketCostPerRow:
           type: number
           format: decimal
+        processingFeeSingleWeek:
+          type: number
+          format: decimal
+          description: Fee per Spielauftrag covering at most one week
+        processingFeeMultiWeek:
+          type: number
+          format: decimal
+          description: Fee per Spielauftrag running longer than one week
         memberCount:
           type: integer
         ticketCount:
@@ -1665,6 +1686,21 @@ components:
           type: number
           format: decimal
           description: Price of one row per draw
+        processingFeeSingleWeek:
+          type: number
+          format: decimal
+          default: 0
+          description: |
+            Bearbeitungsentgelt for a Spielauftrag covering at most one week.
+
+            The lottery company charges this once per ticket, on top of the
+            rows, and the rate depends on how long the order runs. Optional: a
+            syndicate that is not charged one leaves both at zero.
+        processingFeeMultiWeek:
+          type: number
+          format: decimal
+          default: 0
+          description: Bearbeitungsentgelt for a Spielauftrag running longer than one week
 
     ChangeTippYearStatusCommand:
       type: object

@@ -58,8 +58,9 @@ final class TicketProjector implements Projector
             '
             INSERT INTO ticket (
                 ticket_id, tipp_year_id, period_start, period_end, lottery_reference,
-                superzahl, row_count, draw_count, total_cost, status, submitted_at, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                superzahl, row_count, draw_count, processing_fee, total_cost,
+                status, submitted_at, version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ',
             [
                 $ticketId,
@@ -70,6 +71,11 @@ final class TicketProjector implements Projector
                 Row::nullableInt($data, 'superzahl'),
                 count($rows),
                 Row::int($data, 'draw_count'),
+                // Nullable, not required: tickets submitted before the
+                // Bearbeitungsentgelt existed carry no such field, and the
+                // event log is immutable. Demanding it would break a rebuild
+                // on every event written before this change.
+                Row::nullableFloat($data, 'processing_fee') ?? 0.0,
                 Row::float($data, 'total_cost'),
                 Ticket::SUBMITTED,
                 $record->event->occurredAt()->format('Y-m-d H:i:s'),

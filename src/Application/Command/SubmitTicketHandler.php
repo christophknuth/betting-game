@@ -75,21 +75,30 @@ final class SubmitTicketHandler
                 $rows
             ),
             $command->superzahl === null ? null : new Superzahl($command->superzahl),
-            $command->lotteryReference
+            $command->lotteryReference,
+            // The Bearbeitungsentgelt comes from the tipp year's price list and
+            // depends on how long this Spielauftrag runs. Read here rather than
+            // inside the ticket: the ticket records what it was charged, the
+            // year owns the rates.
+            $tippYear->processingFees()->forPeriod($periodStart, $periodEnd)
         );
 
         $this->tickets->save($ticket);
 
         // The fee is due while the ticket runs, so the end of its period is the
         // last sensible due date.
-        $share = $ticket->feePerParticipant();
+        //
+        // Shares are taken position by position: with the processing fee added
+        // the total no longer divides evenly, so one participant carries the
+        // odd cent rather than the syndicate quietly under-billing itself.
+        $shares = $ticket->feeShares();
 
-        foreach ($ticket->participantIds() as $participantId) {
+        foreach (array_values($ticket->participantIds()) as $index => $participantId) {
             $this->fees->save(Fee::charge(
                 $this->fees->nextIdentity(),
                 $participantId,
                 $ticket->id(),
-                $share,
+                $shares[$index],
                 $periodEnd
             ));
         }

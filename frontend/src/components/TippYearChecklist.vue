@@ -20,6 +20,11 @@
           </p>
           <p class="detail">
             {{ formatAmount(year.ticketCostPerRow) }} je Reihe und Ziehung
+            <template v-if="hasProcessingFee">
+              · Bearbeitungsentgelt
+              {{ formatAmount(year.processingFeeSingleWeek) }} einwöchig,
+              {{ formatAmount(year.processingFeeMultiWeek) }} mehrwöchig
+            </template>
           </p>
         </div>
       </li>
@@ -257,6 +262,12 @@ const blockedBy = computed(() =>
   props.runningYear && props.runningYear.tippYearId !== props.year.tippYearId
     ? props.runningYear
     : null
+)
+
+// Only worth showing when the syndicate is actually charged one - a row of
+// zeroes says nothing.
+const hasProcessingFee = computed(() =>
+  Number(props.year.processingFeeSingleWeek) > 0 || Number(props.year.processingFeeMultiWeek) > 0
 )
 
 const coverage = computed(() => {

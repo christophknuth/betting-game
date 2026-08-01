@@ -6,6 +6,61 @@ what was changed when, and why.
 
 ---
 
+## A ticket costs more than its rows (2026-08-01)
+
+**The Bearbeitungsentgelt was missing from the model entirely.** LOTTO charges a fee for
+every Spielauftrag on top of the rows, and the rate depends on how long the order runs —
+0.60 € for a single week, 1.00 € for a multi-week one in Schleswig-Holstein's list. The
+model knew only `rows × draws × price`, so every ticket was billed short.
+
+The rates are agreed for the season, so they live on the tipp year as a two-part price list
+(`ProcessingFees`), and the rule that picks between them lives with them: a Spielauftrag
+covering at most seven days inclusive is single-week. The ticket records which rate it was
+charged, so a later change to the list does not rewrite what a submitted ticket cost — the
+same reason the rows are copied onto it as a snapshot.
+
+**Adding the fee exposed a cent bug that had been dormant.** `feePerParticipant()` divided
+with `round($total / $rowCount)`, which was exact only because the total was a multiple of
+the row count. Charged once per ticket, the fee breaks that: 3 rows × 9 draws × 1.20 plus
+1.00 is 33.40, and a third of that is 11.1333… Rounding each share separately bills 33.39
+and loses a cent — on every ticket, forever. The split now goes through `EvenSplit`, in
+whole cents with the remainder on the first share, the same convention B-09 and B-13 use.
+`feePerParticipant()` became `feeShares()`, because there is no longer one answer.
+
+Measured on the running stack rather than argued:
+
+| Spielauftrag | Rate | Total | Shares |
+|---|---|---|---|
+| 01.01.–31.01., 9 draws | 1.00 multi-week | 33.40 = 3×9×1.20 + 1.00 | 11.14 + 11.13 + 11.13 |
+| 05.02.–11.02., 2 draws | 0.60 single-week | 7.80 = 3×2×1.20 + 0.60 | 2.60 × 3 |
+
+**Two events grew a field, which is a schema change to an immutable log.** Everything
+written before this carries no such key, so the projectors and the event-store deserialiser
+read the new fields as nullable and fall back to zero. An integration test strips the fields
+back out of stored payloads and rebuilds from them, because a rebuild is exactly when a
+strict reader would have been discovered.
+
+> **Existing databases need the columns.** `schema.sql` only runs on an empty data
+> directory, so a stack that is already up keeps the old table definition and every write
+> fails. Add them without losing data:
+>
+> ```sql
+> ALTER TABLE tipp_year
+>   ADD COLUMN processing_fee_single_week DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER ticket_cost_per_row,
+>   ADD COLUMN processing_fee_multi_week  DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER processing_fee_single_week;
+> ALTER TABLE ticket
+>   ADD COLUMN processing_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER draw_count;
+> ```
+
+Both fees default to zero, so a syndicate that is not charged one can ignore them; the
+frontend hides the explanation entirely in that case.
+
+Verified: PHPStan level 10 clean, phpcs clean, PHPUnit 405 with `--fail-on-skipped`, ESLint
+clean, Vitest 87/87, Playwright 12/12 against the real stack, plus the two tickets above
+submitted through the live API.
+
+---
+
 ## OPS-04 reported a backlog that was not there (2026-08-01)
 
 **`GET /admin/projections` said every projection was behind, and the gap grew with every
