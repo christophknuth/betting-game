@@ -36,8 +36,10 @@ export default [
   },
 
   {
-    // The application itself runs in a browser.
-    files: ['src/**/*.js', 'src/**/*.vue'],
+    // The application itself runs in a browser. public/ is served verbatim and
+    // runs there too - config.js is a plain script the container rewrites at
+    // start-up, not part of the bundle.
+    files: ['src/**/*.js', 'src/**/*.vue', 'public/**/*.js'],
     languageOptions: { globals: globals.browser }
   },
 

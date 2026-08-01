@@ -66,8 +66,30 @@ final class Container
         }
 
         $builder->addDefinitions([
+            // The raw configuration as a container entry, so the factories
+            // below can *resolve* it instead of capturing it.
+            //
+            // This is not a style preference. PHP-DI cannot compile a closure
+            // that imports a variable with `use`, and compilation is precisely
+            // what `production` switches on a few lines above - so every
+            // factory written as `function () use ($settings)` made
+            // APP_ENV=production fail at bootstrap with "Cannot compile
+            // closures which import variables using the `use` keyword". A
+            // plain array compiles; a bound variable does not.
+            'config' => $config,
+
+            Config::class => static function (PsrContainerInterface $c): Config {
+                /** @var array<string, mixed> $raw */
+                $raw = $c->get('config');
+
+                return new Config($raw);
+            },
+
             // Database
-            PDO::class => function () use ($settings) {
+            PDO::class => static function (PsrContainerInterface $c): PDO {
+                $settings = $c->get(Config::class);
+                assert($settings instanceof Config);
+
                 $dsn = sprintf(
                     'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
                     $settings->string('db.host', 'localhost'),
@@ -88,14 +110,20 @@ final class Container
             },
 
             // PSR-3: Logger Interface
-            LoggerInterface::class => function () use ($settings) {
+            LoggerInterface::class => static function (PsrContainerInterface $c): LoggerInterface {
+                $settings = $c->get(Config::class);
+                assert($settings instanceof Config);
+
                 return LoggerFactory::createApplicationLogger(
                     $settings->string('environment', 'development')
                 );
             },
 
             // PSR-16: Simple Cache Interface
-            CacheInterface::class => function () use ($settings) {
+            CacheInterface::class => static function (PsrContainerInterface $c): CacheInterface {
+                $settings = $c->get(Config::class);
+                assert($settings instanceof Config);
+
                 if ($settings->string('cache.driver', 'file') === 'redis' && extension_loaded('redis')) {
                     return new \BettingGame\Infrastructure\Cache\RedisCache(
                         host: $settings->string('cache.redis.host', '127.0.0.1'),
@@ -116,7 +144,10 @@ final class Container
             // key set wins when there is one, so a deployment that cannot reach
             // Keycloak at request time still verifies signatures rather than
             // falling back to trusting the token.
-            KeySource::class => static function (PsrContainerInterface $c) use ($settings): KeySource {
+            KeySource::class => static function (PsrContainerInterface $c): KeySource {
+                $settings = $c->get(Config::class);
+                assert($settings instanceof Config);
+
                 $configured = $settings->nullableString('keycloak.jwks');
 
                 if ($configured !== null && trim($configured) !== '') {
@@ -134,7 +165,10 @@ final class Container
                 );
             },
 
-            TokenVerifier::class => static function (PsrContainerInterface $c) use ($settings): TokenVerifier {
+            TokenVerifier::class => static function (PsrContainerInterface $c): TokenVerifier {
+                $settings = $c->get(Config::class);
+                assert($settings instanceof Config);
+
                 $keys = $c->get(KeySource::class);
                 assert($keys instanceof KeySource);
 
@@ -147,7 +181,10 @@ final class Container
             },
 
             // Keycloak Service
-            KeycloakService::class => static function (PsrContainerInterface $c) use ($settings): KeycloakService {
+            KeycloakService::class => static function (PsrContainerInterface $c): KeycloakService {
+                $settings = $c->get(Config::class);
+                assert($settings instanceof Config);
+
                 $verifier = $c->get(TokenVerifier::class);
                 assert($verifier instanceof TokenVerifier);
 
@@ -244,8 +281,18 @@ final class Container
             // HTTP
             Router::class => \DI\autowire(),
 
-            // Only debug builds put an exception message in a 500 response
-            ErrorMapper::class => fn (): ErrorMapper => new ErrorMapper($settings->bool('debug')),
+            // Only debug builds put an exception message in a 500 response.
+            //
+            // Written long-hand rather than as `fn () => new ErrorMapper(...)`:
+            // an arrow function captures the outer scope implicitly, which the
+            // compiler rejects exactly like an explicit `use` - and being
+            // invisible, it is the one that survives a search for `use (`.
+            ErrorMapper::class => static function (PsrContainerInterface $c): ErrorMapper {
+                $settings = $c->get(Config::class);
+                assert($settings instanceof Config);
+
+                return new ErrorMapper($settings->bool('debug'));
+            },
 
             Kernel::class => \DI\autowire(),
         ]);

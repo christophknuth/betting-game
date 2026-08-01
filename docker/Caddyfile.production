@@ -1,0 +1,95 @@
+# One origin for the SPA and the API, served by FrankenPHP.
+#
+# FrankenPHP is Caddy with PHP built in, so the same server that runs the front
+# controller also serves the built SPA - no php-fpm, no second web server, one
+# process in one image.
+#
+# Same origin is not only convenience: it removes CORS from the picture
+# entirely. The development Caddyfile still answers `Access-Control-Allow-Origin
+# "*"`, which is not a header to ship in front of an authenticated API.
+
+{
+	# The admin API listens on localhost:2019 by default. Nothing here uses it,
+	# and a container should not expose a control plane it does not need.
+	admin off
+
+	# Terminating TLS is the reverse proxy's job in every deployment this is
+	# meant for. Without this, Caddy would try to obtain a certificate for
+	# whatever host header it sees.
+	auto_https off
+
+	frankenphp
+}
+
+# 8080 rather than 80: the server runs as a non-root user, and binding a
+# privileged port would need a capability the container is better off without.
+# Publish it as :80 from the outside if that is what the deployment wants.
+:8080 {
+	encode gzip zstd
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# --- The API -------------------------------------------------------
+	#
+	# `handle_path` strips the prefix, so /api/admin/tipp-years arrives at the
+	# router as /admin/tipp-years. That is the same contract the SPA already
+	# had: vite.config.js rewrites it in development, and the nginx container
+	# used to strip it in the same way.
+	handle_path /api/* {
+		root * /app/public
+
+		# REQUEST_URI has to be overridden, and there are two traps in a row.
+		#
+		# First: `handle_path` strips the prefix from the path Caddy routes on,
+		# but it deliberately hands PHP the URI the client actually asked for.
+		# The router reads $_SERVER['REQUEST_URI'], so without an override it
+		# sees /api/health, finds no such route and answers 404 - the API looks
+		# broken while every static file works.
+		#
+		# Second, and the one that costs an hour: `php_server` expands to
+		# try_files + php, and try_files rewrites anything that is not a file on
+		# disk to /index.php. A plain `env REQUEST_URI {uri}` is evaluated after
+		# that rewrite, so the router would receive /index.php - which is not a
+		# route either, and the symptom is identical. Capturing the URI in an
+		# explicit `route` block, before try_files runs, is what makes the two
+		# steps happen in that order.
+		route {
+			vars api_uri {uri}
+			php_server {
+				env REQUEST_URI {vars.api_uri}
+			}
+		}
+	}
+
+	# --- The SPA -------------------------------------------------------
+	handle {
+		root * /app/spa
+
+		# The built assets carry a content hash, so they can be cached hard.
+		# index.html and config.js must not be: one is the entry point that
+		# names the current hashes, the other is written at container start and
+		# would otherwise pin a stale Keycloak URL into the browser.
+		@immutable path /assets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+		@volatile path /index.html /config.js
+		header @volatile Cache-Control "no-cache"
+
+		# Vue Router owns the paths, so anything that is not a file on disk has
+		# to come back as index.html - otherwise a reload of /admin/tipp-years
+		# is a 404 from the file server rather than a route.
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format console
+		level INFO
+	}
+}

@@ -1,14 +1,10 @@
 import Keycloak from 'keycloak-js'
+import { keycloakConfig } from '@/support/runtimeConfig'
 
-// Keycloak configuration
-const keycloakConfig = {
-  url: import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8090',
-  realm: import.meta.env.VITE_KEYCLOAK_REALM || 'betting-game',
-  clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'betting-game-frontend'
-}
-
-// Create Keycloak instance
-const keycloak = new Keycloak(keycloakConfig)
+// Runtime first, then what Vite baked in, then a development default - see
+// support/runtimeConfig.js for why the SPA cannot simply read import.meta.env
+// here if one built image is to serve more than one environment.
+const keycloak = new Keycloak(keycloakConfig())
 
 // Initialize Keycloak
 let initPromise = null

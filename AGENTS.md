@@ -412,6 +412,14 @@ tables, a route without the `command` flag, a controller method with
   `membership` events referring to them fail on the foreign key, which takes the whole
   rebuild down with them. On a database seeded that way, rebuild from
   `tipp_year_read_model` instead and leave the participants alone.
+- **A container definition may not capture the outer scope.** `APP_ENV=production` makes
+  PHP-DI compile the container, and it cannot compile a closure that imports a variable —
+  the whole bootstrap dies with *"Cannot compile closures which import variables using the
+  `use` keyword"*. **Arrow functions capture implicitly**, so `fn () => new X($settings)`
+  fails exactly the same way while surviving any search for `use (`. Resolve what you need
+  from the container instead: `static function (PsrContainerInterface $c) { $settings =
+  $c->get(Config::class); … }`. Nothing in the development stack notices, because
+  compilation is off there.
 - **Money is split with `EvenSplit`, never with `round($total / $n)`.** Since the
   Bearbeitungsentgelt is charged once per ticket rather than per row, a ticket's total is
   generally not a multiple of the row count — 33.40 across three is 11.1333… Rounding each
