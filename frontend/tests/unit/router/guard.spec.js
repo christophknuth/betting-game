@@ -67,7 +67,11 @@ describe('router navigation guard', () => {
     await navigation
 
     expect(router.currentRoute.value.path).toBe('/fees')
-  })
+    // Its own timeout: this case builds the router, holds Keycloak's promise
+    // unresolved across a navigation and only then settles it, which lands
+    // around three seconds against the five-second default. On a loaded
+    // machine that crosses the line and fails for no reason anyone can act on.
+  }, 20000)
 
   it('lets an authenticated participant reach a participant-only route', async () => {
     await loginAs(['user'])

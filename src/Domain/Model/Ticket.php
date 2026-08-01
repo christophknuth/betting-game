@@ -6,6 +6,7 @@ namespace BettingGame\Domain\Model;
 
 use BettingGame\Domain\Event\TicketSubmitted;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
+use BettingGame\Domain\ValueObject\EvenSplit;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use DateTimeImmutable;
@@ -39,7 +40,8 @@ final class Ticket
         private ?Superzahl $superzahl,
         private ?string $lotteryReference,
         private string $status,
-        private ?DateTimeImmutable $submittedAt
+        private ?DateTimeImmutable $submittedAt,
+        private float $processingFee = 0.0
     ) {
     }
 
@@ -55,7 +57,8 @@ final class Ticket
         float $ticketCostPerRow,
         array $rows,
         ?Superzahl $superzahl = null,
-        ?string $lotteryReference = null
+        ?string $lotteryReference = null,
+        float $processingFee = 0.0
     ): self {
         if ($rows === []) {
             throw new BusinessRuleViolationException('A ticket needs at least one bet row');
@@ -69,7 +72,14 @@ final class Ticket
             throw new BusinessRuleViolationException('Period end must be after period start');
         }
 
-        $totalCost = round(count($rows) * $drawCount * $ticketCostPerRow, 2);
+        if ($processingFee < 0.0) {
+            throw new BusinessRuleViolationException('A processing fee cannot be negative');
+        }
+
+        // The Bearbeitungsentgelt is charged once for the Spielauftrag, not per
+        // row and not per draw - which is why it is added rather than folded
+        // into the row price, and why the share below no longer divides evenly.
+        $totalCost = round(count($rows) * $drawCount * $ticketCostPerRow + $processingFee, 2);
 
         $ticket = new self(
             $id,
@@ -82,7 +92,8 @@ final class Ticket
             $superzahl,
             $lotteryReference,
             self::SUBMITTED,
-            new DateTimeImmutable()
+            new DateTimeImmutable(),
+            $processingFee
         );
 
         $ticket->recordEvent(new TicketSubmitted(
@@ -101,7 +112,8 @@ final class Ticket
                 array_values($rows)
             ),
             $superzahl?->value(),
-            $lotteryReference
+            $lotteryReference,
+            $processingFee
         ));
 
         return $ticket;
@@ -124,7 +136,8 @@ final class Ticket
         ?string $lotteryReference,
         string $status,
         ?DateTimeImmutable $submittedAt,
-        int $version
+        int $version,
+        float $processingFee = 0.0
     ): self {
         $ticket = new self(
             $id,
@@ -137,7 +150,8 @@ final class Ticket
             $superzahl,
             $lotteryReference,
             $status,
-            $submittedAt
+            $submittedAt,
+            $processingFee
         );
         $ticket->markCommitted($version);
 
@@ -145,14 +159,23 @@ final class Ticket
     }
 
     /**
-     * The share one participant owes for this ticket.
+     * What each participant owes, in the order of the rows on the ticket.
      *
-     * The cost is split evenly across the rows on the ticket, so everyone pays
-     * the same regardless of when they joined the year.
+     * The cost is split evenly across the rows, so everyone pays the same
+     * regardless of when they joined the year - but "evenly" has to mean in
+     * whole cents. Once the Bearbeitungsentgelt is added, the total is no
+     * longer a multiple of the row count: 3 rows x 9 draws x 1.20 plus 1.00 is
+     * 33.40, and a third of that is 11.1333... Rounding each share separately
+     * would bill 33.39 and quietly lose a cent, every single ticket.
+     *
+     * `EvenSplit` divides in cents and puts the remainder on the first share -
+     * the same convention B-13 states for the payout and B-09 uses per row.
+     *
+     * @return list<float> one share per row, summing exactly to the total cost
      */
-    public function feePerParticipant(): float
+    public function feeShares(): array
     {
-        return round($this->totalCost / count($this->rows), 2);
+        return EvenSplit::of($this->totalCost, count($this->rows));
     }
 
     public function rowCount(): int
@@ -193,6 +216,12 @@ final class Ticket
     public function drawCount(): int
     {
         return $this->drawCount;
+    }
+
+    /** The Bearbeitungsentgelt charged for this Spielauftrag, as a snapshot. */
+    public function processingFee(): float
+    {
+        return $this->processingFee;
     }
 
     public function totalCost(): float

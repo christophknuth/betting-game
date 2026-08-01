@@ -7,6 +7,7 @@ namespace BettingGame\Application\Command;
 use BettingGame\Domain\Model\TippYear;
 use BettingGame\Domain\Repository\TippYearRepositoryInterface;
 use BettingGame\Domain\ValueObject\DateRange;
+use BettingGame\Domain\ValueObject\ProcessingFees;
 
 final class CreateTippYearHandler
 {
@@ -26,7 +27,11 @@ final class CreateTippYearHandler
             $command->name,
             $range->start(),
             $range->end(),
-            $command->ticketCostPerRow
+            $command->ticketCostPerRow,
+            new ProcessingFees(
+                $command->processingFeeSingleWeek,
+                $command->processingFeeMultiWeek
+            )
         );
 
         $this->tippYears->save($tippYear);

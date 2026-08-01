@@ -32,7 +32,8 @@ Machine-readable: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3,
   configuration, not an assumption in code. One period spanning the whole year is allowed.
 - Each participant has **exactly one bet row per period** (`BetRow`), of six numbers.
 - Once a month the syndicate submits a shared **ticket** (`Ticket`): a snapshot of all valid
-  rows. It creates one **fee** (`Fee`) per participant.
+  rows. Its cost is the rows plus a **Bearbeitungsentgelt** charged once per Spielauftrag,
+  and it creates one **fee** (`Fee`) per participant.
 - **Draws** (`Draw`) produce winnings for the ticket as a whole; they are collected over the
   year and distributed **evenly across all participants** at the end of it.
 
@@ -197,7 +198,7 @@ curl -X POST http://localhost:8080/admin/tipp-years \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
-  -d '{"name":"Tippjahr 2026","startDate":"2026-01-01","endDate":"2026-12-31","ticketCostPerRow":1.20}'
+  -d '{"name":"Tippjahr 2026","startDate":"2026-01-01","endDate":"2026-12-31","ticketCostPerRow":1.20,"processingFeeSingleWeek":0.60,"processingFeeMultiWeek":1.00}'
 ```
 
 ```json

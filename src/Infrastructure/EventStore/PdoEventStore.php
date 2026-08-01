@@ -345,6 +345,10 @@ final class PdoEventStore implements EventStoreInterface
                 Row::string($eventData, 'start_date'),
                 Row::string($eventData, 'end_date'),
                 Row::float($eventData, 'ticket_cost_per_row'),
+                // Nullable: events written before the price list existed carry
+                // no rates, and the log is immutable.
+                Row::nullableFloat($eventData, 'processing_fee_single_week') ?? 0.0,
+                Row::nullableFloat($eventData, 'processing_fee_multi_week') ?? 0.0,
                 $domainEventId,
                 $occurredAt,
                 $causationId,
@@ -381,6 +385,7 @@ final class PdoEventStore implements EventStoreInterface
                 self::objectList($eventData, 'rows'),
                 Row::nullableInt($eventData, 'superzahl'),
                 Row::nullableString($eventData, 'lottery_reference'),
+                Row::nullableFloat($eventData, 'processing_fee') ?? 0.0,
                 $domainEventId,
                 $occurredAt,
                 $causationId,

@@ -32,8 +32,12 @@ final class TicketTest extends TestCase
         return $rows;
     }
 
-    private function submit(int $rowCount = 3, int $drawCount = 9, float $costPerRow = 1.20): Ticket
-    {
+    private function submit(
+        int $rowCount = 3,
+        int $drawCount = 9,
+        float $costPerRow = 1.20,
+        float $processingFee = 0.0
+    ): Ticket {
         return Ticket::submit(
             1,
             5,
@@ -43,7 +47,8 @@ final class TicketTest extends TestCase
             $costPerRow,
             $this->rows($rowCount),
             new Superzahl(4),
-            'REF-2026-03'
+            'REF-2026-03',
+            $processingFee
         );
     }
 
@@ -72,7 +77,7 @@ final class TicketTest extends TestCase
     {
         $ticket = $this->submit(rowCount: 3, drawCount: 9, costPerRow: 1.20);
 
-        self::assertSame(10.80, $ticket->feePerParticipant());
+        self::assertSame([10.80, 10.80, 10.80], $ticket->feeShares());
         self::assertSame(3, $ticket->rowCount());
     }
 
@@ -82,7 +87,32 @@ final class TicketTest extends TestCase
         $ticket = $this->submit(rowCount: 7, drawCount: 1, costPerRow: 1.00);
 
         self::assertSame(7.0, $ticket->totalCost());
-        self::assertSame(1.0, $ticket->feePerParticipant());
+        self::assertSame([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], $ticket->feeShares());
+    }
+
+    public function testTheProcessingFeeIsAddedOnceForTheWholeSpielauftrag(): void
+    {
+        // Not per row and not per draw: the lottery company charges the
+        // Bearbeitungsentgelt once for the Spielauftrag.
+        $ticket = $this->submit(rowCount: 3, drawCount: 9, costPerRow: 1.20, processingFee: 1.00);
+
+        self::assertSame(33.40, $ticket->totalCost(), '3 x 9 x 1.20 + 1.00');
+        self::assertSame(1.00, $ticket->processingFee());
+    }
+
+    public function testTheOddCentOfTheProcessingFeeIsBilledRatherThanLost(): void
+    {
+        // 33.40 across three does not divide: 11.1333... Rounding each share
+        // would bill 33.39 and lose a cent on every single ticket, so the
+        // remainder goes onto the first share instead.
+        $ticket = $this->submit(rowCount: 3, drawCount: 9, costPerRow: 1.20, processingFee: 1.00);
+
+        $shares = $ticket->feeShares();
+
+        // 3340 cents across three is 1113 each with one over, and that one
+        // goes to the first share.
+        self::assertSame([11.14, 11.13, 11.13], $shares);
+        self::assertSame(33.40, round(array_sum($shares), 2), 'the shares have to add back up');
     }
 
     public function testParticipantIdsAreCollectedWithoutDuplicates(): void

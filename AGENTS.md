@@ -18,7 +18,9 @@ PHP 8.4, no framework, onion architecture with event sourcing and CQRS.
   configuration, not an assumption in code — one period spanning the whole year is allowed.
 - Each participant has **exactly one bet row per period** (`BetRow`), of six numbers.
 - Once a month a shared **ticket** (`Ticket`) is submitted: a snapshot of all valid rows.
-  It creates one **fee** (`Fee`) per participant.
+  Its cost is `rows × draws × price` plus a **Bearbeitungsentgelt** charged once for the
+  Spielauftrag, at a rate the tipp year's price list sets by the ticket's length. It creates
+  one **fee** (`Fee`) per participant.
 - **Draws** (`Draw`) produce winnings for the ticket as a whole; they are collected over the
   year and distributed **evenly across all participants** at the end of it.
 
@@ -410,6 +412,17 @@ tables, a route without the `command` flag, a controller method with
   `membership` events referring to them fail on the foreign key, which takes the whole
   rebuild down with them. On a database seeded that way, rebuild from
   `tipp_year_read_model` instead and leave the participants alone.
+- **Money is split with `EvenSplit`, never with `round($total / $n)`.** Since the
+  Bearbeitungsentgelt is charged once per ticket rather than per row, a ticket's total is
+  generally not a multiple of the row count — 33.40 across three is 11.1333… Rounding each
+  share separately under-bills by a cent on every ticket. `EvenSplit` divides in whole cents
+  and puts the remainder on the first share; B-09, B-12 and B-13 all use it.
+- **Adding a field to an event is a schema change to an immutable log.** Events already
+  written carry no such key, so the projector and `PdoEventStore`'s deserialiser have to read
+  it with `Row::nullableFloat(...) ?? 0.0`. Demanding it breaks the next rebuild, and a
+  rebuild is the worst moment to find out. Never insert a parameter *before* the
+  `$eventId`/`$occurredAt` tail either — the deserialiser passes those positionally, and
+  PHPStan is what catches it.
 - **A new repository has to name its projection.** `EventSourcedRepository` is abstract on
   `projectionName()`, and the write path records that position as it commits. Return the
   matching projector's `NAME` constant rather than a string, so the two cannot drift.

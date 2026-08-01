@@ -26,6 +26,8 @@ final class GetTippYearsHandler
                 'endDate' => Row::string($row, 'end_date'),
                 'status' => Row::string($row, 'status'),
                 'ticketCostPerRow' => Row::float($row, 'ticket_cost_per_row'),
+                'processingFeeSingleWeek' => Row::nullableFloat($row, 'processing_fee_single_week') ?? 0.0,
+                'processingFeeMultiWeek' => Row::nullableFloat($row, 'processing_fee_multi_week') ?? 0.0,
                 'memberCount' => Row::int($row, 'member_count'),
                 'ticketCount' => Row::int($row, 'ticket_count'),
                 'drawCount' => Row::int($row, 'draw_count'),

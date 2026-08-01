@@ -74,6 +74,14 @@ CREATE TABLE tipp_year (
     end_date DATE NOT NULL,
     status ENUM('planned', 'running', 'closed', 'distributed') DEFAULT 'planned',
     ticket_cost_per_row DECIMAL(10, 2) NOT NULL COMMENT 'Cost of one row per draw',
+    -- The lottery company charges a Bearbeitungsentgelt per Spielauftrag on top
+    -- of the rows, and the rate depends on how long the order runs. Both rates
+    -- are agreed for the season, which is why they live on the tipp year; the
+    -- ticket records which of them it was actually charged.
+    processing_fee_single_week DECIMAL(10, 2) NOT NULL DEFAULT 0.00
+        COMMENT 'Fee for a Spielauftrag covering at most one week',
+    processing_fee_multi_week DECIMAL(10, 2) NOT NULL DEFAULT 0.00
+        COMMENT 'Fee for a Spielauftrag running longer than one week',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INT DEFAULT 0 COMMENT 'Optimistic locking',
     -- 1 while the year is running, NULL otherwise. Equal NULLs do not collide
@@ -150,7 +158,10 @@ CREATE TABLE ticket (
     superzahl TINYINT NULL COMMENT '0-9, from the ticket serial - applies to every row',
     row_count INT NOT NULL DEFAULT 0,
     draw_count INT NOT NULL DEFAULT 0,
-    total_cost DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    processing_fee DECIMAL(10, 2) NOT NULL DEFAULT 0.00
+        COMMENT 'Bearbeitungsentgelt charged for this Spielauftrag, as a snapshot',
+    total_cost DECIMAL(10, 2) NOT NULL DEFAULT 0.00
+        COMMENT 'row_count * draw_count * ticket_cost_per_row + processing_fee',
     status ENUM('draft', 'submitted', 'settled') DEFAULT 'draft',
     submitted_at DATETIME NULL,
     version INT DEFAULT 0 COMMENT 'Optimistic locking',

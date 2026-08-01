@@ -92,8 +92,9 @@ final class TippYearProjector implements Projector
             '
             INSERT INTO tipp_year (
                 tipp_year_id, name, start_date, end_date, status,
-                ticket_cost_per_row, created_at, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ticket_cost_per_row, processing_fee_single_week,
+                processing_fee_multi_week, created_at, version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ',
             [
                 Row::int($data, 'tipp_year_id'),
@@ -102,6 +103,11 @@ final class TippYearProjector implements Projector
                 Row::string($data, 'end_date'),
                 TippYearStatus::PLANNED,
                 Row::float($data, 'ticket_cost_per_row'),
+                // Nullable, not required: tipp years created before the price
+                // list existed carry no rates, and the event log is immutable.
+                // Demanding them would break a rebuild on every earlier event.
+                Row::nullableFloat($data, 'processing_fee_single_week') ?? 0.0,
+                Row::nullableFloat($data, 'processing_fee_multi_week') ?? 0.0,
                 $record->event->occurredAt()->format('Y-m-d H:i:s'),
                 $record->version,
             ]

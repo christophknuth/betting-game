@@ -52,7 +52,7 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
                     '
                     UPDATE ticket
                     SET lottery_reference = ?, superzahl = ?, row_count = ?, draw_count = ?,
-                        total_cost = ?, status = ?, submitted_at = ?, version = ?
+                        processing_fee = ?, total_cost = ?, status = ?, submitted_at = ?, version = ?
                     WHERE ticket_id = ?
                     ',
                     [
@@ -60,6 +60,7 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
                         $ticket->superzahl()?->value(),
                         $ticket->rowCount(),
                         $ticket->drawCount(),
+                        $ticket->processingFee(),
                         $ticket->totalCost(),
                         $ticket->status(),
                         $ticket->submittedAt()?->format('Y-m-d H:i:s'),
@@ -73,8 +74,8 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
                     '
                     INSERT INTO ticket (
                         ticket_id, tipp_year_id, period_start, period_end, lottery_reference,
-                        superzahl, row_count, draw_count, total_cost, status, submitted_at, version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        superzahl, row_count, draw_count, processing_fee, total_cost, status, submitted_at, version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ',
                     [
                         $ticket->id(),
@@ -85,6 +86,7 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
                         $ticket->superzahl()?->value(),
                         $ticket->rowCount(),
                         $ticket->drawCount(),
+                        $ticket->processingFee(),
                         $ticket->totalCost(),
                         $ticket->status(),
                         $ticket->submittedAt()?->format('Y-m-d H:i:s'),
@@ -164,7 +166,7 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
             '
             SELECT
                 t.ticket_id, t.period_start, t.period_end, t.draw_count,
-                t.row_count, t.total_cost, t.status, t.lottery_reference,
+                t.row_count, t.processing_fee, t.total_cost, t.status, t.lottery_reference,
                 own.ticket_row_id IS NOT NULL AS participated,
                 own.numbers AS own_numbers
             FROM ticket t
@@ -211,6 +213,7 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
             periodStart: new DateTimeImmutable(Row::string($row, 'period_start')),
             periodEnd: new DateTimeImmutable(Row::string($row, 'period_end')),
             drawCount: Row::int($row, 'draw_count'),
+            processingFee: Row::nullableFloat($row, 'processing_fee') ?? 0.0,
             totalCost: Row::float($row, 'total_cost'),
             rows: $this->loadRows($ticketId),
             superzahl: $superzahl === null ? null : new Superzahl($superzahl),

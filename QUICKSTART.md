@@ -90,7 +90,7 @@ From here on use the `api()` helper from step 3.
 
 ```bash
 api POST /admin/tipp-years \
-  '{"name":"Tippjahr 2026","startDate":"2026-01-01","endDate":"2026-12-31","ticketCostPerRow":1.20}'
+  '{"name":"Tippjahr 2026","startDate":"2026-01-01","endDate":"2026-12-31","ticketCostPerRow":1.20,"processingFeeSingleWeek":0.60,"processingFeeMultiWeek":1.00}'
 ```
 
 ```json
@@ -144,7 +144,9 @@ names the year that blocks it. This is enforced by the unique key
 
 **B-12 — submit the ticket.** Bundles the rows of all participants whose period contains
 `periodStart`, copies them as a snapshot into `ticket_row` and creates one `Fee` per
-participant. `total_cost = row_count × drawCount × ticketCostPerRow`.
+participant. `total_cost = row_count × drawCount × ticketCostPerRow + processingFee`, where
+the Bearbeitungsentgelt comes from the tipp year's price list and is picked by the length of
+this ticket.
 
 ```bash
 api POST /admin/tipp-years/1/tickets \
