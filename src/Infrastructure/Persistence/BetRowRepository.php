@@ -9,6 +9,7 @@ use BettingGame\Domain\Model\BetRow;
 use BettingGame\Domain\Repository\BetRowRepositoryInterface;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Projection\BetRowProjector;
 
 /**
  * That a participant holds only one row per period is a unique key on the
@@ -18,6 +19,12 @@ use DateTimeImmutable;
 final class BetRowRepository extends EventSourcedRepository implements BetRowRepositoryInterface
 {
     private const STREAM_PREFIX = 'bet_row-';
+
+    /** The read model this repository keeps current; see EventSourcedRepository. */
+    protected function projectionName(): string
+    {
+        return BetRowProjector::NAME;
+    }
 
     public function find(int $id): ?BetRow
     {

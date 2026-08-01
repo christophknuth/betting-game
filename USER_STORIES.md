@@ -251,6 +251,13 @@ nonetheless: that is where a retry looks up what the first attempt produced.
 write their projection synchronously while saving — a load right afterwards has to see it.
 The projectors are the *second* path to the same rows: they replay the event log.
 
+Each repository also records how far its read model is current, in the same transaction. Until
+that was added, `projection_state` moved only on a rebuild, so this endpoint reported a lag
+that grew with every command while the data was perfectly current — a permanent false alarm,
+which is worse than no alarm because a projection that really stopped being written looked no
+different. A projection advances only on its own writes, so it may sit below the head with a
+lag of `0`: `lag` counts only the events it consumes.
+
 Two paths to the same tables drift apart when nobody looks. That is why
 [ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) plays a
 complete tipp year through the command handlers, photographs **all 13** read-model tables,

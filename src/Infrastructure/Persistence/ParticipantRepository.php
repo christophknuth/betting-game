@@ -9,10 +9,17 @@ use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
 use BettingGame\Domain\ValueObject\DisplayName;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Projection\ParticipantProjector;
 
 final class ParticipantRepository extends EventSourcedRepository implements ParticipantRepositoryInterface
 {
     private const STREAM_PREFIX = 'participant-';
+
+    /** The read model this repository keeps current; see EventSourcedRepository. */
+    protected function projectionName(): string
+    {
+        return ParticipantProjector::NAME;
+    }
 
     /** @return array<string, mixed>|null */
     public function findById(int $id): ?array

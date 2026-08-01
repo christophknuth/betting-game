@@ -12,6 +12,7 @@ use BettingGame\Infrastructure\Persistence\FeeRepository;
 use BettingGame\Support\Row;
 use BettingGame\Infrastructure\Persistence\TicketRepository;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
 
 /**
  * Ticket and fee together, because a fee only exists for a ticket - B-12
@@ -26,8 +27,8 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->tickets = new TicketRepository($this->db, $this->eventStore);
-        $this->fees = new FeeRepository($this->db, $this->eventStore);
+        $this->tickets = new TicketRepository($this->db, $this->eventStore, new ProjectionStateRepository($this->db));
+        $this->fees = new FeeRepository($this->db, $this->eventStore, new ProjectionStateRepository($this->db));
 
         $this->givenParticipant(7, 'Anna');
         $this->givenParticipant(8, 'Ben');

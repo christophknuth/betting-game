@@ -114,6 +114,29 @@ from the event store and compares row by row. The only deviation allowed:
 
 **Whoever changes a projection changes both sides.**
 
+### How `projection_state` is kept
+
+Each repository records how far its read model is current — in the same transaction as the
+events and the projection rows, so all three land together or not at all. The projection name
+comes from the matching projector's `NAME` constant, so the two cannot address different rows.
+
+That matters for OPS-04 and nothing else: the read models were always current, but
+`projection_state` used to be written **only by a rebuild**, so `GET /admin/projections`
+computed its lag from a counter the write path never moved. It reported a backlog that grew
+with every command while the data was up to date. A monitor that always cries wolf is worse
+than none — a projection that genuinely stops being written looks exactly the same.
+
+Two properties are easy to get wrong here, and
+[ProjectionStatusTest](tests/Integration/Application/ProjectionStatusTest.php) pins both down:
+
+- **A projection advances only when its own repository writes**, not on every command. The
+  tempting shortcut — move them all to the head on any write — would mask a projection that
+  stopped being written. So a projection may sit below the head with a lag of `0`: it has
+  considered everything of its kind, and `lag` counts only the events it consumes.
+- **An ordinary write does not clear a `failed` status.** A projection left half-built by a
+  botched rebuild stays flagged; that new writes keep landing does not undo it. `advance()`
+  moves the position and leaves `status` and `error_message` alone, unlike `markRunning()`.
+
 ### Optimistic locking
 
 The event store writes with an expected stream version. If it does not match, it throws

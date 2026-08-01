@@ -8,6 +8,7 @@ use BettingGame\Support\Row;
 use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Repository\EventStoreInterface;
+use BettingGame\Domain\Repository\ProjectionStateRepositoryInterface;
 use PDOException;
 
 /**
@@ -22,9 +23,19 @@ abstract class EventSourcedRepository
 {
     public function __construct(
         protected Db $db,
-        protected EventStoreInterface $eventStore
+        protected EventStoreInterface $eventStore,
+        protected ProjectionStateRepositoryInterface $projectionState
     ) {
     }
+
+    /**
+     * The projection this repository keeps current, as named in
+     * `projection_state` and by the matching Projector.
+     *
+     * Taken from the projector's own constant rather than spelled out again,
+     * so the two names cannot drift apart - they address the same row.
+     */
+    abstract protected function projectionName(): string;
 
     /**
      * Appends the events and returns the version the projection should record.
@@ -65,6 +76,16 @@ abstract class EventSourcedRepository
 
         try {
             $result = $work();
+
+            // Inside the transaction, on purpose. The projection write and this
+            // note about it have to land together or not at all - a committed
+            // position that describes rows the rollback took away would be
+            // worse than no position, because OPS-04 would then report health
+            // it cannot back up.
+            $this->projectionState->advance(
+                $this->projectionName(),
+                $this->eventStore->headPosition()
+            );
 
             if ($ownsTransaction) {
                 $pdo->commit();

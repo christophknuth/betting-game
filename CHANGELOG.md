@@ -6,6 +6,42 @@ what was changed when, and why.
 
 ---
 
+## OPS-04 reported a backlog that was not there (2026-08-01)
+
+**`GET /admin/projections` said every projection was behind, and the gap grew with every
+command.** The data was never the problem: the repositories write their read model in the
+same transaction as the events, which is why a tipp year is queryable the moment its `202`
+comes back. Measured on the running stack — command sent, row immediately in the read model,
+`headPosition` 396 → 397, `lastProcessedPosition` unmoved at 203.
+
+`projection_state` was written **only** by `rebuildOne()`. The normal write path never touched
+it, so the endpoint computed `lag` and `upToDate` from a counter that only ever moved when an
+operator rebuilt something by hand.
+
+That was a deliberate simplification, not an oversight — `OperationsApiTest` asserted it, with
+a comment explaining it. The trouble is what it costs in operation: a monitor that always
+cries wolf teaches whoever reads it to ignore it, and a projection that genuinely stops being
+written looks exactly the same as one that is fine.
+
+Now each repository records the position it reached, in the same transaction as the events and
+the projection rows — all three land together or not at all. The name comes from the matching
+projector's `NAME` constant, so the two cannot address different rows.
+
+Two things that look like bugs and are not:
+
+- **A projection advances only when its own repository writes.** It can therefore sit below
+  the head with a lag of `0` — `lag` counts only the events it consumes. Advancing them all on
+  any write would have been the tempting shortcut, and it would mask exactly the failure this
+  endpoint exists to show.
+- **An ordinary write does not clear a `failed` status.** A projection left half-built by a
+  botched rebuild stays flagged; that new writes keep landing does not undo it.
+
+Verified: PHPStan level 10 clean, phpcs clean, PHPUnit 391 tests with `--fail-on-skipped`
+against a real database, and measured again on the running stack — the projection jumped to
+the head on the next command and stayed at `lag: 0` afterwards.
+
+---
+
 ## Setting up a tipp year is guided now (2026-08-01)
 
 **The order was invisible and the forms did not help.** A tipp year is only usable once four

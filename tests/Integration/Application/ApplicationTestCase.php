@@ -69,15 +69,18 @@ abstract class ApplicationTestCase extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->tippYears = new TippYearRepository($this->db, $this->eventStore);
-        $this->betPeriods = new BetPeriodRepository($this->db, $this->eventStore);
-        $this->betRows = new BetRowRepository($this->db, $this->eventStore);
-        $this->tickets = new TicketRepository($this->db, $this->eventStore);
-        $this->draws = new DrawRepository($this->db, $this->eventStore);
-        $this->fees = new FeeRepository($this->db, $this->eventStore);
-        $this->participants = new ParticipantRepository($this->db, $this->eventStore);
-        $this->commandLog = new CommandLogRepository($this->db);
         $this->projectionState = new ProjectionStateRepository($this->db);
+
+        // Every repository records how far its read model is current as it
+        // writes, so the state repository has to exist before them.
+        $this->tippYears = new TippYearRepository($this->db, $this->eventStore, $this->projectionState);
+        $this->betPeriods = new BetPeriodRepository($this->db, $this->eventStore, $this->projectionState);
+        $this->betRows = new BetRowRepository($this->db, $this->eventStore, $this->projectionState);
+        $this->tickets = new TicketRepository($this->db, $this->eventStore, $this->projectionState);
+        $this->draws = new DrawRepository($this->db, $this->eventStore, $this->projectionState);
+        $this->fees = new FeeRepository($this->db, $this->eventStore, $this->projectionState);
+        $this->participants = new ParticipantRepository($this->db, $this->eventStore, $this->projectionState);
+        $this->commandLog = new CommandLogRepository($this->db);
     }
 
     /**
