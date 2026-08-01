@@ -56,7 +56,7 @@ final class CommandRulesTest extends ApplicationTestCase
         $this->expectExceptionMessageMatches('/overlaps/');
 
         $this->createTippYear()->handle(
-            new CreateTippYearCommand('Tippjahr 2026 zweite', '2026-06-01', '2027-05-31', 1.20)
+            new CreateTippYearCommand('Tippjahr 2026 overlapping', '2026-06-01', '2027-05-31', 1.20)
         );
     }
 
@@ -339,7 +339,7 @@ final class CommandRulesTest extends ApplicationTestCase
         $this->distributePayout()->handle(new DistributePayoutCommand($this->tippYearId, true));
     }
 
-    // --- B-18: der Lebenszyklus des Tippjahres ---
+    // --- B-18: the tipp year lifecycle ---
 
     public function testOnlyOneTippYearRunsAtATime(): void
     {

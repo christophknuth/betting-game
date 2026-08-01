@@ -1,142 +1,144 @@
 # AGENTS.md
 
-Arbeitsanleitung für KI-Agenten und neue Entwickler in diesem Repository.
-Werkzeugneutral — gilt für jeden Agenten. Claude-Code-Spezifisches steht in
+Working guide for AI agents and new developers in this repository.
+Tool-neutral — it applies to every agent. Claude Code specifics are in
 [CLAUDE.md](CLAUDE.md).
 
 ---
 
-## 1. Was dieses Projekt ist
+## 1. What this project is
 
-Backend-API zur Verwaltung einer **Lotterie-Tippgemeinschaft für Lotto 6 aus 49**.
-PHP 8.4, kein Framework, Onion Architecture mit Event Sourcing und CQRS.
+A backend API for administering a **lottery syndicate playing Lotto 6 aus 49**.
+PHP 8.4, no framework, onion architecture with event sourcing and CQRS.
 
-**Fachliche Kernidee** (ausführlich in [USER_STORIES.md](USER_STORIES.md)):
+**The core domain idea** (in full in [USER_STORIES.md](USER_STORIES.md)):
 
-- Ein **Tippjahr** (`TippYear`) ist ein frei definierter Zeitraum, kein Kalenderjahr.
-- Es zerfällt in überlappungsfreie **Tippperioden** (`BetPeriod`). Deren Länge ist
-  Konfiguration, keine Annahme im Code — eine Periode über das ganze Jahr ist zulässig.
-- Jeder Teilnehmer hat **pro Periode genau eine Tippreihe** (`BetRow`) aus sechs Zahlen.
-- Monatlich wird ein gemeinsamer **Tippschein** (`Ticket`) eingereicht: ein Snapshot aller
-  gültigen Reihen. Er erzeugt je Teilnehmer eine **Gebühr** (`Fee`).
-- **Ziehungen** (`Draw`) erzeugen Gewinne für den Schein als Ganzes; sie werden über das
-  Jahr gesammelt und am Jahresende **gleichmäßig auf alle Teilnehmer** ausgeschüttet.
+- A **tipp year** (`TippYear`) is a freely defined period, not a calendar year.
+- It falls into non-overlapping **bet periods** (`BetPeriod`). Their length is
+  configuration, not an assumption in code — one period spanning the whole year is allowed.
+- Each participant has **exactly one bet row per period** (`BetRow`), of six numbers.
+- Once a month a shared **ticket** (`Ticket`) is submitted: a snapshot of all valid rows.
+  It creates one **fee** (`Fee`) per participant.
+- **Draws** (`Draw`) produce winnings for the ticket as a whole; they are collected over the
+  year and distributed **evenly across all participants** at the end of it.
 
-**Ausbaustufe: Basis.** Teilnehmer lesen nur, der Administrator schreibt alles.
-E1 (Selbstverwaltung) und E2 (Sportwetten) sind spezifiziert, aber nicht implementiert.
+**Expansion stage: base.** Participants only read, the administrator writes everything.
+E1 (self-service) and E2 (sports betting) are specified but not implemented.
 
-### Rollen
+### Roles
 
-| Rolle | Keycloak-Rolle | Zugriff |
+| Role | Keycloak role | Access |
 |---|---|---|
-| Teilnehmer | `user` | Ausschließlich eigene Daten, nur lesend |
-| Administrator / Betreiber | `admin` | Alle Schreiboperationen, Betriebssicht |
+| Participant | `user` | Exclusively their own data, read only |
+| Administrator / operator | `admin` | All write operations, the operations view |
 
 ---
 
-## 2. Welche Dokumente aktuell sind
+## 2. Which documents are current
 
-Das Projekt wurde mit Commit `f1d0771` („Refocus the project on the Lotto 6aus49 syndicate
-domain") von einem Sportwetten-Tippspiel auf die Lotterie umgestellt. Die Dokumentation ist
-am 2026-07-29 nachgezogen worden.
+The project was moved from a sports-betting game to the lottery with commit `f1d0771`
+("Refocus the project on the Lotto 6aus49 syndicate domain"). The documentation was caught
+up on 2026-07-29.
 
-| Dokument | Stand |
+| Document | State |
 |---|---|
-| [USER_STORIES.md](USER_STORIES.md) | ✅ **Aktuell und maßgeblich.** Fachliche Referenz inkl. Status je Story |
-| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Aktuell** (v2.3.0, „Lotterie-Tippgemeinschaft API"). Maßgeblicher API-Vertrag |
-| [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) | ✅ Aktuell |
-| [database/schema.sql](database/schema.sql) | ✅ Aktuell |
-| [README.md](README.md) | ✅ Aktuell. Überblick, Endpunkte, Installation |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | ✅ Aktuell. Schichten, Klassenlandkarte, offene Punkte |
-| [QUICKSTART.md](QUICKSTART.md) | ✅ Aktuell. Ein Tippjahr durchgespielt, seit B-18/B-21 ohne Handgriffe an der Datenbank |
-| [KEYCLOAK.md](KEYCLOAK.md) | ✅ Aktuell |
-| [PSR.md](PSR.md) | ✅ Aktuell. Beachte den Lesehinweis: implementiert ≠ genutzt |
-| [DOCKER.md](DOCKER.md) | ✅ Aktuell, domänenneutral. Englisch, im Gegensatz zur übrigen Doku |
-| [.github/workflows/ci.yml](.github/workflows/ci.yml) | ✅ Aktuell. Vier Jobs, siehe Abschnitt 5 |
-| [CHANGELOG.md](CHANGELOG.md) | ✅ Aktuell bis `dbe1b95` |
-| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ✅ Aktuell. Vue-SPA auf die Lotto-Endpunkte umgestellt (12 Views, Tabelle Ansicht → Endpunkt in FRONTEND.md). Vitest + Playwright |
-| [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | 📦 Bewusst aufgehoben für Ausbaustufe E2, nicht implementiert |
+| [USER_STORIES.md](USER_STORIES.md) | ✅ **Current and authoritative.** The domain reference, including per-story status |
+| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Current** (v2.3.0, "Lottery Syndicate API"). The authoritative API contract |
+| [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) | ✅ Current |
+| [database/schema.sql](database/schema.sql) | ✅ Current |
+| [README.md](README.md) | ✅ Current. Overview, endpoints, installation |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | ✅ Current. Layers, class map, open points |
+| [QUICKSTART.md](QUICKSTART.md) | ✅ Current. A tipp year played through, and since B-18/B-21 without reaching into the database |
+| [KEYCLOAK.md](KEYCLOAK.md) | ✅ Current |
+| [PSR.md](PSR.md) | ✅ Current. Mind the note before reading: implemented ≠ used |
+| [DOCKER.md](DOCKER.md) | ✅ Current, domain-neutral |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml) | ✅ Current. Four jobs, see section 5 |
+| [CHANGELOG.md](CHANGELOG.md) | ✅ Current up to `dbe1b95` |
+| [FRONTEND.md](FRONTEND.md), [frontend/](frontend/) | ✅ Current. The Vue SPA has been moved onto the lotto endpoints (12 views, the view → endpoint table is in FRONTEND.md). Vitest + Playwright |
+| [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml), [database/schema-e2-sports.sql](database/schema-e2-sports.sql) | 📦 Deliberately kept for expansion stage E2, not implemented |
 
-`DEMO.md` beschrieb ein `demo/`-Verzeichnis, das mit dem Kurswechsel entfallen ist, und
-wurde gelöscht.
+`DEMO.md` described a `demo/` directory that disappeared with the change of course, and was
+deleted.
 
-**Regel:** Bei Widerspruch gewinnt der Code, danach `USER_STORIES.md` und die OpenAPI-Spec.
-Wer ein Dokument anfasst, korrigiert Veraltetes mit, statt es fortzuschreiben — und zieht
-Zahlen (Dateien, Tests, Routen) nach, statt sie zu übernehmen.
+**Rule:** where things contradict, the code wins, then `USER_STORIES.md` and the OpenAPI
+spec. Whoever touches a document also corrects what is out of date instead of perpetuating
+it — and updates the numbers (files, tests, routes) instead of copying them over.
 
 ---
 
-## 3. Architektur
+## 3. Architecture
 
-### Schichten (Abhängigkeit immer nach innen)
+### Layers (dependencies always point inwards)
 
 ```
-Presentation   Controller, Router, Kernel, HTTP-Helfer
+Presentation   controllers, router, kernel, HTTP helpers
      ↓
-Application    Commands + Handler, Queries + Handler, Projection-Manager
+Application    commands + handlers, queries + handlers, projection manager
      ↓
-Domain         Modelle (Aggregate), Value Objects, Events, Repository-Interfaces
+Domain         models (aggregates), value objects, events, repository interfaces
      ↑
-Infrastructure implementiert die Domain-Interfaces (PDO, EventStore, Auth, Cache)
+Infrastructure implements the domain interfaces (PDO, event store, auth, cache)
 ```
 
-`src/Domain/` hat **keine** Abhängigkeit nach außen — keine PDO, kein HTTP, kein PSR
-außer den Sprachmitteln. Wer dort einen `use BettingGame\Infrastructure\…` schreibt, hat
-die Architektur gebrochen.
+`src/Domain/` has **no** outward dependency — no PDO, no HTTP, no PSR beyond the language
+itself. Anyone writing a `use BettingGame\Infrastructure\…` in there has broken the
+architecture.
 
-### Request-Fluss
+### Request flow
 
 ```
-public/index.php          Globals → Request-Objekt, Container bauen
-  └─ Kernel::handle()     src/Presentation/Http/Kernel.php  ← der ganze Ablauf ist hier
-       ├─ Router          FastRoute, Routentabelle in src/Presentation/Router/Router.php
-       ├─ AuthMiddleware  außer bei 'public' => true. JWT gegen JWKS des Realms geprüft
-       ├─ Authorization   bei 'role' => 'admin'
-       ├─ command_log     bei 'command' => true (Idempotency-Key, OPS-01/OPS-02)
-       ├─ Controller      Input::* validiert, Command/Query-DTO, Handler
-       └─ ErrorMapper     Domain-Exception → HTTP-Status
+public/index.php          globals → request object, build the container
+  └─ Kernel::handle()     src/Presentation/Http/Kernel.php  ← the whole sequence is here
+       ├─ Router          FastRoute, routing table in src/Presentation/Router/Router.php
+       ├─ AuthMiddleware  except where 'public' => true. JWT verified against the realm's JWKS
+       ├─ Authorization   where 'role' => 'admin'
+       ├─ command_log     where 'command' => true (idempotency key, OPS-01/OPS-02)
+       ├─ Controller      Input::* validates, command/query DTO, handler
+       └─ ErrorMapper     domain exception → HTTP status
 ```
 
-Der `Kernel` ist ohne Webserver testbar; `index.php` ist nur die Brücke zu den PHP-Globals.
-Neue Querschnittslogik gehört in den Kernel, nicht in `index.php` und nicht in Controller.
+The `Kernel` is testable without a web server; `index.php` is only the bridge to the PHP
+globals. New cross-cutting logic belongs in the kernel, not in `index.php` and not in
+controllers.
 
-### Routen-Flags (`src/Presentation/Router/Router.php`)
+### Route flags (`src/Presentation/Router/Router.php`)
 
-| Flag | Wirkung |
+| Flag | Effect |
 |---|---|
-| `'public' => true` | Keine Authentifizierung. **Nur** `/health` |
-| `'role' => 'admin'` | Kernel erzwingt die Admin-Rolle vor dem Controller |
-| `'command' => true` | Läuft unter Command-Log und Idempotency-Key |
-| (nichts) | Authentifiziert; Eigentumsprüfung macht der Controller über `Authorization::requireSelf()` |
+| `'public' => true` | No authentication. **Only** `/health` |
+| `'role' => 'admin'` | The kernel enforces the admin role before the controller |
+| `'command' => true` | Runs under the command log and the idempotency key |
+| (nothing) | Authenticated; the ownership check is the controller's job, through `Authorization::requireSelf()` |
 
-Eine Route ist **per Default authentifiziert**. Ein vergessenes Flag macht sie nicht
-versehentlich öffentlich. Pfadparameter mit `{id:\d+}` einschränken, damit eine vertippte
-URL 404 gibt statt 400 aus der Tiefe des Handlers.
+A route is **authenticated by default**. A forgotten flag does not accidentally make it
+public. Constrain path parameters with `{id:\d+}` so that a mistyped URL gives a 404 instead
+of a 400 from the depths of the handler.
 
-### Event Sourcing / CQRS — wie es hier konkret läuft
+### Event sourcing / CQRS — how it actually runs here
 
-- **Schreibweg:** Handler lädt Aggregat → Domänenlogik → Aggregat zeichnet Events auf
-  (`RecordsEvents`-Trait) → Repository schreibt Events **und** Projektion in **einer**
-  Transaktion (`EventSourcedRepository::transactionally()`) unter Optimistic Locking.
-- **Leseweg:** Query-Handler liest direkt die Projektionstabellen. Keine Events, keine Joins
-  über den Event Store.
-- **Zwei Wege zu denselben Tabellen:** Repositories schreiben Projektionen *synchron*
-  (ein Load direkt danach muss sie sehen). Die Projektoren in
-  `src/Infrastructure/Projection/` sind der *zweite* Weg — sie spielen das Event-Log nach
+- **Write path:** the handler loads the aggregate → domain logic → the aggregate records
+  events (the `RecordsEvents` trait) → the repository writes events **and** projection in
+  **one** transaction (`EventSourcedRepository::transactionally()`) under optimistic locking.
+- **Read path:** the query handler reads the projection tables directly. No events, no joins
+  across the event store.
+- **Two paths to the same tables:** repositories write projections *synchronously*
+  (a load right afterwards has to see them). The projectors in
+  `src/Infrastructure/Projection/` are the *second* path — they replay the event log
   (`POST /admin/projections/{name}/rebuild`).
-  **Beide Wege müssen dieselben Zeilen erzeugen.**
-  [ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) spielt
-  ein ganzes Tippjahr durch, baut aus dem Event Store neu auf und vergleicht alle 13
-  Read-Model-Tabellen zeilenweise. Wer eine Projektion ändert, ändert beide Seiten.
-- **Ehrlich zur Asynchronität:** Die API beschreibt Commands als asynchron (`202`), die
-  Implementierung schreibt synchron. Bei Ankunft der `202` ist der Command bereits
-  `completed`, `projectionsUpToDate` ist immer `true`.
-- **IDs:** `nextId()` ist `MAX(id) + 1`. Bei Nebenläufigkeit entscheidet der Unique Key auf
-  der Zieltabelle, nicht eine Prüfung im Code — der Verlierer bekommt `409` und wiederholt.
+  **Both paths have to produce the same rows.**
+  [ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) plays a
+  whole tipp year through, rebuilds from the event store and compares all 13 read-model
+  tables row by row. Whoever changes a projection changes both sides.
+- **Honest about asynchrony:** the API describes commands as asynchronous (`202`), the
+  implementation writes synchronously. By the time the `202` arrives the command is already
+  `completed`, and `projectionsUpToDate` is always `true`.
+- **IDs:** `nextId()` is `MAX(id) + 1`. Under concurrency the unique key on the target table
+  decides, not a check in code — the loser gets a `409` and retries.
 
-### Fehler-Mapping (`src/Presentation/Http/ErrorMapper.php`)
+### Error mapping (`src/Presentation/Http/ErrorMapper.php`)
 
-Handler werfen Domain-Exceptions und kennen kein HTTP. Die einzige Übersetzungsstelle:
+Handlers throw domain exceptions and know nothing about HTTP. The single point of
+translation:
 
 | Exception | Status |
 |---|---|
@@ -144,83 +146,83 @@ Handler werfen Domain-Exceptions und kennen kein HTTP. Die einzige Übersetzungs
 | `EntityNotFoundException` | 404 |
 | `InvalidArgumentException`, `InvalidInputException` | 400 |
 | `ConcurrencyException` | 409 |
-| `BusinessRuleViolationException` (inkl. `DuplicateEntryException`) | 409 |
-| alles andere | 500 (Meldung nur im Debug-Modus) |
+| `BusinessRuleViolationException` (incl. `DuplicateEntryException`) | 409 |
+| everything else | 500 (message only in debug mode) |
 
-Ein abgelehnter Unique Key ist eine Geschäftsregel, die Nein sagt — kein Datenbankfehler.
-`EventSourcedRepository` übersetzt SQLSTATE 23000 deshalb in `DuplicateEntryException`.
+A rejected unique key is a business rule saying no — not a database error.
+`EventSourcedRepository` therefore translates SQLSTATE 23000 into `DuplicateEntryException`.
 
 ---
 
-## 4. Verzeichnisstruktur
+## 4. Directory structure
 
 ```
-src/                              155 Dateien, eine Klasse pro Datei
-├── Domain/                       KERN — keine Abhängigkeiten nach außen
-│   ├── Model/                    Aggregate: TippYear, BetPeriod, BetRow, Ticket,
-│   │                             Draw, Fee, Participant + RecordsEvents-Trait
+src/                              155 files, one class per file
+├── Domain/                       THE CORE — no outward dependencies
+│   ├── Model/                    aggregates: TippYear, BetPeriod, BetRow, Ticket,
+│   │                             Draw, Fee, Participant + the RecordsEvents trait
 │   ├── ValueObject/              LottoNumbers, Superzahl, DateRange, EvenSplit,
 │   │                             WinningClass, TippYearStatus, Email, DisplayName, …
-│   ├── Event/                    DomainEvent + 14 konkrete Events
-│   ├── Repository/               Repository-Interfaces + RecordedEvent
-│   ├── Service/                  WinningsDistribution (von Handler UND Projektor benutzt)
-│   └── Exception/                Exception-Hierarchie unter DomainException
+│   ├── Event/                    DomainEvent + 14 concrete events
+│   ├── Repository/               repository interfaces + RecordedEvent
+│   ├── Service/                  WinningsDistribution (used by the handler AND the projector)
+│   └── Exception/                the exception hierarchy under DomainException
 ├── Application/
-│   ├── Command/                  9 Commands + Handler, CommandResult
-│   ├── Query/                    10 Queries + Handler, QueryResult
+│   ├── Command/                  9 commands + handlers, CommandResult
+│   ├── Query/                    10 queries + handlers, QueryResult
 │   └── Projection/               ProjectionManager, Projector, ProjectionStatus
 ├── Infrastructure/
 │   ├── Auth/                     TokenVerifier, JwkSet, KeycloakKeys, AuthMiddleware
 │   ├── Cache/                    FileCache, RedisCache (PSR-16)
-│   ├── Config/                   Config (typisierter Zugriff auf das Config-Array)
+│   ├── Config/                   Config (typed access to the config array)
 │   ├── DI/                       Container (PHP-DI), PsrContainer (PSR-11)
 │   ├── EventStore/               PdoEventStore
-│   ├── Persistence/              Db + Repositories, EventSourcedRepository als Basis
-│   ├── Projection/               7 Projektoren, einer je Read Model
+│   ├── Persistence/              Db + repositories, EventSourcedRepository as the base
+│   ├── Projection/               7 projectors, one per read model
 │   └── Logging/                  LoggerFactory (Monolog, PSR-3)
 ├── Presentation/
-│   ├── Controller/               9 Controller
+│   ├── Controller/               9 controllers
 │   ├── Http/                     Kernel, Request, JsonResponse, Input, Authorization,
 │   │                             ErrorMapper
 │   └── Router/                   Router (FastRoute)
-└── Support/                      Row (typisierter Zugriff auf DB-Zeilen)
+└── Support/                      Row (typed access to DB rows)
 
-tests/Unit/                       Ohne Datenbank
-tests/Integration/                Braucht MariaDB, überspringt sich sonst selbst
-config/config.php                 Alle Werte aus Umgebungsvariablen
-database/schema.sql               20 Tabellen (13 Read Model + Event Sourcing + Ops)
+tests/Unit/                       without a database
+tests/Integration/                needs MariaDB, otherwise skips itself
+config/config.php                 all values from environment variables
+database/schema.sql               20 tables (13 read model + event sourcing + ops)
 docker/                           Dockerfile.php (FPM), Dockerfile.test (CLI+pcov), Caddyfile
-keycloak/realm-export.json        Realm, Demo-User, Rollen, participant_id-Claim
+keycloak/realm-export.json        realm, demo users, roles, the participant_id claim
 ```
 
 ---
 
-## 5. Befehle
+## 5. Commands
 
-**PHP muss nicht lokal installiert sein.** Der Normalfall ist Docker.
-Die `composer`- und `make`-Ziele darunter setzen ein lokales PHP voraus und funktionieren
-nur im Container oder auf einer Maschine mit PHP 8.4.
+**PHP does not have to be installed locally.** The normal case is Docker.
+The `composer` and `make` targets below assume a local PHP and only work inside the
+container or on a machine with PHP 8.4.
 
-### Über Docker (der Normalfall hier)
+### Through Docker (the normal case here)
 
 ```bash
-docker-compose up -d                              # kompletter Stack
+docker-compose up -d                              # the complete stack
 docker-compose exec php composer install
 docker-compose exec php vendor/bin/phpstan analyse
 docker-compose exec php vendor/bin/phpcs --standard=PSR12 src tests public config
 ```
 
-> **Tests nicht im `php`-Container.** Dessen `DB_DATABASE` ist `betting_game`, die
-> Entwicklungsdatenbank — und die Integration-Suite leert **jede** Tabelle vor jedem Test.
-> `IntegrationTestCase` verweigert deshalb jede Datenbank, deren Name nicht auf `_test`
-> endet, und überspringt sich mit einem Hinweis, statt die Dev-Daten zu löschen. Tests
-> gehören in die Umgebung darunter.
+> **Do not test in the `php` container.** Its `DB_DATABASE` is `betting_game`, the
+> development database — and the integration suite truncates **every** table before every
+> test. `IntegrationTestCase` therefore refuses any database whose name does not end in
+> `_test`, and skips itself with a note instead of deleting the dev data. Tests belong in
+> the environment below.
 
-Für Tests existiert `docker-compose.test.yml`: ein PHP-8.4-CLI-Image
-(`docker/Dockerfile.test`, mit `pdo_mysql` + `pcov`) gegen eine eigene, vom Dev-Stack isolierte
-MariaDB (`betting_game_test` auf Port 3307). `composer install` läuft dabei bei jedem
-Containerstart neu (siehe Kommentar in der Dockerfile) — dadurch bleibt der Autoloader auch
-dann korrekt, wenn sich `src/` seit dem letzten Lauf geändert hat.
+For tests there is `docker-compose.test.yml`: a PHP 8.4 CLI image
+(`docker/Dockerfile.test`, with `pdo_mysql` + `pcov`) against its own MariaDB, isolated from
+the dev stack (`betting_game_test` on port 3307). `composer install` runs afresh on every
+container start (see the comment in the Dockerfile) — which keeps the autoloader correct
+even when `src/` has changed since the last run.
 
 ```bash
 docker-compose -f docker-compose.test.yml up -d test-db
@@ -229,231 +231,239 @@ docker-compose -f docker-compose.test.yml run --rm test vendor/bin/phpstan analy
 docker-compose -f docker-compose.test.yml down -v
 ```
 
-Äquivalent über `make test-db-start` / `test-docker` / `phpstan-docker` / `test-db-stop`.
+Equivalently through `make test-db-start` / `test-docker` / `phpstan-docker` /
+`test-db-stop`.
 
-### Continuous Integration
+### Continuous integration
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) läuft auf `main`, `Refocus-project`
-und jedem Pull Request — in vier getrennten Jobs, damit schnelles Feedback nicht auf den
-langsamsten wartet:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `main`, `Refocus-project`
+and every pull request — in four separate jobs, so that fast feedback does not wait on the
+slowest one:
 
-| Job | Umfang | Braucht |
+| Job | Scope | Needs |
 |---|---|---|
-| `static` | PHPStan Level 10, PSR-12 | nichts |
-| `php-tests` | PHPUnit inkl. Integration | MariaDB als Service (`betting_game_test`) |
+| `static` | PHPStan level 10, PSR-12 | nothing |
+| `php-tests` | PHPUnit including integration | MariaDB as a service (`betting_game_test`) |
 | `frontend-unit` | ESLint, Vitest | Node 18 |
-| `e2e` | Playwright | den **vollen** Stack inkl. Keycloak-Realm-Import |
+| `e2e` | Playwright | the **full** stack including the Keycloak realm import |
 
-**`--fail-on-skipped` ist der wichtigste Schalter darin.** Ohne erreichbare Datenbank
-überspringen sich die Integrationstests selbst und melden trotzdem grün — in CI wäre das
-eine Lüge über die Persistenz. Der Job stellt eine Datenbank bereit, also ist jedes
-Überspringen ein Fehlschlag.
+**`--fail-on-skipped` is the most important switch in there.** Without a reachable database
+the integration tests skip themselves and still report green — in CI that would be a lie
+about persistence. The job provides a database, so any skip is a failure.
 
-### Makefile / Composer (mit lokalem PHP)
+### Makefile / Composer (with a local PHP)
 
-| Befehl | Wirkung |
+| Command | Effect |
 |---|---|
-| `make test` | Alle Tests; Integrationstests überspringen sich ohne DB |
-| `make test-unit` | Nur `tests/Unit` |
-| `make test-integration` | Nur `tests/Integration` (braucht `make test-db-start`) |
-| `make test-db-start` / `test-db-stop` | MariaDB 11.4 auf Port 3307 mit `betting_game_test` + Schema |
-| `make coverage` | HTML-Report nach `coverage/` |
-| `make phpstan` | Statische Analyse, **Level 10**, Ziel `src` |
-| `make cs-check` / `cs-fix` | PSR-12 prüfen / korrigieren |
-| `make all-tests` (= `quality`) | PHPStan + CS + Tests |
-| `make start` / `stop` / `logs` | Docker-Stack |
+| `make test` | All tests; the integration tests skip themselves without a DB |
+| `make test-unit` | Only `tests/Unit` |
+| `make test-integration` | Only `tests/Integration` (needs `make test-db-start`) |
+| `make test-db-start` / `test-db-stop` | MariaDB 11.4 on port 3307 with `betting_game_test` + schema |
+| `make coverage` | HTML report into `coverage/` |
+| `make phpstan` | Static analysis, **level 10**, target `src` |
+| `make cs-check` / `cs-fix` | Check / fix PSR-12 |
+| `make all-tests` (= `quality`) | PHPStan + CS + tests |
+| `make start` / `stop` / `logs` | The Docker stack |
 
-### Dienste im Stack
+### Services in the stack
 
-| Dienst | URL | Zugang |
+| Service | URL | Access |
 |---|---|---|
 | API (Caddy) | http://localhost:8080 | |
-| Frontend (Vue-SPA) | http://localhost:3000 | |
+| Frontend (Vue SPA) | http://localhost:3000 | |
 | PHPMyAdmin | http://localhost:8081 | root / secret |
 | Keycloak | http://localhost:8090 | admin / admin |
 | MariaDB | localhost:3306 | root / secret, DB `betting_game` |
 
 ---
 
-## 6. Konventionen
+## 6. Conventions
 
 ### Code
 
-- `declare(strict_types=1);` in **jeder** Datei unter `src/` und `tests/`.
-- **Eine Klasse pro Datei**, Dateiname = Klassenname, PSR-4 1:1 zur Namespace-Struktur.
-- `final` als Standard. Vererbung nur begründet (`EventSourcedRepository` ist eine
-  der wenigen `abstract`-Basen).
-- Value Objects sind **immutable** und validieren im Konstruktor.
-- Constructor Property Promotion, `match`, Enums-artige VOs — PHP-8.4-Idiome nutzen.
-- Kein `$_ENV` direkt lesen: `config/config.php` geht über `getenv()`, weil `$_ENV` in den
-  offiziellen PHP-Images nicht befüllt ist. Auch keine Ausgabe vor der Response — eine
-  PHP-Warning sendet Header und macht jeden Statuscode zu 200.
-- Namespace-Wurzel bleibt `BettingGame\` (historisch, trotz Lotto-Domäne).
+- `declare(strict_types=1);` in **every** file under `src/` and `tests/`.
+- **One class per file**, filename = class name, PSR-4 mapping 1:1 onto the namespace
+  structure.
+- `final` by default. Inheritance only with a reason (`EventSourcedRepository` is one of the
+  few `abstract` bases).
+- Value objects are **immutable** and validate in the constructor.
+- Constructor property promotion, `match`, enum-like VOs — use the PHP 8.4 idioms.
+- Do not read `$_ENV` directly: `config/config.php` goes through `getenv()`, because `$_ENV`
+  is not populated in the official PHP images. Likewise no output before the response — a
+  PHP warning sends the headers and turns every status code into 200.
+- The namespace root stays `BettingGame\` (historically, despite the lotto domain).
 
-### PHPStan Level 10
+### PHPStan level 10
 
-`phpstan.neon` steht auf Level 10 mit `treatPhpDocTypesAsCertain: false`. Der Code ist
-fehlerfrei — **halte ihn so**. Praktisch heißt das: `array<string, mixed>` aus externen
-Quellen wird explizit geprüft (`is_int`, `is_string`, `assert(… instanceof …)`), nie
-blind gecastet. Dafür gibt es `Support\Row` (DB-Zeilen) und `Http\Input` (Request-Bodies).
-Kein `@phpstan-ignore` ohne Not.
+`phpstan.neon` is set to level 10 with `treatPhpDocTypesAsCertain: false`. The code is
+clean — **keep it that way**. In practice that means: `array<string, mixed>` from external
+sources is checked explicitly (`is_int`, `is_string`, `assert(… instanceof …)`), never
+blindly cast. That is what `Support\Row` (DB rows) and `Http\Input` (request bodies) are
+for. No `@phpstan-ignore` without need.
 
-### Kommentarstil
+### Comment style
 
-Die Kommentare in diesem Repo erklären **warum**, nicht was. Beispiele aus dem Bestand:
+The comments in this repo explain **why**, not what. Examples from the existing code:
 
-> „Der Key wird beansprucht, *bevor* der Command läuft. Erst prüfen und dann ausführen
-> ließe ein Fenster, in dem zwei parallele Wiederholungen beide durchkommen — genau die
-> Doppelbuchung, gegen die der Schlüssel existiert."
+> "The key is claimed *before* the command runs. Checking first and executing afterwards
+> would leave a window in which two parallel retries both get through — exactly the double
+> booking the key exists to prevent."
 
-> „Eine Route ist authentifiziert, sofern sie nichts anderes sagt. Andersherum würde ein
-> vergessenes Flag sie still öffentlich machen."
+> "A route is authenticated unless it says otherwise. The other way round, a forgotten flag
+> would silently make it public."
 
-Neue Kommentare in dieser Form schreiben. Klassen-Docblocks nennen die Story-ID (`B-12`,
-`OPS-02`), zu der die Klasse gehört. Keine Kommentare, die die Signatur nacherzählen.
+Write new comments in that form. Class docblocks name the story ID (`B-12`, `OPS-02`) the
+class belongs to. No comments that restate the signature.
 
-### Sprache
+### Language
 
-- **Code, Kommentare, Docblocks, Commit-Messages: Englisch.**
-- **Projektdokumentation (`USER_STORIES.md`, `ARCHITECTURE.md`, `CHANGELOG.md`): Deutsch.**
-- Commit-Messages folgen [Conventional Commits](https://www.conventionalcommits.org/)
-  (`type(scope): subject`, Imperativ, eine Zeile): `feat: verify the token signature`,
-  `fix(auth): wire the base version up over HTTP`. Übliche Typen hier: `feat`, `fix`,
+- **Everything that lands in the repository is written in English** — code, comments,
+  docblocks, documentation and commit messages.
+- **The one exception is the frontend's user-facing text.** Labels, messages, status words
+  and the `de-DE` date and currency formatting stay German, because that is the language of
+  the syndicate using the application. The same goes for sample data that mirrors what an
+  administrator would actually type (`"Tippjahr 2026"` in tests and examples) and for the
+  German product name *Lotto 6 aus 49*. A test asserting on a visible label therefore
+  contains German — that is the assertion, not prose.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+  (`type(scope): subject`, imperative, one line): `feat: verify the token signature`,
+  `fix(auth): wire the base version up over HTTP`. The usual types here: `feat`, `fix`,
   `docs`, `refactor`, `test`, `chore`.
 
 ---
 
 ## 7. Tests
 
-| Suite | Umfang | Voraussetzung |
+| Suite | Scope | Prerequisite |
 |---|---|---|
-| `tests/Unit` | 19 Dateien, 213 Testmethoden — Domänenlogik, Value Objects, Auth/JWT, HTTP-Helfer | keine |
-| `tests/Integration` | 16 Dateien, 167 Testmethoden — Repositories, Command-Flows, HTTP-Kette, Projektions-Rebuild | MariaDB |
+| `tests/Unit` | 19 files, 213 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
+| `tests/Integration` | 17 files, 173 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
 
-Insgesamt 380 Testmethoden.
+386 test methods in total.
 
-- Integrationstests **überspringen sich selbst**, wenn keine Datenbank erreichbar ist
-  (`IntegrationTestCase::setUpBeforeClass()`). Die Suite bleibt damit auch ohne DB grün —
-  *„alle Tests grün" ohne laufende DB heißt also nicht, dass die Persistenz geprüft wurde.*
-- Repositories werden **nicht** gegen eine gemockte PDO getestet. Sie sind fast vollständig
-  SQL (Unique Keys, Joins, Upserts); ein Mock würde nur bestätigen, dass wir die Strings
-  geschrieben haben, die wir geschrieben haben.
-- `HttpTestCase` / `ApplicationTestCase` fahren die volle Kette Kernel → Controller →
-  Handler → Repository gegen die echte Datenbank.
-- `tests/Support/SigningKey.php` erzeugt Token für die Auth-Tests — keine echte Keycloak nötig.
-
----
-
-## 8. Eine neue Funktion hinzufügen
-
-### Neuer Command (Schreiboperation)
-
-1. **Domäne zuerst.** Regel im Aggregat unter `src/Domain/Model/` durchsetzen, dort ein
-   Event über `recordEvent()` aufzeichnen. Neues Event nach `src/Domain/Event/`.
-2. **Command + Handler** in `src/Application/Command/`. Der Handler lädt über
-   Repository-Interfaces, ruft Domänenmethoden, gibt `CommandResult::accepted()` zurück.
-   Er wirft Domain-Exceptions, nie HTTP.
-3. **Persistenz:** Repository (erbt `EventSourcedRepository`) schreibt Events und Projektion
-   in `transactionally()`. Bei Bedarf Interface in `src/Domain/Repository/` ergänzen.
-4. **Projektor** in `src/Infrastructure/Projection/` nachziehen, damit ein Rebuild dieselben
-   Zeilen erzeugt. Neuen Projektor in die Liste in `Container.php` (`ProjectionManager`)
-   eintragen.
-5. **Route** in `Router.php` mit `'command' => true` und ggf. `'role' => 'admin'`.
-6. **Controller-Methode**: Body über `Input::*` lesen, `JsonResponse::accepted(...)`
-   zurückgeben. Identitäten (wer gebucht hat, wessen Daten) **aus dem Token**, nie aus
-   Pfad oder Body.
-7. **DI:** Handler und Controller in `src/Infrastructure/DI/Container.php` registrieren
-   (meist `\DI\autowire()`).
-8. **Schema:** `database/schema.sql` und `betting_game_er_extended.mermaid` ergänzen.
-9. **Tests:** Unit-Test für die Domänenregel, Integrationstest für den Flow, und der
-   Rebuild-Test muss die neue Tabelle mit abdecken.
-10. **Doku:** `betting_game_api.yaml` erweitern, Status in `USER_STORIES.md` setzen.
-
-### Neue Query (Leseoperation)
-
-Query-DTO + Handler in `src/Application/Query/`, Repository-Methode auf den
-Projektionstabellen, Route ohne `command`-Flag, Controller-Methode mit
-`Authorization::requireSelf()` bei Teilnehmerdaten, DI-Binding, Tests, OpenAPI.
+- Integration tests **skip themselves** when no database is reachable
+  (`IntegrationTestCase::setUpBeforeClass()`). The suite therefore stays green without a DB —
+  *so "all tests green" without a running DB does not mean persistence was checked.*
+- Repositories are **not** tested against a mocked PDO. They are almost entirely SQL (unique
+  keys, joins, upserts); a mock would only confirm that we wrote the strings we wrote.
+- `HttpTestCase` / `ApplicationTestCase` drive the full chain kernel → controller →
+  handler → repository against the real database.
+- `tests/Support/SigningKey.php` creates tokens for the auth tests — no real Keycloak needed.
 
 ---
 
-## 9. Fallstricke
+## 8. Adding a new feature
 
-- **`Authorization::requireSelf()` nicht vergessen.** Die Identität kommt aus dem Token,
-  niemals aus `{participantId}` im Pfad — sonst prüft die Regel sich selbst (B-16).
-  Bewusst so streng, dass auch ein Admin hier nicht durchkommt: der Admin hat eigene
-  Endpunkte, sonst wären die Teilnehmerrouten eine zweite, leisere Admin-API.
-- **Kein JWT-Shared-Secret einführen.** Tokens sind RS256 von Keycloak, geprüft gegen den
-  JWKS-Endpunkt. Eine Anwendung, die zusätzlich HS256 akzeptiert, lässt sich mit dem
-  Schlüssel angreifen, den sie selbst veröffentlicht.
-- **Unerreichbare Keycloak → 503, nicht 401.** Ein Schlüsselproblem ist kein ungültiges Token.
-- **`ticket_row_match` steht in keinem Event.** Der Projektor rechnet die Zeilen über den
-  Domain-Service `WinningsDistribution` neu — denselben, den der Handler benutzt. Genau
-  dafür wurde er herausgezogen; Logik nicht duplizieren.
-- **Rebuild zieht nach unten durch.** Read Models hängen über
-  `ON DELETE CASCADE` zusammen (`participant` leeren leert `membership`, `bet_row`, `fee`).
-  Ein Rebuild baut abhängige Projektionen mit auf.
-- **Ein Neuaufbau ist kein Command.** `POST /admin/projections/{name}/rebuild` ist bewusst
-  *nicht* mit `'command' => true` markiert — er ändert keinen Domänenzustand und gehört
-  nicht in die Command-Historie.
-- **Ein neues Tippjahr steht auf `planned` und nimmt keinen Tippschein an.** Es muss erst
-  über `PUT /admin/tipp-years/{id}/status` auf `running` (B-18). Wer sich wundert, warum
-  ein Durchstich bei B-12 scheitert: das ist der Grund, nicht ein Fehler im Handler.
-- **Das Anlegen eines `Participant` hat weiterhin keine Route.** Selbstregistrierung ist
-  E1-01; für einen Durchstich muss der Teilnehmer vorbereitet werden.
-- **Beim Tippjahr ist jeder Statusübergang erlaubt, auch rückwärts.** Das ist Absicht: ein
-  zu früh geschlossenes Jahr muss sich wieder öffnen lassen, und diese Korrektur gehört in
-  die Event-Historie statt in ein manuelles `UPDATE`. Die eine Regel, die bleibt, spannt
-  über Aggregate und steht deshalb nicht im Modell: **höchstens ein Jahr ist `running`.**
-  `ChangeTippYearStatusHandler` prüft das für die Fehlermeldung, entscheiden tut der
-  Unique Key auf `tipp_year.running_marker` — eine generierte Spalte, die außerhalb von
-  `running` `NULL` ist, weil gleiche `NULL`s in einem Unique Key nicht kollidieren.
-- **Volumes überleben jede Schema- und Realm-Änderung.** Zweimal derselbe Fallstrick,
-  zweimal am 2026-07-29 aufgeschlagen:
+### A new command (write operation)
 
-  | Datei | Wird gelesen | Volume |
+1. **The domain first.** Enforce the rule in the aggregate under `src/Domain/Model/`, and
+   record an event there through `recordEvent()`. A new event goes into `src/Domain/Event/`.
+2. **Command + handler** in `src/Application/Command/`. The handler loads through repository
+   interfaces, calls domain methods, and returns `CommandResult::accepted()`. It throws
+   domain exceptions, never HTTP.
+3. **Persistence:** the repository (extending `EventSourcedRepository`) writes events and
+   projection inside `transactionally()`. Add an interface in `src/Domain/Repository/` where
+   needed.
+4. **Bring the projector along** in `src/Infrastructure/Projection/`, so that a rebuild
+   produces the same rows. Register a new projector in the list in `Container.php`
+   (`ProjectionManager`).
+5. **Route** in `Router.php` with `'command' => true` and, where applicable,
+   `'role' => 'admin'`.
+6. **Controller method**: read the body through `Input::*`, return
+   `JsonResponse::accepted(...)`. Identities (who recorded it, whose data) come **from the
+   token**, never from the path or the body.
+7. **DI:** register the handler and controller in `src/Infrastructure/DI/Container.php`
+   (usually `\DI\autowire()`).
+8. **Schema:** extend `database/schema.sql` and `betting_game_er_extended.mermaid`.
+9. **Tests:** a unit test for the domain rule, an integration test for the flow, and the
+   rebuild test has to cover the new table too.
+10. **Docs:** extend `betting_game_api.yaml`, set the status in `USER_STORIES.md`.
+
+### A new query (read operation)
+
+Query DTO + handler in `src/Application/Query/`, a repository method on the projection
+tables, a route without the `command` flag, a controller method with
+`Authorization::requireSelf()` for participant data, the DI binding, tests, OpenAPI.
+
+---
+
+## 9. Pitfalls
+
+- **Do not forget `Authorization::requireSelf()`.** Identity comes from the token, never
+  from `{participantId}` in the path — otherwise the rule checks itself (B-16).
+  Deliberately strict enough that an admin does not get through here either: the admin has
+  their own endpoints, otherwise the participant routes would be a second, quieter admin API.
+- **Do not introduce a JWT shared secret.** Tokens are RS256 from Keycloak, verified against
+  the JWKS endpoint. An application that additionally accepts HS256 can be attacked with the
+  very key it publishes itself.
+- **An unreachable Keycloak → 503, not 401.** A key problem is not an invalid token.
+- **`ticket_row_match` appears in no event.** The projector recomputes the rows through the
+  domain service `WinningsDistribution` — the same one the handler uses. That is exactly why
+  it was extracted; do not duplicate the logic.
+- **A rebuild reaches downwards.** Read models hang together through `ON DELETE CASCADE`
+  (emptying `participant` empties `membership`, `bet_row`, `fee`). A rebuild rebuilds the
+  dependent projections along with it.
+- **A rebuild is not a command.** `POST /admin/projections/{name}/rebuild` is deliberately
+  *not* marked `'command' => true` — it changes no domain state and does not belong in the
+  command history.
+- **A new tipp year is `planned` and accepts no ticket.** It first has to go to `running`
+  through `PUT /admin/tipp-years/{id}/status` (B-18). If you are wondering why a walkthrough
+  fails at B-12: that is the reason, not a bug in the handler.
+- **Creating a `Participant` still has no route.** Self-registration is E1-01; for a
+  walkthrough the participant has to be prepared.
+- **For a tipp year every status transition is allowed, backwards ones included.** That is
+  deliberate: a year closed too early has to be reopenable, and that correction belongs in
+  the event history rather than in a manual `UPDATE`. The one rule that remains spans
+  aggregates and therefore does not live in the model: **at most one year is `running`.**
+  `ChangeTippYearStatusHandler` checks it for the error message, but the decision is made by
+  the unique key on `tipp_year.running_marker` — a generated column that is `NULL` outside
+  `running`, because equal `NULL`s do not collide in a unique key.
+- **Volumes survive every schema and realm change.** The same pitfall twice, hit twice on
+  2026-07-29:
+
+  | File | Is read | Volume |
   |---|---|---|
-  | `database/schema.sql` | nur bei **leerem** Datenverzeichnis (`docker-entrypoint-initdb.d`) | `db_data` |
-  | `keycloak/realm-export.json` | nur wenn der Realm **noch nicht existiert** (`--import-realm`) | `keycloak_db_data` |
+  | `database/schema.sql` | only with an **empty** data directory (`docker-entrypoint-initdb.d`) | `db_data` |
+  | `keycloak/realm-export.json` | only when the realm **does not exist yet** (`--import-realm`) | `keycloak_db_data` |
 
-  Eine Änderung an einer der beiden Dateien wirkt nach `restart`, `up -d` und `down` ohne
-  `-v` **gar nicht**. Der Stack läuft dann mit dem Stand von damals weiter, ohne dass
-  irgendwo ein Fehler steht — nach dem Kurswechsel stand monatelang das alte
-  Sportwetten-Schema in der Datenbank, und jede Lotto-Query endete in einem `500`.
-  Prüfen lässt sich das nur an der laufenden Instanz:
+  A change to either file has **no effect at all** after `restart`, `up -d` or `down`
+  without `-v`. The stack then keeps running with the state from back then, without an error
+  appearing anywhere — after the change of course the old sports-betting schema sat in the
+  database for months, and every lotto query ended in a `500`.
+  This can only be checked on the running instance:
 
   ```bash
   docker-compose exec -T db mariadb -uroot -psecret -N \
     -e "SELECT table_name FROM information_schema.tables WHERE table_schema='betting_game';"
   ```
 
-  Neu einspielen geht ohne Volume-Löschung — `schema.sql` beginnt mit `DROP TABLE IF
-  EXISTS` für alle Tabellen. Liegt noch ein fremdes Schema in der Datenbank, greift die
-  Reihenfolge der `DROP`s nicht, weil sie auf den *neuen* Fremdschlüsselgraphen ausgelegt
-  ist; dann die Prüfung für die Sitzung abschalten:
+  Reloading works without deleting the volume — `schema.sql` starts with
+  `DROP TABLE IF EXISTS` for every table. If a foreign schema is still in the database, the
+  order of the `DROP`s does not bite, because it is laid out for the *new* foreign-key
+  graph; in that case switch the check off for the session:
 
   ```bash
   (echo "SET FOREIGN_KEY_CHECKS=0;"; cat database/schema.sql) \
     | docker-compose exec -T db mariadb -uroot -psecret betting_game
   ```
 
-- **Nicht anfassen:** `vendor/`, `coverage/`, `.phpunit.cache/`, `var/` — generiert.
-- **Doppelte Konfigurationsdateien** in `docker/` (`Caddyfile.minimal`,
-  `Caddyfile.alternative`, `php-fpm.conf.minimal`) sind Reste aus dem Troubleshooting;
-  aktiv sind nur die aus `docker-compose.yml` gemounteten.
+- **Do not touch:** `vendor/`, `coverage/`, `.phpunit.cache/`, `var/` — generated.
+- **Duplicate configuration files** in `docker/` (`Caddyfile.minimal`,
+  `Caddyfile.alternative`, `php-fpm.conf.minimal`) are remnants of troubleshooting; only the
+  ones mounted from `docker-compose.yml` are active.
 
 ---
 
-## 10. Betrieb
+## 10. Operations
 
-| Story | Endpunkt |
+| Story | Endpoint |
 |---|---|
-| OPS-01 Verarbeitungsstand eines Commands | `GET /commands/{commandId}` |
-| OPS-02 Wiederholbarkeit | Header `Idempotency-Key` auf allen Command-Routen |
-| OPS-03 Event-Historie eines Aggregats | `GET /admin/audit/{type}/{id}` |
-| OPS-04 Projektionen überwachen / neu aufbauen | `GET /admin/projections`, `POST /admin/projections/{name}/rebuild` |
+| OPS-01 processing state of a command | `GET /commands/{commandId}` |
+| OPS-02 repeatability | The `Idempotency-Key` header on all command routes |
+| OPS-03 event history of an aggregate | `GET /admin/audit/{type}/{id}` |
+| OPS-04 monitor / rebuild projections | `GET /admin/projections`, `POST /admin/projections/{name}/rebuild` |
 
-Ein Retry mit bekanntem `Idempotency-Key` liefert die gespeicherte Antwort mit ihrem
-ursprünglichen Statuscode und dem Header `Idempotent-Replay: true`.
-`GET /commands/{commandId}` ist nicht admin-geschützt: wer den Command abgesetzt hat, darf
-nachsehen, und die UUID kann niemand raten.
+A retry with a known `Idempotency-Key` returns the stored response with its original status
+code and the header `Idempotent-Replay: true`.
+`GET /commands/{commandId}` is not admin-protected: whoever issued the command may look, and
+nobody can guess the UUID.

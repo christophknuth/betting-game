@@ -1,341 +1,341 @@
-# User Stories
+# User stories
 
-Arbeitsdokument: Welche fachlichen Anforderungen bildet das System ab, über welchen
-Endpunkt, auf welchen Tabellen — und was davon ist bereits implementiert.
+A working document: which domain requirements the system covers, through which endpoint, on
+which tables — and how much of that is already implemented.
 
-Abgeleitet aus [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid).
-Stand: 2026-07-29.
+Derived from [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid).
+State: 2026-07-29.
 
-## Die Domäne
+## The domain
 
-Verwaltung einer **Lotterie-Tippgemeinschaft für Lotto 6 aus 49**.
+Administration of a **lottery syndicate playing Lotto 6 aus 49**.
 
-Jeder Teilnehmer hat pro **Tippperiode genau eine Tippreihe** aus sechs Zahlen. Sie gilt bis auf
-Widerruf und wandert automatisch auf jeden Tippschein — der Teilnehmer tippt nicht pro
-Ziehung, sondern einmal pro Periode.
+Each participant has **exactly one bet row per bet period**, of six numbers. It stands until
+revoked and travels automatically onto every ticket — the participant does not bet per draw,
+but once per period.
 
-**Wie lang eine Periode ist, legt der Administrator fest.** Eine Periode über das ganze
-Tippjahr ergibt „eine Reihe pro Jahr", zwölf Monatsperioden erlauben einen monatlichen
-Wechsel. Perioden eines Tippjahres dürfen sich nicht überlappen — sonst wären zwei Reihen
-desselben Teilnehmers am selben Tag gültig und der Tippschein wüsste nicht, welche er drucken
-soll.
+**How long a period runs is up to the administrator.** A period spanning the whole tipp year
+yields "one row per year", twelve monthly periods allow a monthly change. Periods of one
+tipp year must not overlap — otherwise two rows of the same participant would be valid on
+the same day and the ticket would not know which one to print.
 
-Zum Monatsanfang reicht die Gemeinschaft alle aktiven Reihen als **einen gemeinsamen
-Tippschein** bei der Lottogesellschaft ein. Die Kosten dieses Scheins werden auf die
-Teilnehmer aufgeteilt und sind im Laufe des Monats zu zahlen.
+At the start of each month the syndicate submits all active rows to the lottery company as
+**one shared ticket**. The cost of that ticket is split across the participants and is due
+during that month.
 
-Gewinne fallen **je Ziehung für den Tippschein als Ganzes** an, werden über das Tippjahr
-gesammelt und am Jahresende **gleichmäßig auf alle Teilnehmer** ausgeschüttet — unabhängig
-davon, wie viele Perioden jemand bezahlt hat.
+Winnings accrue **per draw for the ticket as a whole**, are collected over the tipp year and
+distributed **evenly across all participants** at the end of the year — regardless of how
+many periods anyone paid for.
 
-Beitritt und Austritt sind regulär **nur zum Jahreswechsel** möglich, im Zuge der
-Jahresausschüttung. Die Tippreihe wechselt mit der Periode.
+Joining and leaving are regularly possible **only at the turn of the year**, in the course of
+the yearly distribution. The bet row changes with the period.
 
-### Festlegungen
+### Decisions taken
 
-| Frage | Entscheidung |
+| Question | Decision |
 |---|---|
-| Tippjahr | Frei definierbarer Zeitraum, kein Kalenderjahr — `TippYear.start_date`/`end_date` |
-| Tippperiode | Frei wählbarer Zeitraum innerhalb des Tippjahres — `BetPeriod.start_date`/`end_date`, überlappungsfrei |
-| Gewinnverteilung | Gleichmäßig auf alle Teilnehmer des Tippjahres |
-| Tippreihe ändern | Eine Reihe je Periode (durchgesetzt über UK `(participant_id, bet_period_id)`) |
-| Superzahl | Pro Tippschein, aus der Losnummer — eine Tippreihe sind nur die sechs Zahlen |
+| Tipp year | A freely definable period, not a calendar year — `TippYear.start_date`/`end_date` |
+| Bet period | A freely chosen period within the tipp year — `BetPeriod.start_date`/`end_date`, non-overlapping |
+| Distribution of winnings | Evenly across all participants of the tipp year |
+| Changing a bet row | One row per period (enforced through the UK `(participant_id, bet_period_id)`) |
+| Bonus number | Per ticket, from the lot number — a bet row is only the six numbers |
 
-Die Periodenlänge ist damit eine **Konfiguration, keine Annahme im Code**. Der Grenzfall „eine
-Periode = das ganze Tippjahr" reproduziert exakt das ursprünglich beschriebene Verhalten.
+The period length is therefore a **configuration, not an assumption in code**. The edge case
+"one period = the whole tipp year" reproduces exactly the behaviour originally described.
 
-## Ausbaustufen
+## Expansion stages
 
-| Stufe | Inhalt |
+| Stage | Contents |
 |---|---|
-| **Basis** | Lotto-Tippgemeinschaft. Teilnehmer nur lesend, Admin pflegt Reihen, Zahlungen, Ziehungen und Gewinne. |
-| **E1 — Selbstverwaltung** | Selbstregistrierung, Profil, eigene Reihenwahl, Beitritt/Austritt, Benachrichtigungen |
-| **E2 — Sportwetten** | Tippspiel auf Sportergebnisse: Ereignisse mit Tippschluss, Tipp je Ereignis, Punkte, Rangliste |
+| **Base** | The lotto syndicate. Participants read only, the admin maintains rows, payments, draws and winnings. |
+| **E1 — self-service** | Self-registration, profile, choosing one's own row, joining/leaving, notifications |
+| **E2 — sports betting** | A betting game on sports results: events with a betting deadline, one bet per event, points, leaderboard |
 
-## Rollen
+## Roles
 
-| Rolle | Keycloak | Beschreibung |
+| Role | Keycloak | Description |
 |---|---|---|
-| **Teilnehmer** | `user` | Sieht in der Basis ausschließlich eigene Daten — kein Schreibzugriff |
-| **Administrator** | `admin` | Pflegt Tippjahr, Reihen, Tippscheine, Ziehungen, Gewinne und Zahlungen |
-| **Betreiber** | `admin` | Betriebssicht auf Event Sourcing |
+| **Participant** | `user` | In the base version sees exclusively their own data — no write access |
+| **Administrator** | `admin` | Maintains the tipp year, rows, tickets, draws, winnings and payments |
+| **Operator** | `admin` | The operations view onto event sourcing |
 
-## Status-Legende
+## Status legend
 
-| Symbol | Bedeutung |
+| Symbol | Meaning |
 |---|---|
-| 🟢 | Route + Controller + Handler + Persistenz vorhanden, über HTTP getestet |
-| 🟠 | Route erreichbar, Handler noch ein Stub |
-| 🔵 | Spezifiziert, noch nicht implementiert |
-| ♻️ | Bestehender Code direkt weiterverwendbar (siehe Migrationstabelle) |
+| 🟢 | Route + controller + handler + persistence in place, tested over HTTP |
+| 🟠 | Route reachable, the handler still a stub |
+| 🔵 | Specified, not implemented yet |
+| ♻️ | Existing code directly reusable (see the migration table) |
 
 ---
 
-# Basisversion
+# Base version
 
-## Teilnehmer — nur lesend
+## Participant — read only
 
-| ID | Story | Endpunkt | Datenmodell | Status |
+| ID | Story | Endpoint | Data model | Status |
 |---|---|---|---|---|
-| **B-01** | Als **Teilnehmer** möchte ich meine Tippreihe sehen, damit ich weiß, mit welchen Zahlen ich in der laufenden Periode spiele. | `GET /participants/{id}/bet-row` | **BetRow** ⋈ **BetPeriod** ⋈ **TippYear** | 🟢 ♻️ |
-| **B-02** | Als **Teilnehmer** möchte ich meine Teilnahmen im laufenden Tippjahr sehen, damit ich weiß, auf welchen Tippscheinen meine Reihe stand. | `GET /participants/{id}/memberships` | **Membership** ⋈ **TippYear**, **TicketRow** ⋈ **Ticket** | 🟢 ♻️ |
-| **B-03** | Als **Teilnehmer** möchte ich meine Zahlungen sehen, damit ich weiß, welche Gebühren offen sind. | `GET /participants/{id}/fees` | **Fee** ⋈ **Ticket** | 🟢 ♻️ |
-| **B-04** | Als **Teilnehmer** möchte ich meinen anteiligen Gewinn des Tippjahres sehen, damit ich weiß, was ausgeschüttet wird. | `GET /participants/{id}/payout-share` | **PayoutShare** ⋈ **Payout** ⋈ **TippYear** | 🟢 |
-| **B-05** | Als **Teilnehmer** möchte ich den Gewinn des Tippscheins je Ziehung sehen, damit ich den Verlauf des Tippjahres nachvollziehen kann. | `GET /tipp-years/{id}/draws` | **Draw** ⋈ **TicketDrawResult** | 🟢 |
+| **B-01** | As a **participant** I want to see my bet row, so that I know which numbers I am playing in the running period. | `GET /participants/{id}/bet-row` | **BetRow** ⋈ **BetPeriod** ⋈ **TippYear** | 🟢 ♻️ |
+| **B-02** | As a **participant** I want to see my memberships in the running tipp year, so that I know which tickets my row appeared on. | `GET /participants/{id}/memberships` | **Membership** ⋈ **TippYear**, **TicketRow** ⋈ **Ticket** | 🟢 ♻️ |
+| **B-03** | As a **participant** I want to see my payments, so that I know which fees are outstanding. | `GET /participants/{id}/fees` | **Fee** ⋈ **Ticket** | 🟢 ♻️ |
+| **B-04** | As a **participant** I want to see my proportional winnings for the tipp year, so that I know what will be distributed. | `GET /participants/{id}/payout-share` | **PayoutShare** ⋈ **Payout** ⋈ **TippYear** | 🟢 |
+| **B-05** | As a **participant** I want to see the ticket's winnings per draw, so that I can follow the course of the tipp year. | `GET /tipp-years/{id}/draws` | **Draw** ⋈ **TicketDrawResult** | 🟢 |
 
-**Akzeptanzkriterien:**
+**Acceptance criteria:**
 
-- B-01: `404`, solange dem Teilnehmer für die laufende Periode keine Reihe zugeordnet ist
-- B-02: enthält je Tippschein, ob die eigene Reihe darauf stand — bei unterjährigem Beitritt fehlt sie auf früheren Scheinen
-- B-04: `200` mit `amount: null`, solange die Jahresausschüttung nicht gebucht ist — die Story ist erst nach B-13 gehaltvoll
-- B-05: zeigt den Gewinn des **gesamten** Tippscheins, nicht den eigenen Anteil. Der Anteil entsteht erst bei der Ausschüttung
+- B-01: `404` for as long as no row is assigned to the participant for the running period
+- B-02: contains, per ticket, whether one's own row appeared on it — after joining mid-year it is missing from earlier tickets
+- B-04: `200` with `amount: null` for as long as the yearly distribution has not been recorded — the story only carries substance after B-13
+- B-05: shows the winnings of the **whole** ticket, not one's own share. The share only comes into being with the distribution
 
 ## Administrator
 
-| ID | Story | Endpunkt | Datenmodell | Status |
+| ID | Story | Endpoint | Data model | Status |
 |---|---|---|---|---|
-| **B-06** | Als **Administrator** möchte ich einem Teilnehmer eine Tippreihe für eine Periode zuordnen. | `PUT /admin/participants/{id}/bet-row` | **BetRow** | 🟢 |
-| **B-07** | Als **Administrator** möchte ich den Zahlungsstatus eines Teilnehmers für eine Periode setzen, damit die Gebührenlage stimmt. | `PUT /admin/fees/{feeId}/payment` | `Fee.payment_status`, `.paid_at`, `.booked_by` | 🟢 ♻️ |
-| **B-08** | Als **Administrator** möchte ich eine Ziehung mit Zahlen und Superzahl eintragen. | `POST /admin/draws` | **Draw** | 🟢 |
-| **B-09** | Als **Administrator** möchte ich die Gewinne einer Ziehung eintragen, damit sie in die Jahressumme eingehen. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 🟢 |
+| **B-06** | As an **administrator** I want to assign a participant a bet row for a period. | `PUT /admin/participants/{id}/bet-row` | **BetRow** | 🟢 |
+| **B-07** | As an **administrator** I want to set a participant's payment status for a period, so that the fee situation is correct. | `PUT /admin/fees/{feeId}/payment` | `Fee.payment_status`, `.paid_at`, `.booked_by` | 🟢 ♻️ |
+| **B-08** | As an **administrator** I want to record a draw with its numbers and bonus number. | `POST /admin/draws` | **Draw** | 🟢 |
+| **B-09** | As an **administrator** I want to record the winnings of a draw, so that they feed into the yearly total. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 🟢 |
 
-**Akzeptanzkriterien:**
+**Acceptance criteria:**
 
-- B-06: `409`, wenn für diese Periode bereits eine Reihe existiert — Durchsetzung über den UK, nicht über eine Prüfung im Code. Eine Korrektur innerhalb der laufenden Periode braucht einen expliziten Ersetzungsgrund
-- B-06: genau sechs verschiedene Zahlen aus 1–49, aufsteigend gespeichert
-- B-08: `409` bei doppeltem Ziehungsdatum; Zahlen und Superzahl (0–9) werden gegen dieselben Regeln geprüft
-- B-09: rechnet aus `Draw.numbers` und den `TicketRow`-Snapshots die Treffer je Reihe (**TicketRowMatch**) und summiert den Scheingewinn
+- B-06: `409` when a row already exists for this period — enforced through the UK, not through a check in code. A correction within the running period needs an explicit replacement reason
+- B-06: exactly six distinct numbers from 1–49, stored ascending
+- B-08: `409` on a duplicate draw date; numbers and bonus number (0–9) are checked against the same rules
+- B-09: computes the hits per row (**TicketRowMatch**) from `Draw.numbers` and the `TicketRow` snapshots, and sums the ticket's winnings
 
-## Implizit erforderlich
+## Implicitly required
 
-Diese fünf Stories stehen nicht in der Aufgabenliste, aber ohne sie können die Daten für
-B-01 bis B-09 gar nicht entstehen. Sie gehören in die Basis und sind in dieser Reihenfolge
-abzuarbeiten.
+These five stories are not in the task list, but without them the data for B-01 through B-09
+cannot come into being at all. They belong in the base version and are to be worked through
+in this order.
 
-| ID | Story | Endpunkt | Datenmodell | Status |
+| ID | Story | Endpoint | Data model | Status |
 |---|---|---|---|---|
-| **B-10** | Als **Administrator** möchte ich ein Tippjahr mit Zeitraum und Reihenpreis anlegen. | `POST /admin/tipp-years` | **TippYear** | 🟢 ♻️ |
-| **B-14** | Als **Administrator** möchte ich die Tippperioden eines Tippjahres frei festlegen, damit ich bestimme, wie oft eine Reihe wechseln darf. | `POST /admin/tipp-years/{id}/bet-periods` | **BetPeriod** | 🟢 |
-| **B-11** | Als **Administrator** möchte ich einen Teilnehmer in ein Tippjahr aufnehmen. | `POST /admin/tipp-years/{id}/members` | **Membership** | 🟢 ♻️ |
-| **B-12** | Als **Administrator** möchte ich den monatlichen Tippschein erfassen, damit Gebühren entstehen und Ziehungen zugeordnet werden können. | `POST /admin/tipp-years/{id}/tickets` | **Ticket**, **TicketRow**, **Fee** je Teilnehmer | 🟢 |
-| **B-13** | Als **Administrator** möchte ich die Jahresausschüttung buchen, damit jeder Teilnehmer seinen Anteil erhält. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | 🟢 |
-| **B-18** | Als **Administrator** möchte ich den Status eines Tippjahres setzen, damit ich es starten, beenden und eine falsche Buchung korrigieren kann. | `PUT /admin/tipp-years/{id}/status` | **TippYear** | 🟢 |
-| **B-21** | Als **Administrator** möchte ich einen Teilnehmer anlegen und die vorhandenen sehen, damit ich ihn einem Tippjahr zuordnen kann. | `POST`/`GET /admin/participants` | **Participant** | 🟢 |
+| **B-10** | As an **administrator** I want to create a tipp year with a period and a row price. | `POST /admin/tipp-years` | **TippYear** | 🟢 ♻️ |
+| **B-14** | As an **administrator** I want to define a tipp year's bet periods freely, so that I decide how often a row may change. | `POST /admin/tipp-years/{id}/bet-periods` | **BetPeriod** | 🟢 |
+| **B-11** | As an **administrator** I want to add a participant to a tipp year. | `POST /admin/tipp-years/{id}/members` | **Membership** | 🟢 ♻️ |
+| **B-12** | As an **administrator** I want to record the monthly ticket, so that fees come into being and draws can be attributed. | `POST /admin/tipp-years/{id}/tickets` | **Ticket**, **TicketRow**, **Fee** per participant | 🟢 |
+| **B-13** | As an **administrator** I want to record the yearly distribution, so that every participant receives their share. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | 🟢 |
+| **B-18** | As an **administrator** I want to set the status of a tipp year, so that I can start it, end it and correct a wrong booking. | `PUT /admin/tipp-years/{id}/status` | **TippYear** | 🟢 |
+| **B-21** | As an **administrator** I want to create a participant and see the existing ones, so that I can add them to a tipp year. | `POST`/`GET /admin/participants` | **Participant** | 🟢 |
 
-**Akzeptanzkriterien:**
+**Acceptance criteria:**
 
-- B-18: **jeder** Übergang zwischen `planned`, `running`, `closed` und `distributed` ist erlaubt, auch rückwärts — ein zu früh geschlossenes Jahr muss sich wieder öffnen lassen, und die Korrektur gehört in die Event-Historie statt in ein manuelles `UPDATE`
-- B-18: **höchstens ein Tippjahr ist gleichzeitig `running`.** `409` mit Nennung des blockierenden Jahres. Durchgesetzt über den Unique Key `tipp_year.running_marker`, nicht über die Prüfung im Handler — die dient nur der Fehlermeldung und hält gegen Nebenläufigkeit nicht
-- B-18: `400` bei unbekanntem Status, `409` beim Setzen des bereits gesetzten Status (ein Event, das keine Änderung beschreibt, gehört nicht in die Historie), `404` bei unbekanntem Tippjahr
-- B-14: Perioden müssen innerhalb des Tippjahres liegen und sich untereinander nicht überlappen. Eine einzige Periode über das ganze Jahr ist zulässig und ergibt „eine Reihe pro Jahr"
-- B-12: bündelt die Reihen aller Teilnehmer mit aktiver **Membership**, deren **BetPeriod** den `period_start` des Tippscheins enthält; `total_cost = row_count × draw_count × ticket_cost_per_row`; erzeugt je Teilnehmer eine **Fee** über `total_cost / row_count`
-- B-12: die Reihen werden als Snapshot in **TicketRow** kopiert — eine spätere Korrektur der **BetRow** verändert eingereichte Scheine nicht
-- B-13: `total_winnings` = Summe aller **TicketDrawResult** des Jahres; `share_per_participant = total_winnings / participant_count`; Rundungsdifferenz geht auf den ersten Anteil
-- B-13: `409`, wenn das Tippjahr nicht `closed` ist oder bereits eine Ausschüttung existiert
-- B-21: kein `user_id` — die Identität kommt aus dem Keycloak-Token, die Tabelle `user`
-  stammt aus der Zeit davor und wird von keinem Projektor mehr geschrieben. Ein Konto zu
-  verknüpfen ist E1-01
-- B-21: der Teilnehmer ist sofort aktiv. `ParticipantApproved` bildet die Genehmigung einer
-  **Selbst**registrierung ab, und die ist E1; was der Administrator einträgt, ist mit dem
-  Eintragen genehmigt
-- B-21: `400` bei einem Anzeigenamen unter 2 oder über 50 Zeichen (`DisplayName`)
-- B-21: beides admin-only. Ein Teilnehmer darf die anderen nicht auflisten (B-16)
+- B-18: **every** transition between `planned`, `running`, `closed` and `distributed` is allowed, backwards ones included — a year closed too early has to be reopenable, and the correction belongs in the event history rather than in a manual `UPDATE`
+- B-18: **at most one tipp year is `running` at a time.** `409`, naming the year that blocks it. Enforced through the unique key `tipp_year.running_marker`, not through the check in the handler — that one only serves the error message and does not hold against concurrency
+- B-18: `400` on an unknown status, `409` on setting the status that is already set (an event that describes no change does not belong in the history), `404` on an unknown tipp year
+- B-14: periods have to lie within the tipp year and must not overlap each other. A single period spanning the whole year is allowed and yields "one row per year"
+- B-12: bundles the rows of all participants with an active **Membership** whose **BetPeriod** contains the ticket's `period_start`; `total_cost = row_count × draw_count × ticket_cost_per_row`; creates one **Fee** per participant over `total_cost / row_count`
+- B-12: the rows are copied into **TicketRow** as a snapshot — a later correction to the **BetRow** does not change submitted tickets
+- B-13: `total_winnings` = the sum of all **TicketDrawResult** of the year; `share_per_participant = total_winnings / participant_count`; the rounding difference goes onto the first share
+- B-13: `409` when the tipp year is not `closed`, or a distribution already exists
+- B-21: no `user_id` — identity comes from the Keycloak token, and the `user` table dates
+  from before that and is no longer written by any projector. Linking an account is E1-01
+- B-21: the participant is active immediately. `ParticipantApproved` models the approval of a
+  **self**-registration, and that is E1; whatever the administrator records is approved by
+  the act of recording it
+- B-21: `400` on a display name under 2 or over 50 characters (`DisplayName`)
+- B-21: both are admin-only. A participant must not enumerate the others (B-16)
 
-## Jahreswechsel — spezifiziert, noch nicht implementiert
+## Turn of the year — specified, not implemented yet
 
-Beide Stories bauen auf B-18 auf und gehören zusammen: B-19 legt fest, *was* als Nächstes
-läuft, B-20 macht den Wechsel unbeaufsichtigt.
+Both stories build on B-18 and belong together: B-19 defines *what* runs next, B-20 makes the
+change unattended.
 
-| ID | Story | Endpunkt | Datenmodell | Status |
+| ID | Story | Endpoint | Data model | Status |
 |---|---|---|---|---|
-| **B-19** | Als **Administrator** möchte ich einem laufenden Tippjahr einen Nachfolger zuordnen, damit feststeht, welches Jahr als Nächstes läuft. | `PUT /admin/tipp-years/{id}/successor` | **TippYear**, neue Spalte `successor_id` | 🔵 |
-| **B-20** | Als **Betreiber** möchte ich, dass ein abgelaufenes Tippjahr automatisch beendet und der konfigurierte Nachfolger gestartet wird, damit der Wechsel nicht von einer manuellen Buchung abhängt. | kein Endpunkt — geplanter Lauf | **TippYear** | 🔵 |
+| **B-19** | As an **administrator** I want to assign a successor to a running tipp year, so that it is settled which year runs next. | `PUT /admin/tipp-years/{id}/successor` | **TippYear**, new column `successor_id` | 🔵 |
+| **B-20** | As an **operator** I want an expired tipp year to be ended automatically and the configured successor to be started, so that the change does not depend on a manual booking. | no endpoint — a scheduled run | **TippYear** | 🔵 |
 
-**Akzeptanzkriterien:**
+**Acceptance criteria:**
 
-- B-19: der Nachfolger muss `planned` sein und darf nicht das Jahr selbst sein; sein Zeitraum muss **nach** dem des laufenden Jahres liegen
-- B-19: ein Tippjahr ist Nachfolger von höchstens einem anderen — durchzusetzen über einen Unique Key auf `successor_id`, nicht über eine Prüfung im Handler
-- B-19: der Nachfolger ist überschreibbar und entfernbar, solange der Wechsel nicht stattgefunden hat
-- B-20: „abgelaufen" heißt `end_date < heute` **und** Status `running`
-- B-20: der Lauf setzt das Jahr auf `closed` und, falls ein Nachfolger konfiguriert ist, diesen auf `running` — beides über denselben Weg wie B-18, damit die Regel „nur ein laufendes Jahr" und die Event-Historie gleich bleiben
-- B-20: der Lauf ist **idempotent** und muss ein zweites Mal folgenlos durchlaufen; er läuft möglicherweise mehrfach parallel, entscheiden muss deshalb der Unique Key
-- B-20: ausgeschüttet wird **nicht** automatisch. B-13 verlangt eine ausdrückliche Bestätigung und ist nicht rücknehmbar — das bleibt eine menschliche Entscheidung
-- B-20: der Lauf schreibt in die Command-Historie wie jeder andere Schreibvorgang, damit im Nachhinein erkennbar ist, dass eine Automatik gebucht hat und nicht ein Administrator
+- B-19: the successor has to be `planned` and must not be the year itself; its period has to lie **after** that of the running year
+- B-19: a tipp year is the successor of at most one other — to be enforced through a unique key on `successor_id`, not through a check in the handler
+- B-19: the successor can be overwritten and removed for as long as the change has not happened
+- B-20: "expired" means `end_date < today` **and** status `running`
+- B-20: the run sets the year to `closed` and, if a successor is configured, that one to `running` — both through the same path as B-18, so that the rule "only one running year" and the event history stay the same
+- B-20: the run is **idempotent** and has to run a second time without consequence; it may well run several times in parallel, so the unique key has to decide
+- B-20: distribution does **not** happen automatically. B-13 demands an explicit confirmation and cannot be taken back — that stays a human decision
+- B-20: the run writes into the command history like any other write, so that it is recognisable afterwards that an automation made the booking and not an administrator
 
-**Offene Entwurfsfragen:**
+**Open design questions:**
 
-- Wo läuft B-20? Ein Cron im `php`-Container ist das Naheliegende; ein Endpunkt, den ein
-  externer Scheduler anstößt, wäre testbarer und im Betrieb sichtbarer.
-- Was passiert mit einem abgelaufenen Jahr **ohne** Nachfolger? Vorschlag: schließen und
-  nichts starten — dann steht der Betrieb still und fällt auf, statt still weiterzulaufen.
-- Was, wenn der Nachfolger noch keine Tippperioden hat? Dann nimmt er zwar Tippscheine an,
-  aber keine Reihe ist gültig. Vermutlich sollte B-20 in dem Fall nicht starten.
+- Where does B-20 run? A cron in the `php` container is the obvious thing; an endpoint
+  triggered by an external scheduler would be more testable and more visible in operation.
+- What happens to an expired year **without** a successor? Proposal: close it and start
+  nothing — then operations come to a halt and get noticed, instead of quietly carrying on.
+- What if the successor has no bet periods yet? Then it would accept tickets, but no row
+  would be valid. Presumably B-20 should not start it in that case.
 
-## Querschnitt
+## Cross-cutting
 
-| ID | Story | Umsetzung | Status |
+| ID | Story | Implementation | Status |
 |---|---|---|---|
-| **B-15** | Als **Nutzer** möchte ich mich per SSO anmelden. | OIDC/Keycloak, `participant_id` als JWT-Claim | 🟢 ♻️ |
-| **B-16** | Als **Teilnehmer** möchte ich sicher sein, dass niemand meine Daten sieht. | `403`, wenn `participantId` im Pfad ≠ Claim | 🟢 ♻️ |
-| **B-17** | Als **Betreiber** möchte ich den Adminbereich rollengeschützt wissen. | `realm_access.roles` enthält `admin` | 🟢 ♻️ |
+| **B-15** | As a **user** I want to log in through SSO. | OIDC/Keycloak, `participant_id` as a JWT claim | 🟢 ♻️ |
+| **B-16** | As a **participant** I want to be sure nobody sees my data. | `403` when `participantId` in the path ≠ the claim | 🟢 ♻️ |
+| **B-17** | As an **operator** I want the admin area to be role-protected. | `realm_access.roles` contains `admin` | 🟢 ♻️ |
 
 ---
 
-# E1 — Selbstverwaltung
+# E1 — self-service
 
-Alles, was Teilnehmern Schreibzugriff auf ihre eigenen Daten gibt.
+Everything that gives participants write access to their own data.
 
-| ID | Story | Endpunkt |
+| ID | Story | Endpoint |
 |---|---|---|
-| **E1-01** | Selbstregistrierung als Teilnehmer | `POST /registrations` |
-| **E1-02** | Eigenes Profil sehen und ändern | `GET`/`PUT /participants/{id}` |
-| **E1-03** | Eigene Tippreihe zur nächsten Periode selbst wählen | `PUT /participants/{id}/bet-row` |
-| **E1-04** | Beitritt zum nächsten Tippjahr beantragen | `POST /tipp-years/{id}/join-requests` |
-| **E1-05** | Austritt zum Jahresende erklären | `POST /tipp-years/{id}/leave-requests` |
-| **E1-06** | Zahlung selbst melden | `POST /participants/{id}/fees/{feeId}/payment` |
-| **E1-07** | Über fällige Gebühren, ausgewertete Ziehungen und die Ausschüttung benachrichtigt werden | `GET .../notifications`, SSE-Stream |
-| **E1-08** | Offene Tippgemeinschaften finden und einsehen | `GET /tipp-years` |
-| **E1-09** | Eigene Daten exportieren und Löschung verlangen (DSGVO) | `GET .../data-export`, `DELETE /participants/{id}` |
+| **E1-01** | Self-registration as a participant | `POST /registrations` |
+| **E1-02** | See and change one's own profile | `GET`/`PUT /participants/{id}` |
+| **E1-03** | Choose one's own bet row for the next period | `PUT /participants/{id}/bet-row` |
+| **E1-04** | Request to join the next tipp year | `POST /tipp-years/{id}/join-requests` |
+| **E1-05** | Declare leaving at the end of the year | `POST /tipp-years/{id}/leave-requests` |
+| **E1-06** | Report a payment oneself | `POST /participants/{id}/fees/{feeId}/payment` |
+| **E1-07** | Be notified about due fees, evaluated draws and the distribution | `GET .../notifications`, SSE stream |
+| **E1-08** | Find and inspect open syndicates | `GET /tipp-years` |
+| **E1-09** | Export one's own data and demand deletion (GDPR) | `GET .../data-export`, `DELETE /participants/{id}` |
 
-**Warum nicht in der Basis:** E1-03 bis E1-05 verschieben Entscheidungen vom Admin zum
-Teilnehmer und brauchen einen Genehmigungsfluss. In der Basis bucht der Admin alles direkt.
+**Why not in the base version:** E1-03 through E1-05 shift decisions from the admin to the
+participant and need an approval flow. In the base version the admin records everything
+directly.
 
 ---
 
-# E2 — Sportwetten-Tippspiel
+# E2 — sports-betting game
 
-Das ursprüngliche Sportergebnis-Tippspiel als zweite Spielart neben der Lotterie.
+The original sports-result betting game as a second mode of play alongside the lottery.
 
-| ID | Story | Endpunkt |
+| ID | Story | Endpoint |
 |---|---|---|
-| **E2-01** | Spielart und Punkteregeln verwalten | `GET`/`POST /admin/game-types`, `PointConfiguration` |
-| **E2-02** | Sportereignisse mit Tippschluss anlegen und importieren | `POST /admin/games/{id}/events`, `.../events/import` |
-| **E2-03** | Tipp je Ereignis abgeben und bis Tippschluss ändern | `POST`/`PUT .../predictions` |
-| **E2-04** | Ergebnis erfassen und Punkte berechnen | `POST /admin/events/{id}/results`, `.../scores/calculate` |
-| **E2-05** | Rangliste eines Spiels sehen | `GET .../leaderboard` |
-| **E2-06** | Tipps der anderen nach Tippschluss sehen | `GET .../predictions/peers` |
-| **E2-07** | Spielkatalog durchsuchen | `GET /games`, `/games/{id}/events` |
+| **E2-01** | Manage the mode of play and the scoring rules | `GET`/`POST /admin/game-types`, `PointConfiguration` |
+| **E2-02** | Create and import sports events with a betting deadline | `POST /admin/games/{id}/events`, `.../events/import` |
+| **E2-03** | Place a bet per event and change it until the deadline | `POST`/`PUT .../predictions` |
+| **E2-04** | Record the result and compute the points | `POST /admin/events/{id}/results`, `.../scores/calculate` |
+| **E2-05** | See a game's leaderboard | `GET .../leaderboard` |
+| **E2-06** | See the others' bets after the deadline | `GET .../predictions/peers` |
+| **E2-07** | Browse the game catalogue | `GET /games`, `/games/{id}/events` |
 
-**Struktureller Unterschied zur Lotterie:** Dort ist ein Tipp `(Teilnehmer, Ereignis)` und pro
-Ereignis änderbar. In der Lotterie ist er `(Teilnehmer, Tippperiode)` und nur mit der Periode änderbar.
-Beide Modelle nebeneinander zu betreiben heißt, `BetRow` und `Prediction` als getrennte
-Aggregate zu führen — nicht, eines zu verallgemeinern.
+**The structural difference to the lottery:** there a bet is `(participant, event)` and
+changeable per event. In the lottery it is `(participant, bet period)` and changeable only
+with the period. Running both models side by side means keeping `BetRow` and `Prediction` as
+separate aggregates — not generalising one of them.
 
 ---
 
-# Betrieb (stufenübergreifend)
+# Operations (across all stages)
 
-| ID | Story | Endpunkt | Status |
+| ID | Story | Endpoint | Status |
 |---|---|---|---|
-| **OPS-01** | Verarbeitungsstand eines Commands abfragen | `GET /commands/{commandId}` | 🟢 |
-| **OPS-02** | Commands mit `Idempotency-Key` wiederholen können | Header auf allen Commands | 🟢 |
-| **OPS-03** | Event-Historie eines Aggregats einsehen | `GET /admin/audit/{type}/{id}` | 🟢 |
-| **OPS-04** | Projektionen überwachen und neu aufbauen | `GET /admin/projections`, `POST .../{name}/rebuild` | 🟢 |
+| **OPS-01** | Query the processing state of a command | `GET /commands/{commandId}` | 🟢 |
+| **OPS-02** | Be able to repeat commands with an `Idempotency-Key` | The header on all commands | 🟢 |
+| **OPS-03** | Inspect the event history of an aggregate | `GET /admin/audit/{type}/{id}` | 🟢 |
+| **OPS-04** | Monitor and rebuild projections | `GET /admin/projections`, `POST .../{name}/rebuild` | 🟢 |
 
-**Command Log (OPS-01, OPS-02).** Der `Kernel` führt jede als `command` markierte Route unter
-dem `command_log` aus. Der `Idempotency-Key` wird **vor** der Ausführung beansprucht — der
-Unique Key auf der Spalte entscheidet das Rennen. Erst prüfen und dann ausführen ließe ein
-Fenster, in dem zwei parallele Wiederholungen beide durchkommen; genau die Doppelbuchung, gegen
-die der Schlüssel existiert. Ein Retry liefert die gespeicherte Antwort mit ihrem
-ursprünglichen Statuscode und dem Header `Idempotent-Replay: true`.
+**The command log (OPS-01, OPS-02).** The `Kernel` runs every route marked as a `command`
+under the `command_log`. The `Idempotency-Key` is claimed **before** execution — the unique
+key on the column decides the race. Checking first and executing afterwards would leave a
+window in which two parallel retries both get through; exactly the double booking the key
+exists to prevent. A retry returns the stored response with its original status code and the
+header `Idempotent-Replay: true`.
 
-Die `commandId` der Antwort ist der Primärschlüssel im `command_log` — der Handler erzeugt zwar
-eine eigene, der Kernel überschreibt sie aber mit der protokollierten, damit
-`GET /commands/{id}` sie auch findet.
+The response's `commandId` is the primary key in `command_log` — the handler does create one
+of its own, but the kernel overwrites it with the logged one so that `GET /commands/{id}`
+actually finds it.
 
-**Ehrlich zur Asynchronität:** Die API beschreibt Commands als asynchron. Diese Implementierung
-schreibt synchron — wenn der Aufrufer die `202` hat, ist der Command bereits `completed`.
-`projectionsUpToDate` ist deshalb immer `true`. Der Endpunkt bleibt trotzdem sinnvoll: dort
-schlägt ein Retry nach, was der erste Versuch erzeugt hat.
+**Honest about asynchrony:** the API describes commands as asynchronous. This implementation
+writes synchronously — by the time the caller holds the `202` the command is already
+`completed`. `projectionsUpToDate` is therefore always `true`. The endpoint remains useful
+nonetheless: that is where a retry looks up what the first attempt produced.
 
-**Projektionen (OPS-04).** Sieben Projektoren, je einer pro Read Model. Die Repositories
-schreiben ihre Projektion weiterhin synchron beim Speichern — ein Laden direkt danach muss sie
-sehen. Die Projektoren sind der *zweite* Weg zu denselben Zeilen: sie spielen das Event-Log
-nach.
+**Projections (OPS-04).** Seven projectors, one per read model. The repositories continue to
+write their projection synchronously while saving — a load right afterwards has to see it.
+The projectors are the *second* path to the same rows: they replay the event log.
 
-Zwei Wege zu denselben Tabellen driften auseinander, wenn niemand nachsieht. Deshalb spielt
-[ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) ein komplettes
-Tippjahr durch die Command-Handler, fotografiert **alle 13** Read-Model-Tabellen, baut aus dem
-Event Store neu auf und vergleicht Zeile für Zeile. Einzige Ausnahme:
-`ticket_row_match.calculated_at` — das hält fest, *wann* gerechnet wurde, und darf sich bei
-einem Neuaufbau ändern.
+Two paths to the same tables drift apart when nobody looks. That is why
+[ProjectionRebuildTest](tests/Integration/Application/ProjectionRebuildTest.php) plays a
+complete tipp year through the command handlers, photographs **all 13** read-model tables,
+rebuilds from the event store and compares row by row. The only exception:
+`ticket_row_match.calculated_at` — that records *when* the calculation happened, and may
+change on a rebuild.
 
-`ticket_row_match` steht in keinem Event; nur der Scheingewinn wird protokolliert. Der
-Projektor rechnet die Zeilen deshalb neu — über denselben Domain-Service
-`WinningsDistribution`, den auch der Command-Handler benutzt. Genau dafür wurde er aus dem
-Handler herausgezogen.
+`ticket_row_match` appears in no event; only the ticket's winnings are recorded. The
+projector therefore recomputes the rows — through the same domain service
+`WinningsDistribution` the command handler uses. That is exactly why it was pulled out of the
+handler.
 
-**Ein Neuaufbau zieht nach unten durch.** Die Read Models hängen über Foreign Keys mit
-`ON DELETE CASCADE` zusammen: `participant` zu leeren leert auch `membership`, `bet_row` und
-`fee`. Ein Rebuild baut deshalb immer die abhängigen Projektionen mit auf — sonst blieben sie
-leer und niemand merkte es. Die Antwort listet alle tatsächlich neu aufgebauten.
-
----
-
-# Migration des bestehenden Codes
-
-Der Kurswechsel betrifft die Domäne, nicht die Architektur. CQRS, Event Sourcing,
-Repository-Struktur, HTTP-Schicht und Testgerüst bleiben unverändert.
-
-## Direkt weiterverwendbar
-
-| Baustein | Anmerkung |
-|---|---|
-| [Db.php](src/Infrastructure/Persistence/Db.php), [Row.php](src/Support/Row.php) | Typisierter PDO-Zugriff — domänenneutral |
-| [Input.php](src/Presentation/Http/Input.php), [JsonResponse.php](src/Presentation/Http/JsonResponse.php), [Request.php](src/Presentation/Http/Request.php) | HTTP-Schicht — domänenneutral |
-| [Router.php](src/Presentation/Router/Router.php) | Struktur bleibt, nur die Routen ändern sich |
-| [Container.php](src/Infrastructure/DI/Container.php), [Config.php](src/Infrastructure/Config/Config.php) | Verdrahtung |
-| [PdoEventStore.php](src/Infrastructure/EventStore/PdoEventStore.php) | Event Store inkl. Optimistic Locking |
-| `Domain/Exception/*` | Ausnahmehierarchie |
-| [IntegrationTestCase.php](tests/Integration/IntegrationTestCase.php) | Testbasis inkl. Skip-Verhalten |
-| `Participant`, `User`, `Fee` | Fachlich unverändert; Fee bekommt `ticket_id` statt `betting_game_id` |
-
-## Umbenannt und umgebaut
-
-| Bisher | Wird zu | Änderung |
-|---|---|---|
-| `BettingGame` | **TippYear** | Zeitraum + Reihenpreis statt Spieltyp und Gebührenrhythmus |
-| `GameParticipation` | **Membership** | Bezug auf Tippjahr statt Spiel |
-| `Prediction` | **BetRow** | **Grundlegend**: kein `event_id` mehr, stattdessen `bet_period_id`; sechs Zahlen statt freiem JSON; UK erzwingt eine Reihe pro Periode |
-| `Event` | **Draw** | Ziehungsdatum, Zahlen, Superzahl — kein Tippschluss, weil nicht pro Ziehung getippt wird |
-| `Result` | Geht in **Draw** auf | Die Ziehung *ist* das Ergebnis. `TicketDrawResult` ist neu und meint den Gewinn, nicht das Ergebnis |
-| `ParticipantScore` | **TicketRowMatch** + **PayoutShare** | Treffer je Reihe und Ziehung einerseits, Jahresanteil andererseits |
-
-## Entfällt in der Basis, kehrt in E2 zurück
-
-`GameType`, `PointConfiguration`, `PrizeDistribution`, Leaderboard, Peer-Ansicht der Tipps und
-der gesamte Spielkatalog. Der Code bleibt im Repository, wird aber nicht mehr geroutet.
-
-## Neu
-
-**Ticket**, **TicketRow**, **TicketDrawResult**, **TicketRowMatch**, **Payout**, **PayoutShare**.
-Das ist der Kern der Lotterie-Logik und hat im bisherigen Modell keine Entsprechung.
-
-## Auswirkung auf den Bestand
-
-| Bereich | Auswirkung |
-|---|---|
-| Tests | Domain- und Infrastruktur-Tests bleiben; Sport-spezifische Tests wandern nach E2. Aktuell 386 Testmethoden (213 Unit, 173 Integration) |
-| `demo/` | Die Nur-Lese-Demo für Prediction/Result ist mit dem Kurswechsel entfallen und nicht ersetzt worden |
-| [betting_game_api.yaml](betting_game_api.yaml) | Auf die Basis neu geschrieben (v2.3.0, 21 Pfade, 24 Operationen; `/health` steht bewusst nicht darin). Die sportgetriebene v1.1 liegt als [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit |
-| PHPStan Level 10, PSR-12 | Unverändert gültig |
+**A rebuild reaches downwards.** The read models hang together through foreign keys with
+`ON DELETE CASCADE`: emptying `participant` also empties `membership`, `bet_row` and `fee`.
+A rebuild therefore always rebuilds the dependent projections along with it — otherwise they
+would stay empty and nobody would notice. The response lists everything that was actually
+rebuilt.
 
 ---
 
-# Umsetzungsstand
+# Migration of the existing code
 
-| Stufe | Stories | Fertig |
+The change of course affects the domain, not the architecture. CQRS, event sourcing, the
+repository structure, the HTTP layer and the test scaffolding stay unchanged.
+
+## Directly reusable
+
+| Building block | Note |
+|---|---|
+| [Db.php](src/Infrastructure/Persistence/Db.php), [Row.php](src/Support/Row.php) | Typed PDO access — domain-neutral |
+| [Input.php](src/Presentation/Http/Input.php), [JsonResponse.php](src/Presentation/Http/JsonResponse.php), [Request.php](src/Presentation/Http/Request.php) | The HTTP layer — domain-neutral |
+| [Router.php](src/Presentation/Router/Router.php) | The structure stays, only the routes change |
+| [Container.php](src/Infrastructure/DI/Container.php), [Config.php](src/Infrastructure/Config/Config.php) | Wiring |
+| [PdoEventStore.php](src/Infrastructure/EventStore/PdoEventStore.php) | The event store including optimistic locking |
+| `Domain/Exception/*` | The exception hierarchy |
+| [IntegrationTestCase.php](tests/Integration/IntegrationTestCase.php) | The test base including the skip behaviour |
+| `Participant`, `User`, `Fee` | Unchanged in domain terms; Fee gets `ticket_id` instead of `betting_game_id` |
+
+## Renamed and rebuilt
+
+| Previously | Becomes | Change |
 |---|---|---|
-| Basis | 18 | **18** — alle |
+| `BettingGame` | **TippYear** | A period + row price instead of a game type and fee rhythm |
+| `GameParticipation` | **Membership** | Refers to the tipp year instead of the game |
+| `Prediction` | **BetRow** | **Fundamentally**: no more `event_id`, a `bet_period_id` instead; six numbers instead of free JSON; the UK enforces one row per period |
+| `Event` | **Draw** | Draw date, numbers, bonus number — no betting deadline, because betting does not happen per draw |
+| `Result` | Merges into **Draw** | The draw *is* the result. `TicketDrawResult` is new and means the winnings, not the result |
+| `ParticipantScore` | **TicketRowMatch** + **PayoutShare** | Hits per row and draw on the one hand, the yearly share on the other |
+
+## Dropped in the base version, returns in E2
+
+`GameType`, `PointConfiguration`, `PrizeDistribution`, the leaderboard, the peer view of the
+bets and the entire game catalogue. The code stays in the repository but is no longer routed.
+
+## New
+
+**Ticket**, **TicketRow**, **TicketDrawResult**, **TicketRowMatch**, **Payout**,
+**PayoutShare**. That is the core of the lottery logic and has no counterpart in the previous
+model.
+
+## Effect on the existing code
+
+| Area | Effect |
+|---|---|
+| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 386 test methods (213 unit, 173 integration) |
+| `demo/` | The read-only demo for Prediction/Result disappeared with the change of course and has not been replaced |
+| [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.3.0, 21 paths, 24 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
+| PHPStan level 10, PSR-12 | Unchanged and still met |
+
+---
+
+# State of implementation
+
+| Stage | Stories | Done |
+|---|---|---|
+| Base | 18 | **18** — all |
 | E1 | 9 | 0 |
-| E2 | 7 | teilweise vorhanden, aber nicht mehr geroutet |
-| Betrieb | 4 | **4** — alle |
+| E2 | 7 | partly present, but no longer routed |
+| Operations | 4 | **4** — all |
 
-Die Basisversion ist damit vollständig und ohne Handgriffe an der Datenbank durchspielbar.
-Der bestehende Code deckt Sportwetten (E2) recht weit ab — davon ist für die Basis vor allem
-die Infrastruktur nutzbar, nicht die Fachlogik.
+The base version is therefore complete and can be played through without reaching into the
+database. The existing code covers sports betting (E2) fairly thoroughly — of that, it is
+mainly the infrastructure that is usable for the base version, not the domain logic.
 
-## Schichten je Story
+## Layers per story
 
 | Story | Route | Command | Query |
 |---|---|---|---|
@@ -356,87 +356,89 @@ die Infrastruktur nutzbar, nicht die Fachlogik.
 | B-14 | `POST`/`GET /admin/tipp-years/{id}/bet-periods` | `CreateBetPeriodHandler` | `GetBetPeriodsHandler` |
 | B-21 | `POST`/`GET /admin/participants` | `CreateParticipantHandler` | `GetParticipantsHandler` |
 
-Handler geben `CommandResult` bzw. `QueryResult` zurück; Commands antworten mit `202`, Queries
-mit `200`. Die `commandId` der Antwort ist inzwischen der Primärschlüssel im `command_log`
-(OPS-01) — mit `EventStore.causation_id` ist sie weiterhin nicht verknüpft.
+Handlers return a `CommandResult` respectively a `QueryResult`; commands answer with `202`,
+queries with `200`. The response's `commandId` is by now the primary key in `command_log`
+(OPS-01) — it is still not linked to `EventStore.causation_id`.
 
-**Die Basis ist über HTTP vollständig durchspielbar.** Die beiden Lücken, die das lange
-verhinderten, sind geschlossen: der Lebenszyklus des Tippjahres über B-18
-(`PUT /admin/tipp-years/{id}/status`) und das Anlegen eines Teilnehmers über B-21
-(`POST /admin/participants`). Ein Durchstich braucht damit kein `INSERT` von Hand mehr —
-siehe [QUICKSTART.md](QUICKSTART.md).
+**The base version can be played through completely over HTTP.** The two gaps that long
+prevented that are closed: the tipp year's lifecycle through B-18
+(`PUT /admin/tipp-years/{id}/status`) and creating a participant through B-21
+(`POST /admin/participants`). A walkthrough therefore no longer needs a hand-written
+`INSERT` — see [QUICKSTART.md](QUICKSTART.md).
 
-Was **Selbst**registrierung angeht, bleibt es bei E1-01: B-21 ist die Sicht des
-Administrators, nicht die des Teilnehmers.
+As far as **self**-registration goes, E1-01 still stands: B-21 is the administrator's view,
+not the participant's.
 
-## HTTP-Schicht
+## The HTTP layer
 
-`Kernel` erledigt Routing, Authentifizierung, Rollenprüfung und Fehlerabbildung; `index.php` ist
-nur noch die Brücke zu PHPs Globals. Dadurch lässt sich die ganze Kette ohne Webserver testen.
+The `Kernel` handles routing, authentication, the role check and error mapping; `index.php`
+is now only the bridge to PHP's globals. That makes the whole chain testable without a web
+server.
 
-`ErrorMapper` ist die einzige Stelle, die HTTP-Codes kennt — Handler werfen Domänen-Ausnahmen:
+`ErrorMapper` is the only place that knows HTTP codes — handlers throw domain exceptions:
 
-| Ausnahme | HTTP |
+| Exception | HTTP |
 |---|---|
 | `UnauthorizedAccessException` | 403 |
 | `EntityNotFoundException` | 404 |
 | `InvalidInputException`, `InvalidArgumentException` | 400 |
-| `BusinessRuleViolationException` (inkl. `DuplicateEntryException`) | 409 |
+| `BusinessRuleViolationException` (incl. `DuplicateEntryException`) | 409 |
 | `ConcurrencyException` | 409 |
-| alles andere | 500 (Meldung nur im Debug-Modus) |
+| everything else | 500 (message only in debug mode) |
 
-`DuplicateEntryException`: Regeln wie „eine Reihe pro Teilnehmer und Periode" stehen im Schema,
-nicht im Code. Ohne sie müsste die Application-Schicht `PDOException` fangen und SQLSTATE lesen,
-um zu erkennen, dass eine *Fachregel* abgelehnt hat.
+`DuplicateEntryException`: rules such as "one row per participant and period" live in the
+schema, not in code. Without it the application layer would have to catch a `PDOException`
+and read SQLSTATE to recognise that a *domain rule* said no.
 
-**Zugriffsschutz.** Die Identität kommt aus dem Token, nie aus dem Pfad — sonst würde die
-Eigentumsprüfung immer sich selbst bestätigen. `Authorization::requireSelf` ist bewusst streng:
-auch ein Admin kommt dort nicht durch, denn dafür gibt es die Admin-Endpunkte. Die Prüfung läuft
-**vor** der Query, sonst verriete ein 404 bereits, dass zu einem fremden Teilnehmer nichts
-existiert.
+**Access protection.** Identity comes from the token, never from the path — otherwise the
+ownership check would always confirm itself. `Authorization::requireSelf` is deliberately
+strict: an admin does not get through there either, because that is what the admin endpoints
+are for. The check runs **before** the query, otherwise a 404 would already reveal that
+nothing exists for someone else's participant.
 
-## Token-Signatur
+## The token signature
 
-Die Identität kommt aus dem Token — also hängt jede Regel oben daran, dass das Token wirklich
-von Keycloak stammt. Bis [TokenVerifier](src/Infrastructure/Auth/TokenVerifier.php) existierte,
-las die Anwendung die Claims und glaubte sie: jeder konnte sich eine `participant_id` und die
-Rolle `admin` ausstellen, und B-15 bis B-17 waren damit Dekoration.
+Identity comes from the token — so every rule above hangs on the token really coming from
+Keycloak. Until [TokenVerifier](src/Infrastructure/Auth/TokenVerifier.php) existed, the
+application read the claims and believed them: anyone could issue themselves a
+`participant_id` and the role `admin`, and B-15 through B-17 were decoration.
 
-Geprüft wird, in dieser Reihenfolge:
+Verification happens in this order:
 
-| Prüfung | Wogegen |
+| Check | Against what |
 |---|---|
-| `alg` gegen eine Allowlist | `alg: none`; HS256, mit dem öffentlichen Schlüssel als „Secret" |
-| Signatur gegen den Public Key aus dem JWKS | gefälschte und nachträglich geänderte Tokens |
-| `exp`, `nbf`, `iat` (mit Leeway) | abgelaufene Tokens; Uhrendrift |
-| `iss` exakt | ein gültig signiertes Token des falschen Realms |
-| `aud`, wenn konfiguriert | ein Token für einen anderen Client |
+| `alg` against an allowlist | `alg: none`; HS256, with the public key as the "secret" |
+| Signature against the public key from the JWKS | forged and subsequently altered tokens |
+| `exp`, `nbf`, `iat` (with leeway) | expired tokens; clock drift |
+| `iss` verbatim | a validly signed token from the wrong realm |
+| `aud`, where configured | a token for a different client |
 
-**Die Allowlist kann nur asymmetrische Verfahren enthalten** — der Konstruktor lehnt alles andere
-ab. Beide klassischen Fälschungen scheitern damit an derselben Stelle, und ein `HS256` in der
-Konfiguration fällt beim Start auf statt auf dem Request, der damit gefälscht worden wäre.
+**The allowlist can only contain asymmetric algorithms** — the constructor rejects anything
+else. Both classic forgeries therefore fail at the same place, and an `HS256` in the
+configuration shows up at startup rather than on the request that would have been forged
+with it.
 
-Der Schlüssel kommt **immer aus dem Key Set, nie aus dem Token**. Eine unbekannte `kid` löst
-genau einen Refetch aus (Keycloak signiert mit dem neuen Schlüssel, sobald es rotiert) — der
-gedrosselt ist, denn die `kid` steht im Token, das der Aufrufer schreibt.
+The key always comes **from the key set, never from the token**. An unknown `kid` triggers
+exactly one refetch (Keycloak signs with the new key as soon as it rotates) — a throttled
+one, because the `kid` sits in the token the caller writes.
 
-Nicht erreichbares Keycloak ist **503, nicht 401**: ein 401 würde jedem Client sagen, sein
-intaktes Token sei kaputt, und ihn zur Neuanmeldung genau dorthin schicken, wo wir schon wissen,
-dass es nicht geht. Ein zuletzt bekanntes Key Set überlebt einen Ausfall — Signaturschlüssel
-rotieren im Monatsrhythmus, Tokens laufen binnen einer Stunde ab.
+An unreachable Keycloak is **503, not 401**: a 401 would tell every client its intact token
+was broken, and send it to log in again at precisely the place we already know is not
+working. A last-known key set survives an outage — signing keys rotate monthly, tokens expire
+within an hour.
 
-ES\* und PS\* werden abgelehnt statt durchgewunken; Keycloaks Standard ist RS256.
+ES\* and PS\* are rejected rather than waved through; Keycloak's default is RS256.
 
-## Geldbeträge
+## Monetary amounts
 
-`EvenSplit` teilt in ganzen Cent und legt den Rest auf den ersten Anteil. In Fließkomma zu
-teilen und je Anteil zu runden erzeugt oder vernichtet Geld: 100,00 € auf drei ergibt dreimal
-33,33 € und ein Cent verschwindet. Betrifft die Jahresausschüttung (B-13) und die Verteilung
-eines Scheingewinns auf die Reihen (B-09).
+`EvenSplit` divides in whole cents and puts the remainder onto the first share. Dividing in
+floating point and rounding per share creates or destroys money: €100.00 across three gives
+three times €33.33 and one cent disappears. This affects the yearly distribution (B-13) and
+the split of a ticket's winnings across the rows (B-09).
 
-## Persistenzschicht
+## The persistence layer
 
-| Aggregat | Repository | Projektionen, die sein Stream schreibt |
+| Aggregate | Repository | Projections its stream writes |
 |---|---|---|
 | `TippYear` | `TippYearRepository` | `tipp_year`, `membership`, `payout`, `payout_share` |
 | `BetPeriod` | `BetPeriodRepository` | `bet_period` |
@@ -446,33 +448,32 @@ eines Scheingewinns auf die Reihen (B-09).
 | `Fee` | `FeeRepository` | `fee` |
 | `Participant` | `ParticipantRepository` | `participant` |
 
-**Zwei Entscheidungen, die man beim Lesen sonst übersieht:**
+**Two decisions that are easy to miss while reading:**
 
-Ein neues Aggregat wird mit einem reinen `INSERT` geschrieben, ein geladenes mit `UPDATE`.
-Kein `ON DUPLICATE KEY UPDATE` — das trifft *jeden* Unique Key und würde bei einer zweiten
-Tippreihe für dieselbe Periode die vorhandene Reihe stillschweigend überschreiben, statt den
-409 aus dem Akzeptanzkriterium zu B-06 auszulösen.
+A new aggregate is written with a plain `INSERT`, a loaded one with an `UPDATE`. No
+`ON DUPLICATE KEY UPDATE` — that would hit *every* unique key and, on a second bet row for
+the same period, would silently overwrite the existing row instead of raising the 409 from
+B-06's acceptance criterion.
 
-Append und Projektionsschreiben laufen in **einer** Transaktion. Sonst bliebe nach einer vom
-Unique Key abgelehnten Reihe ein `bet_row.assigned`-Event im Store stehen, das keine Zeile
-beschreibt.
+Appending and writing the projection run in **one** transaction. Otherwise a row rejected by
+the unique key would leave a `bet_row.assigned` event in the store that describes no row.
 
 ## Tests
 
-386 Testmethoden (213 Unit in 19 Dateien, 173 Integration in 17 Dateien). Die
-Integrationstests brauchen eine Datenbank und überspringen sich selbst, wenn keine
-erreichbar ist — `make test` bleibt also auch ohne grün.
+386 test methods (213 unit across 19 files, 173 integration across 17 files). The integration
+tests need a database and skip themselves when none is reachable — so `make test` stays green
+without one too.
 
-Das Frontend hat eigene Suiten: Vitest für Composables, Stores und den Router-Guard,
-Playwright für den Durchstich gegen den laufenden Stack. Siehe [FRONTEND.md](FRONTEND.md),
-Abschnitt „Testing".
+The frontend has its own suites: Vitest for composables, stores and the router guard,
+Playwright for the pass against the running stack. See [FRONTEND.md](FRONTEND.md),
+section "Testing".
 
-Die Handler werden mit **echten** Repositories gegen eine echte Datenbank getestet. Mit
-gemockten Repositories bliebe kaum etwas übrig: welche Zeilen eine Query liefert, welcher
-Unique Key greift und ob eine Projektion konsistent endet, kann nur eine Datenbank beantworten.
+The handlers are tested with **real** repositories against a real database. With mocked
+repositories hardly anything would be left: which rows a query returns, which unique key
+bites and whether a projection ends up consistent can only be answered by a database.
 
 ```sh
-make test-db-start     # MariaDB 11.4 auf Port 3307 mit geladenem Schema
+make test-db-start     # MariaDB 11.4 on port 3307 with the schema loaded
 make test-integration
 make test-db-stop
 ```

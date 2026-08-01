@@ -1,620 +1,629 @@
 # Changelog
 
-Chronik der größeren Umbauten, neueste zuerst. Der aktuelle Stand steht in
-[README.md](README.md) und [ARCHITECTURE.md](ARCHITECTURE.md) – dieses Dokument hält nur
-fest, was wann und warum geändert wurde.
+A chronicle of the larger rebuilds, newest first. The current state is in
+[README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md) – this document only records
+what was changed when, and why.
 
 ---
 
-## Werkzeugstand aktualisiert (2026-07-31)
+## The repository is English throughout (2026-07-31)
 
-**Der gesamte Werkzeugkasten war rund zwei Jahre alt**, teils ohne Sicherheitspatches:
-Node 18 (end-of-life seit April 2025), ESLint 8 (v9 läuft im August 2026 aus), Vite 5
-(drei Majors zurück), Keycloak 23 — ausgerechnet die Komponente, die jede Route schützt.
+**The repository mixed two languages.** Code and commit messages were English, the project
+documentation German, and in between sat German comments in `docker-compose.yml`, the CI
+workflow, the shell scripts, the SQL schema and the OpenAPI descriptions. The rule in
+`AGENTS.md` said so explicitly — which made the mixture deliberate, but no easier for anyone
+reading the repository without German.
 
-In Stufen aktualisiert, jede einzeln verifiziert, damit ein Fehlschlag zuordenbar bleibt:
+Everything that lands in the repository is now written in English: documentation, comments,
+docblocks, the API contract and commit messages.
 
-| | von | auf |
+**One exception, and it is deliberate:** the frontend's user-facing text stays German —
+labels, messages, status words and the `de-DE` date and currency formatting. That is the
+language of the syndicate using the application; translating it would change the product,
+not the repository. The same goes for sample data mirroring what an administrator would
+actually type (`"Tippjahr 2026"`) and for the German product name *Lotto 6 aus 49*. A test
+asserting on a visible label therefore contains German — that is the assertion, not prose.
+
+The OpenAPI tag names changed with this (`Teilnehmer` → `Participant`, `Admin - Tippjahr` →
+`Admin - Tipp Year`, …), which renames the groups in generated API documentation.
+
+---
+
+## Toolchain brought up to date (2026-07-31)
+
+**The entire toolbox was around two years old**, in places without security patches:
+Node 18 (end-of-life since April 2025), ESLint 8 (v9 runs out in August 2026), Vite 5
+(three majors behind), Keycloak 23 — of all things the component that protects every route.
+
+Updated in stages, each one verified separately, so that a failure stays attributable:
+
+| | from | to |
 |---|---|---|
-| Node | 18 | 24 (Active LTS) |
+| Node | 18 | 24 (active LTS) |
 | PHP | 8.3 | 8.4 |
 | Vite / Vitest | 5 / 1 | 8 / 4 |
 | Vue / Router / Pinia | 3.4 / 4 / 2 | 3.5 / 5 / 4 |
-| ESLint | 8 | 10 (Flat Config) |
+| ESLint | 8 | 10 (flat config) |
 | Keycloak (+ keycloak-js) | 23 | 26.7 |
 | MariaDB / Caddy / PostgreSQL | 11.3 / 2.7 / 16 | 11.4 LTS / 2.11 / 18 |
 
-**Vier Dinge brachen dabei wirklich** — der Grund, die Suiten laufen zu lassen statt nur
-Tags zu erhöhen:
+**Four things genuinely broke along the way** — the reason to run the suites rather than
+just bump tags:
 
-- PHP 8.4 verwirft implizit nullable Parameter (`FileCache::__construct`).
-- ESLint 9+ liest `.eslintrc.cjs` nicht mehr; die Konfiguration ist neu geschrieben.
-- Keycloak 26 hat `KEYCLOAK_ADMIN` und `KC_PROXY` ersetzt.
-- PostgreSQL 18 will den Mount auf `/var/lib/postgresql` statt auf `data/` — sonst
-  startet der Container gar nicht.
+- PHP 8.4 deprecates implicitly nullable parameters (`FileCache::__construct`).
+- ESLint 9+ no longer reads `.eslintrc.cjs`; the configuration was rewritten.
+- Keycloak 26 has replaced `KEYCLOAK_ADMIN` and `KC_PROXY`.
+- PostgreSQL 18 wants the mount on `/var/lib/postgresql` instead of on `data/` — otherwise
+  the container does not start at all.
 
-Die Abhängigkeiten mussten für ESLint 10 komplett neu aufgelöst werden. Der neue
-Lockfile meldet **0 Schwachstellen** gegenüber 17 (davon 1 kritisch, 14 hoch) zuvor.
+The dependencies had to be resolved from scratch for ESLint 10. The new lockfile reports
+**0 vulnerabilities**, against 17 before (1 critical, 14 high among them).
 
 ---
 
-## Teilnehmer anlegen (B-21, 2026-07-31)
+## Creating participants (B-21, 2026-07-31)
 
-**Die Basis konnte keinen Teilnehmer erzeugen.** [QUICKSTART.md](QUICKSTART.md) wies
-Leser an, die Zeilen von Hand zu `INSERT`en, und warnte im selben Atemzug: Solche Zeilen
-stehen in keinem Event und verschwinden beim nächsten Projektions-Neuaufbau. Damit war
-der einzige dokumentierte Weg in die Anwendung einer, den die Anwendung selbst wieder
-zurücknimmt.
+**The base version could not create a participant.** [QUICKSTART.md](QUICKSTART.md)
+instructed readers to `INSERT` the rows by hand, and warned in the same breath: such rows
+appear in no event and vanish on the next projection rebuild. So the only documented way
+into the application was one the application itself undoes again.
 
-- `POST /admin/participants` und `GET /admin/participants` mit
+- `POST /admin/participants` and `GET /admin/participants` with
   `CreateParticipantHandler` / `GetParticipantsHandler`.
-- Ein Integrationstest legt einen Teilnehmer an, baut die Projektion neu auf und prüft,
-  dass er noch da ist — genau die Eigenschaft, die der Handarbeit fehlte.
+- An integration test creates a participant, rebuilds the projection and checks that they
+  are still there — exactly the property the manual work lacked.
 
-**Kein `user_id` mehr.** Die Tabelle `user` stammt aus der Zeit vor Keycloak und wird von
-keinem Projektor mehr geschrieben; die Identität kommt aus dem Token. `Participant`
-modelliert die Spalte deshalb als das `NULL`-bare, das sie im Schema von jeher war
-(„guest participants have no account") — bis dahin verlangte das Aggregat einen Wert, den
-niemand mehr liefern konnte. Ein Konto zu verknüpfen bleibt E1-01.
+**No more `user_id`.** The `user` table dates from before Keycloak and is no longer written
+by any projector; identity comes from the token. `Participant` therefore models the column
+as the nullable thing it had been in the schema all along ("guest participants have no
+account") — until then the aggregate demanded a value nobody could supply any more. Linking
+an account remains E1-01.
 
-**Nebeneffekt: die Teilnehmer-ID-Eingabefelder sind weg.** `AdminBetRowsView` und das
-Aufnehmen in ein Tippjahr fragten nach einer nackten Zahl, weil nichts Teilnehmer
-auflisten konnte. Beide bieten jetzt Namen an.
-
----
-
-## Deep-Links überlebten keinen Reload (2026-07-31)
-
-Vue Router startet seine erste Navigation in `app.use(router)` — also bevor `main.js` den
-Keycloak-Start abgewartet hatte. Der Guard beurteilte einen angemeldeten Benutzer damit
-als anonym, schickte die angefragte Route auf `/login`, und bis die Session zurück war,
-war das Ziel verloren: Jedes Lesezeichen auf eine Unterseite und jeder Reload einer
-geschützten Seite landete auf `/bet-row`.
-
-Der Guard wartet jetzt auf `authStore.ready()`. Aufgefallen beim Aufsetzen der
-E2E-Tests, die deshalb zunächst über die Navigation klickten statt `page.goto` zu nutzen.
+**A side effect: the participant-ID input fields are gone.** `AdminBetRowsView` and adding
+someone to a tipp year asked for a bare number, because nothing could list participants.
+Both now offer names.
 
 ---
 
-## Automatisierte Frontend-Tests (2026-07-31)
+## Deep links did not survive a reload (2026-07-31)
 
-Das Frontend hatte keine. Jetzt: **Vitest** für Composables, Services, den Auth-Store, den
-Router-Guard und `ParticipantScope`, jeweils an einer User Story verankert statt an der
-Implementierung (OPS-02 Idempotency-Key, B-01 404-als-Leerzustand, B-04 `null` ≠ 0, B-06
-Zahlenprüfung, B-17 Rollenschranke). **Playwright** fährt den Durchstich gegen den echten
-Stack — echter Keycloak-Login, echte API, echte Lesemodelle.
+Vue Router starts its first navigation inside `app.use(router)` — that is, before `main.js`
+had awaited the Keycloak start. The guard therefore judged a logged-in user to be anonymous,
+sent the requested route to `/login`, and by the time the session came back the destination
+was lost: every bookmark to a subpage and every reload of a protected page ended up on
+`/bet-row`.
 
-`docker-compose.test.yml` verdrahtet dazu die bis dahin ungenutzte
-`docker/Dockerfile.test` gegen eine eigene, vom Dev-Stack isolierte MariaDB.
-
----
-
-## Lebenszyklus des Tippjahres über HTTP (B-18, 2026-07-29)
-
-**`TippYear::start()` und `close()` waren im Aggregat durchgesetzt, hatten aber weder
-Command noch Route** — sie wurden nur aus Tests aufgerufen. Ein über die API angelegtes
-Tippjahr blieb damit auf `planned` und nahm keinen Tippschein an; jeder Durchstich
-scheiterte an B-12, ohne dass ein Handler defekt gewesen wäre.
-
-- `PUT /admin/tipp-years/{id}/status` mit `ChangeTippYearStatusCommand` und -`Handler`.
-- Im Frontend ist die Statusspalte der Tippjahrliste vom Badge zum Dropdown geworden.
-
-**Jeder Übergang ist erlaubt, auch rückwärts.** `TippYear::changeStatus()` hatte eine
-Allowlist je Ziel; die ist weg. Ein zu früh geschlossenes Jahr, ein versehentlich
-gestartetes, eine zu früh gebuchte Ausschüttung — solche Korrekturen fallen an, und ein
-nur vorwärts gerichteter Graph verhindert sie nicht, sondern verlagert sie in ein
-manuelles `UPDATE`, das keine Spur in der Event-Historie hinterlässt. Abgelehnt wird nur
-noch der Wechsel auf den bereits gesetzten Status: Ein Event, das keine Änderung
-beschreibt, gehört nicht in eine Historie.
-
-**Höchstens ein Tippjahr läuft gleichzeitig.** Sonst wäre nicht mehr eindeutig, zu welchem
-Jahr eine Ziehung gehört, und sie zählte auf zwei Ausschüttungen. Die Regel spannt über
-Aggregate und steht deshalb nicht im Modell:
-
-- `ChangeTippYearStatusHandler` prüft sie und nennt das blockierende Jahr beim Namen.
-- Entscheiden tut sie der Unique Key `uk_single_running_year` auf `tipp_year`. Er liegt
-  auf einer generierten Spalte, die außerhalb von `running` `NULL` ist — gleiche `NULL`s
-  kollidieren in einem Unique Key nicht, gleiche Einsen schon. Damit trägt der Key die
-  Regel, ohne die übrigen Zustände einzuschränken.
-
-Die Prüfung im Handler ist ausdrücklich **nicht** die Absicherung: Zwei gleichzeitige
-Requests lesen beide „nichts läuft" und kämen beide durch. Sie existiert für die
-Fehlermeldung, der Key für die Wahrheit.
-
-Nachgemessen am laufenden Stack: Ein `UPDATE` direkt auf der Datenbank, am Handler vorbei,
-scheitert mit `Duplicate entry '1' for key 'uk_single_running_year'`. Ein
-Projektions-Neuaufbau spielt die Statuswechsel nach, ohne die Regel zu verletzen, und
-reproduziert den Zustand exakt.
-
-Zwei Stories für den Jahreswechsel sind in [USER_STORIES.md](USER_STORIES.md)
-spezifiziert, aber **nicht** implementiert: B-19 (Nachfolger zuordnen) und B-20
-(abgelaufenes Jahr automatisch beenden und den Nachfolger starten), samt der offenen
-Entwurfsfragen dazu.
+The guard now waits for `authStore.ready()`. Noticed while setting up the E2E tests, which
+for that reason initially clicked through the navigation instead of using `page.goto`.
 
 ---
 
-## Die Datenbank enthielt noch das Sportwetten-Schema (2026-07-29)
+## Automated frontend tests (2026-07-31)
 
-**Jede authentifizierte Query endete in einem `500`.** Nachdem Realm und `iss` in Ordnung
-waren, kam der nächste Fehler derselben Familie zum Vorschein: In `betting_game` standen
-`prediction`, `betting_game`, `game_participation`, `participant_score` und `result` —
-und keine einzige Lotto-Tabelle. Eine Query gegen `bet_period` warf eine `PDOException`,
-die nicht in der Domain-Hierarchie steht und deshalb als `500` herauskam.
+The frontend had none. Now: **Vitest** for composables, services, the auth store, the router
+guard and `ParticipantScope`, each anchored to a user story rather than to the implementation
+(OPS-02 the idempotency key, B-01 404-as-empty-state, B-04 `null` ≠ 0, B-06 the number
+check, B-17 the role barrier). **Playwright** drives the pass against the real stack — a real
+Keycloak login, a real API, real read models.
 
-`database/schema.sql` ist unter `/docker-entrypoint-initdb.d/` gemountet, und dieses
-Verzeichnis wird **nur bei leerem Datenverzeichnis** ausgeführt. Das Volume `db_data`
-stammte von vor dem Kurswechsel — seit `f1d0771` lief der Stack also auf dem Schema der
-alten Domäne, ohne dass das irgendwo aufgefallen wäre.
+For that, `docker-compose.test.yml` wires up the until-then unused `docker/Dockerfile.test`
+against its own MariaDB, isolated from the dev stack.
 
-Eingespielt, ohne das Volume zu löschen: `schema.sql` beginnt mit `DROP TABLE IF EXISTS`
-für alle Tabellen. Die Reihenfolge dieser `DROP`s ist allerdings auf den *neuen*
-Fremdschlüsselgraphen ausgelegt und scheitert an fremden Constraints — mit
-`SET FOREIGN_KEY_CHECKS=0` für die Sitzung läuft sie durch.
+---
 
-Verifiziert:
+## The tipp year's lifecycle over HTTP (B-18, 2026-07-29)
 
-| Aufruf | Ergebnis |
+**`TippYear::start()` and `close()` were enforced in the aggregate, but had neither a
+command nor a route** — they were only ever called from tests. A tipp year created through
+the API therefore stayed on `planned` and accepted no ticket; every walkthrough failed at
+B-12, without any handler being broken.
+
+- `PUT /admin/tipp-years/{id}/status` with `ChangeTippYearStatusCommand` and its handler.
+- In the frontend the status column of the tipp-year list has gone from a badge to a
+  dropdown.
+
+**Every transition is allowed, backwards ones included.** `TippYear::changeStatus()` had an
+allowlist per target; that is gone. A year closed too early, one started by accident, a
+distribution recorded too soon — such corrections come up, and a forward-only graph does not
+prevent them, it displaces them into a manual `UPDATE` that leaves no trace in the event
+history. The only thing still rejected is a change to the status that is already set: an
+event that describes no change does not belong in a history.
+
+**At most one tipp year runs at a time.** Otherwise it would no longer be unambiguous which
+year a draw belongs to, and it would count towards two distributions. The rule spans
+aggregates and therefore does not live in the model:
+
+- `ChangeTippYearStatusHandler` checks it and names the blocking year.
+- The decision is made by the unique key `uk_single_running_year` on `tipp_year`. It sits on
+  a generated column that is `NULL` outside `running` — equal `NULL`s do not collide in a
+  unique key, equal ones do. So the key carries the rule without constraining the other
+  states.
+
+The check in the handler is explicitly **not** the safeguard: two simultaneous requests both
+read "nothing is running" and would both get through. It exists for the error message, the
+key for the truth.
+
+Measured against the running stack: an `UPDATE` straight on the database, bypassing the
+handler, fails with `Duplicate entry '1' for key 'uk_single_running_year'`. A projection
+rebuild replays the status changes without violating the rule, and reproduces the state
+exactly.
+
+Two stories for the turn of the year are specified in [USER_STORIES.md](USER_STORIES.md) but
+**not** implemented: B-19 (assign a successor) and B-20 (end an expired year automatically
+and start the successor), together with the open design questions on them.
+
+---
+
+## The database still held the sports-betting schema (2026-07-29)
+
+**Every authenticated query ended in a `500`.** Once the realm and `iss` were in order, the
+next error of the same family came to light: `betting_game` held `prediction`,
+`betting_game`, `game_participation`, `participant_score` and `result` — and not a single
+lotto table. A query against `bet_period` threw a `PDOException`, which is not in the domain
+hierarchy and therefore came out as a `500`.
+
+`database/schema.sql` is mounted under `/docker-entrypoint-initdb.d/`, and that directory is
+executed **only with an empty data directory**. The volume `db_data` predated the change of
+course — so since `f1d0771` the stack had been running on the old domain's schema, without
+that being noticed anywhere.
+
+Loaded without deleting the volume: `schema.sql` starts with `DROP TABLE IF EXISTS` for
+every table. The order of those `DROP`s is, however, laid out for the *new* foreign-key
+graph and fails on foreign constraints — with `SET FOREIGN_KEY_CHECKS=0` for the session it
+runs through.
+
+Verified:
+
+| Call | Result |
 |---|---|
 | `GET /health` | `200`, `"domain":"lotto-syndicate"` |
-| `GET /participants/2/bet-row` (eigene Daten) | `404` „No tipp year covers 2026-07-29" |
-| `GET /participants/1/bet-row` (fremde Daten) | `403` „You may only access your own data" (B-16) |
-| `GET /admin/tipp-years` ohne Admin-Rolle | `403` „Admin access required" (B-17) |
-| `GET /admin/tipp-years` mit Admin-Rolle | `200`, `{"tippYears":[]}` |
-| `GET /admin/projections` | `200`, alle 7 Projektionen `upToDate` |
+| `GET /participants/2/bet-row` (own data) | `404` "No tipp year covers 2026-07-29" |
+| `GET /participants/1/bet-row` (someone else's data) | `403` "You may only access your own data" (B-16) |
+| `GET /admin/tipp-years` without the admin role | `403` "Admin access required" (B-17) |
+| `GET /admin/tipp-years` with the admin role | `200`, `{"tippYears":[]}` |
+| `GET /admin/projections` | `200`, all 7 projections `upToDate` |
 
-`AGENTS.md` Abschnitt 9 hält den Fallstrick fest — er gilt für `db_data` und
-`keycloak_db_data` gleichermaßen: **beide Volumes überleben jede Änderung an der Datei,
-aus der sie einmal befüllt wurden.**
+`AGENTS.md` section 9 records the pitfall — it applies to `db_data` and `keycloak_db_data`
+alike: **both volumes survive every change to the file they were once filled from.**
 
-Zurückgeblieben sind zehn verwaiste Tabellen der alten Domäne (`prediction`, `user`,
-`game_type` …). Sie stören nicht, weil kein Code sie anfasst, und sind noch zu entfernen.
-
----
-
-## Redirect-Schleife nach dem Login (2026-07-29)
-
-**Nach der Anmeldung blitzte „Invalid or expired token" auf, dann ging es zur
-Keycloak-Anmeldung und sofort wieder zurück — endlos.** Zwei Fehler, die sich gegenseitig
-verdeckt haben.
-
-**Der `iss`-Claim passte nicht.** Keycloak stellt das Token für einen Browser aus und
-schreibt die URL hinein, unter der dieser es geholt hat:
-`http://localhost:8090/realms/betting-game`. `TokenVerifier` vergleicht `iss` exakt
-(`hash_equals`) und erwartete ohne `KEYCLOAK_ISSUER` den Wert aus `KEYCLOAK_URL` — also den
-*internen* Hostnamen `http://keycloak:8080/realms/betting-game`. Das `php`-Service in
-`docker-compose.yml` setzte **gar keine** `KEYCLOAK_*`-Variablen, obwohl `config/config.php`
-im Kommentar genau auf diesen Unterschied hinweist. Jedes intakte Token war damit
-ungültig. Gesetzt sind jetzt beide Adressen, für ihre je eigene Aufgabe:
-`KEYCLOAK_URL` für die Erreichbarkeit des JWKS, `KEYCLOAK_ISSUER` für die Identität im
-Token.
-
-**Der Client machte daraus eine Schleife.** Der Response-Interceptor schickte bei *jedem*
-`401` zur Anmeldung. Keycloak hat aber eine gültige Sitzung, liefert dasselbe Token
-zurück, und der nächste Request beginnt von vorn — der eigentliche Fehler war für den
-Bruchteil einer Sekunde sichtbar. Angemeldet wird jetzt nur noch, wenn gar keine Sitzung
-besteht; ein `401` mit bestehender Sitzung ist ein Konfigurationsfehler und bleibt stehen.
-Den Fall „Sitzung wirklich abgelaufen" behandelt jetzt der Request-Interceptor an der
-Stelle, an der er ihn erkennen kann: wenn `updateToken` fehlschlägt.
-
-Weil die API bewusst nicht sagt, *warum* sie ein Token ablehnt, nennt `errors.js` bei
-einem `401` die wahrscheinlichste Ursache — auf dem Client, wo das nichts preisgibt.
+Ten orphaned tables of the old domain were left behind (`prediction`, `user`, `game_type`
+…). They do no harm, because no code touches them, and are still to be removed.
 
 ---
 
-## Realm-Export machte die Autorisierung wirkungslos (2026-07-29)
+## Redirect loop after the login (2026-07-29)
 
-**Kein Token dieses Realms trug jemals `participant_id`, `realm_access.roles` oder
-`preferred_username`.** Aufgefallen an der Meldung „Dieses Token trägt keinen
-`participant_id`-Claim" in der Oberfläche — die Ursache lag tiefer und betraf das Backend
-genauso.
+**After logging in "Invalid or expired token" flashed up, then it went to the Keycloak login
+and straight back again — endlessly.** Two errors that concealed each other.
 
-Der Export definierte einen Top-Level-Block `clientScopes` mit dem einen Scope
-`participant_id`. Keycloak liest so einen Block als *die vollständige Liste* der Client
-Scopes des Realms und legt die eingebauten (`profile`, `email`, `roles`, `web-origins`,
-`acr`) dann gar nicht erst an. Die `defaultClientScopes` des Frontend-Clients verwiesen
-damit auf fünf Scopes, die es nicht gab — und Keycloak verwirft solche Verweise
-stillschweigend. Der Client stand am Ende mit **null** zugewiesenen Scopes da.
+**The `iss` claim did not match.** Keycloak issues the token for a browser and writes into
+it the URL that browser fetched it from: `http://localhost:8090/realms/betting-game`.
+`TokenVerifier` compares `iss` verbatim (`hash_equals`) and, without `KEYCLOAK_ISSUER`,
+expected the value from `KEYCLOAK_URL` — that is, the *internal* hostname
+`http://keycloak:8080/realms/betting-game`. The `php` service in `docker-compose.yml` set
+**no** `KEYCLOAK_*` variables at all, even though `config/config.php` points out precisely
+this difference in a comment. Every intact token was therefore invalid. Both addresses are
+now set, each for its own job: `KEYCLOAK_URL` for reaching the JWKS, `KEYCLOAK_ISSUER` for
+the identity in the token.
 
-Nachgemessen am laufenden Realm, nicht am Export:
+**The client turned that into a loop.** The response interceptor sent the user to the login
+on *every* `401`. But Keycloak has a valid session, hands back the same token, and the next
+request starts over — the actual error was visible for a fraction of a second. Logging in now
+only happens when there is no session at all; a `401` with an existing session is a
+configuration error and stays on screen. The case "the session really has expired" is now
+handled by the request interceptor, at the point where it can recognise it: when
+`updateToken` fails.
+
+Because the API deliberately does not say *why* it rejects a token, `errors.js` names the
+most likely cause on a `401` — on the client, where that gives nothing away.
+
+---
+
+## The realm export made authorisation ineffective (2026-07-29)
+
+**No token from this realm ever carried `participant_id`, `realm_access.roles` or
+`preferred_username`.** Noticed through the message "this token carries no `participant_id`
+claim" in the interface — the cause lay deeper and affected the backend just as much.
+
+The export defined a top-level `clientScopes` block with the one scope `participant_id`.
+Keycloak reads such a block as *the complete list* of the realm's client scopes and then does
+not create the built-in ones (`profile`, `email`, `roles`, `web-origins`, `acr`) at all. The
+frontend client's `defaultClientScopes` therefore referred to five scopes that did not
+exist — and Keycloak discards such references silently. The client ended up with **zero**
+assigned scopes.
+
+Measured against the running realm, not the export:
 
 ```
 GET /admin/realms/betting-game/client-scopes
-  → offline_access, participant_id          (statt zusätzlich profile, email, roles, …)
+  → offline_access, participant_id          (instead of additionally profile, email, roles, …)
 GET /admin/realms/.../clients/{id}/default-client-scopes
   → []
 ```
 
-**Die Auswirkung war nicht kosmetisch.** Ohne `realm_access.roles` liefert
-`Authorization::requireAdmin()` für jeden `403`, ohne `participant_id` gilt dasselbe für
-B-01 bis B-04. Die gesamte Rechteprüfung war wirkungslos — nicht zu lax, sondern
-vollständig zu: Keine Route mit Identitäts- oder Rollenbezug war benutzbar. Ein Fehler
-stand nirgends, weil aus Sicht jeder einzelnen Komponente alles korrekt war.
+**The effect was not cosmetic.** Without `realm_access.roles`,
+`Authorization::requireAdmin()` returns `403` for everyone; without `participant_id` the same
+holds for B-01 through B-04. The entire permission check was ineffective — not too lax, but
+completely shut: no route with an identity or role reference was usable. No error appeared
+anywhere, because from each individual component's point of view everything was correct.
 
-- Der Block `clientScopes` ist entfernt, damit Keycloak seine eingebauten Scopes anlegt.
-- Der `participant_id`-Mapper hängt jetzt **direkt am Client** (`protocolMappers`). Ein
-  Mapper am Client kann nicht ins Leere verweisen; ein Scope-Verweis kann es.
-- `KEYCLOAK.md` beschreibt die Falle, den Prüfbefehl am laufenden Realm und den
-  Neuimport.
+- The `clientScopes` block was removed, so that Keycloak creates its built-in scopes.
+- The `participant_id` mapper now hangs **directly off the client** (`protocolMappers`). A
+  mapper on the client cannot point into the void; a scope reference can.
+- `KEYCLOAK.md` describes the trap, the command to check it on the running realm, and the
+  re-import.
 
-**Die Änderung wirkt erst nach einem Neuimport.** `--import-realm` importiert nur, wenn
-der Realm noch nicht existiert, und er liegt im Volume `betting-game_keycloak_db_data`.
-Befehle in [KEYCLOAK.md](KEYCLOAK.md).
-
----
-
-## ESLint für das Frontend (2026-07-29)
-
-**Das Lint-Skript stand in der `package.json`, ohne dass es eine Konfiguration gab** — es
-schlug immer fehl und wurde darum nie benutzt.
-
-- [`frontend/.eslintrc.cjs`](frontend/.eslintrc.cjs) mit `eslint:recommended` +
-  `plugin:vue/vue3-recommended`, der strengsten der drei Vue-Voreinstellungen. Eine
-  einzige Ausnahme: `vue/multi-word-component-names` erlaubt `App`.
-- `.cjs`, weil die `package.json` `"type": "module"` deklariert.
-- `npm run lint` prüft jetzt nur noch, `npm run lint:fix` korrigiert. Vorher trug das
-  Lint-Skript ein `--fix` — ein Prüfbefehl, der die Dateien ändert, ist in einer Pipeline
-  nicht zu gebrauchen.
-
-**Ergebnis der ersten Prüfung: 515 Verstöße, davon 0 Fehler.** Alle stammten aus vier
-Formatierungsregeln (`max-attributes-per-line`, `singleline-html-element-content-newline`,
-`html-self-closing`, `multiline-html-element-content-newline`) und waren automatisch
-korrigierbar. Dass aus `eslint:recommended` und den Vue-Fehlerregeln nichts kam, heißt:
-keine ungenutzten Variablen, keine unbekannten Bezeichner, keine fehlenden `:key`.
-
-Die Formatierungsregeln sind bewusst **nicht** abgeschaltet worden, obwohl sie die
-Templates länger machen. Sie ersetzen den Formatter, den dieses Projekt nicht hat.
-
-**Eine Stelle war danach kaputt und ist von Hand korrigiert:** In `DrawsView` stand
-„5 Richtige + Superzahl“ als zwei Markup-Fragmente, deren Abstand davon abhing, wo die
-Zeile umbrach. Der Formatierer darf woanders umbrechen — die Zeichenkette wird jetzt in
-JavaScript zusammengesetzt statt aus Markup.
+**The change only takes effect after a re-import.** `--import-realm` only imports when the
+realm does not exist yet, and it lives in the volume `betting-game_keycloak_db_data`.
+Commands in [KEYCLOAK.md](KEYCLOAK.md).
 
 ---
 
-## Frontend auf die Lotto-Domäne umgestellt (2026-07-29)
+## ESLint for the frontend (2026-07-29)
 
-**Die SPA rief Endpunkte auf, die es seit dem Kurswechsel nicht mehr gab.** Predictions,
-Scores und Games — jeder fachliche Request lief in einen `404`, nur Login und Logout
-funktionierten. Das war seit `f1d0771` so und in [FRONTEND.md](FRONTEND.md) als Altbestand
-dokumentiert, statt behoben zu sein.
+**The lint script was in `package.json` without a configuration existing** — it always
+failed and was therefore never used.
 
-- **Ersetzt:** `services/api.js` (eine Methode je Route in
-  [Router.php](src/Presentation/Router/Router.php)), `router/index.js`, `App.vue` und alle
-  neun Views. Die acht Prediction-/Score-/Game-Views sind gelöscht.
-- **Neu:** je eine Ansicht für B-01 bis B-14 sowie OPS-01/03/04 — fünf lesende
-  Teilnehmeransichten, fünf Adminansichten. Die Zuordnung Ansicht → Endpunkt steht in
+- [`frontend/.eslintrc.cjs`](frontend/.eslintrc.cjs) with `eslint:recommended` +
+  `plugin:vue/vue3-recommended`, the strictest of the three Vue presets. One single
+  exception: `vue/multi-word-component-names` permits `App`.
+- `.cjs`, because `package.json` declares `"type": "module"`.
+- `npm run lint` now only checks, `npm run lint:fix` fixes. Previously the lint script
+  carried a `--fix` — a check command that modifies files is no use in a pipeline.
+
+**The result of the first check: 515 violations, 0 of them errors.** All came from four
+formatting rules (`max-attributes-per-line`, `singleline-html-element-content-newline`,
+`html-self-closing`, `multiline-html-element-content-newline`) and were automatically
+fixable. That nothing came out of `eslint:recommended` and the Vue error rules means: no
+unused variables, no unknown identifiers, no missing `:key`.
+
+The formatting rules were deliberately **not** switched off, even though they make the
+templates longer. They replace the formatter this project does not have.
+
+**One place was broken afterwards and was fixed by hand:** in `DrawsView` the label
+"5 Richtige + Superzahl" sat as two markup fragments whose spacing depended on where the line
+broke. The formatter may break elsewhere — the string is now assembled in JavaScript instead
+of out of markup.
+
+---
+
+## The frontend moved onto the lotto domain (2026-07-29)
+
+**The SPA called endpoints that had not existed since the change of course.** Predictions,
+scores and games — every domain request ran into a `404`, only login and logout worked. That
+had been the case since `f1d0771` and was documented in [FRONTEND.md](FRONTEND.md) as a
+leftover instead of being fixed.
+
+- **Replaced:** `services/api.js` (one method per route in
+  [Router.php](src/Presentation/Router/Router.php)), `router/index.js`, `App.vue` and all
+  nine views. The eight prediction/score/game views were deleted.
+- **New:** one view each for B-01 through B-14 as well as OPS-01/03/04 — five read-only
+  participant views, five admin views. The view → endpoint mapping is in
   [FRONTEND.md](FRONTEND.md).
-- **Geblieben:** `stores/auth.js` und `services/keycloak.js`. Die Anmeldung war das
-  einzige, was vorher noch funktionierte, und sie ist domänenneutral.
+- **Kept:** `stores/auth.js` and `services/keycloak.js`. The login was the only thing that
+  still worked beforehand, and it is domain-neutral.
 
-**Der Idempotency-Key wird jetzt benutzt, statt nur zu existieren.** `useCommand`
-behält den Schlüssel genau dann, wenn *keine* Antwort kam — dann und nur dann ist unklar,
-ob der Server geschrieben hat, und eine Wiederholung mit demselben Schlüssel bekommt das
-gespeicherte Ergebnis statt einer zweiten Buchung. Sobald irgendein Status zurückkommt,
-ist der Schlüssel verbraucht: Ein fehlgeschlagener Schlüssel bleibt serverseitig vergeben,
-und ihn nach einem `400` weiterzuverwenden würde einen behebbaren Eingabefehler dauerhaft
-in ein `409` verwandeln.
+**The idempotency key is now used rather than merely existing.** `useCommand` keeps the key
+exactly when *no* response came back — then and only then is it unclear whether the server
+wrote, and a retry with the same key gets the stored result instead of a second booking. As
+soon as any status comes back the key is used up: a failed key stays taken on the server
+side, and reusing it after a `400` would turn a fixable input error permanently into a `409`.
 
-**Zwei Dinge, die die Oberfläche sichtbar macht statt zu verstecken:**
+**Two things the interface makes visible instead of hiding:**
 
-- Ein Token ohne `participant_id`-Claim bekommt in den Teilnehmeransichten einen Hinweis,
-  keine leere Seite. `Authorization::requireSelf()` lässt dort auch einen Administrator
-  nicht durch — das ist Absicht, kein Fehler.
-- Ein `404` in einer Leseansicht ist ein Leerzustand, kein Fehler: „für diese Periode ist
-  keine Reihe hinterlegt“ ist eine Antwort.
+- A token without a `participant_id` claim gets a note in the participant views, not an
+  empty page. `Authorization::requireSelf()` does not let an administrator through there
+  either — that is deliberate, not a bug.
+- A `404` in a read view is an empty state, not an error: "no row is stored for this period"
+  is an answer.
 
-Ein `503` führt bewusst **nicht** zur Anmeldung: Keycloak ist dann nicht erreichbar, und
-den Benutzer dorthin zu schicken hieße, ihn zu dem Dienst zu schicken, von dem wir gerade
-wissen, dass er nicht antwortet. Nur `401` wirft ihn zum Login.
+A `503` deliberately does **not** lead to the login: Keycloak is unreachable then, and
+sending the user there would mean sending them to the service we currently know is not
+answering. Only a `401` throws them to the login.
 
-Geprüft über `docker-compose build frontend` (Vite-Build, 119 Module, fehlerfrei). Die SPA
-hat weiterhin **keine automatisierten Tests**, und `npm run lint` ist ohne
-ESLint-Konfiguration nicht lauffähig — beides steht in [FRONTEND.md](FRONTEND.md) unter
-„Offene Punkte“.
+Checked through `docker-compose build frontend` (Vite build, 119 modules, clean). The SPA
+still has **no automated tests**, and `npm run lint` is not runnable without an ESLint
+configuration — both are listed in [FRONTEND.md](FRONTEND.md) under "Open points".
 
 ---
 
-## Arbeitsanleitung für Agenten (2026-07-29, `de9215b`)
+## A working guide for agents (2026-07-29, `de9215b`)
 
-[AGENTS.md](AGENTS.md) als werkzeugneutrale Projektanleitung, [CLAUDE.md](CLAUDE.md) für
-das, was in dieser Arbeitsumgebung dazukommt. Enthält die Statustabelle, welche Dokumente
-nach dem Kurswechsel nachgezogen sind und welche nicht.
-
----
-
-## Token-Signatur wird geprüft (2026-07-29, `9378be8`)
-
-**Vorher las die Anwendung die Claims und glaubte sie.** Jeder konnte sich eine
-`participant_id` und die Rolle `admin` ausstellen; B-15 bis B-17 waren damit Dekoration.
-
-- `TokenVerifier` prüft `alg` gegen eine Allowlist, die Signatur gegen den Public Key aus
-  dem JWKS des Realms, `exp`/`nbf`/`iat` mit Leeway, `iss` exakt und optional `aud`
-- `JwkSet` baut RSA-Schlüssel als PEM auf, `KeycloakKeys` holt und cacht das Key Set
-  (PSR-16) und behandelt Rotation, `StaticKeys` bedient Deployments ohne Netzzugriff
-- Die Allowlist **kann nur asymmetrische Verfahren enthalten** – ein `HS256` in der
-  Konfiguration fällt beim Start auf statt auf dem Request, der damit gefälscht worden wäre
-- Nicht erreichbares Keycloak antwortet **503, nicht 401**
-
-Der Schlüssel kommt immer aus dem Key Set, nie aus dem Token. Eine unbekannte `kid` löst
-genau einen gedrosselten Refetch aus. Details in [KEYCLOAK.md](KEYCLOAK.md).
+[AGENTS.md](AGENTS.md) as the tool-neutral project guide, [CLAUDE.md](CLAUDE.md) for what
+comes on top in this working environment. Contains the status table of which documents were
+caught up after the change of course and which were not.
 
 ---
 
-## Betriebsschicht (2026-07-28, `b545ec0`)
+## The token signature is verified (2026-07-29, `9378be8`)
 
-OPS-01 bis OPS-04: Command Log, Idempotenz, Audit Trail, Projektionen.
+**Before this the application read the claims and believed them.** Anyone could issue
+themselves a `participant_id` and the role `admin`; B-15 through B-17 were decoration.
 
-- `command_log` mit Unique Key auf dem `Idempotency-Key`. Der Key wird beansprucht,
-  **bevor** der Command läuft – erst prüfen und dann ausführen ließe ein Fenster, in dem
-  zwei parallele Wiederholungen beide durchkommen
+- `TokenVerifier` checks `alg` against an allowlist, the signature against the public key
+  from the realm's JWKS, `exp`/`nbf`/`iat` with leeway, `iss` verbatim and optionally `aud`
+- `JwkSet` builds RSA keys as PEM, `KeycloakKeys` fetches and caches the key set (PSR-16)
+  and handles rotation, `StaticKeys` serves deployments without network access
+- The allowlist **can only contain asymmetric algorithms** – an `HS256` in the configuration
+  shows up at startup rather than on the request that would have been forged with it
+- An unreachable Keycloak answers **503, not 401**
+
+The key always comes from the key set, never from the token. An unknown `kid` triggers
+exactly one throttled refetch. Details in [KEYCLOAK.md](KEYCLOAK.md).
+
+---
+
+## The operations layer (2026-07-28, `b545ec0`)
+
+OPS-01 through OPS-04: command log, idempotency, audit trail, projections.
+
+- `command_log` with a unique key on the `Idempotency-Key`. The key is claimed **before**
+  the command runs – checking first and executing afterwards would leave a window in which
+  two parallel retries both get through
 - `GET /commands/{commandId}`, `GET /admin/audit/{type}/{id}`, `GET /admin/projections`,
   `POST /admin/projections/{name}/rebuild`
-- Sieben Projektoren, einer je Read Model, plus `ProjectionManager`
-- `ProjectionRebuildTest` spielt ein ganzes Tippjahr durch, baut aus dem Event Store neu
-  auf und vergleicht alle 13 Read-Model-Tabellen zeilenweise
+- Seven projectors, one per read model, plus `ProjectionManager`
+- `ProjectionRebuildTest` plays a whole tipp year through, rebuilds from the event store and
+  compares all 13 read-model tables row by row
 
-Ein Rebuild ist bewusst **kein** Command: er ändert keinen Domänenzustand und gehört nicht
-in die Command-Historie.
-
----
-
-## Basisversion über HTTP (2026-07-28, `bd83a0d`)
-
-Der `Kernel` übernimmt, was vorher in `public/index.php` stand: Routing,
-Authentifizierung, Rollenprüfung, Fehlerabbildung. `index.php` ist nur noch die Brücke zu
-den PHP-Globals – dadurch ist die ganze Kette ohne Webserver testbar.
-
-- `ErrorMapper` als einzige Stelle, die HTTP-Codes kennt; Handler werfen Domänen-Ausnahmen
-- `Authorization::requireSelf()` vergleicht die Identität **aus dem Token** mit dem Pfad,
-  und zwar vor der Query – sonst verriete ein `404` bereits, dass zu einem fremden
-  Teilnehmer nichts existiert
-- `Input` und `Support\Row` prüfen `mixed` aus Request und Datenbank an je einer Stelle,
-  statt es überall zu casten
+A rebuild is deliberately **not** a command: it changes no domain state and does not belong
+in the command history.
 
 ---
 
-## Commands und Queries für B-01 bis B-14 (2026-07-28, `444d918`)
+## The base version over HTTP (2026-07-28, `bd83a0d`)
 
-Neun Command-Handler und zehn Query-Handler, dazu die neun Controller. Handler kennen kein
-HTTP; Commands antworten mit `202`, Queries mit `200`.
+The `Kernel` takes over what used to sit in `public/index.php`: routing, authentication, the
+role check, error mapping. `index.php` is now only the bridge to the PHP globals – which
+makes the whole chain testable without a web server.
 
-`WinningsDistribution` liegt im Domain-Service, weil zwei Aufrufer dieselbe Rechnung
-brauchen: der Command-Handler beim Eintragen der Gewinne und der `DrawProjector` beim
-Neuaufbau. `EvenSplit` teilt Geld in ganzen Cent und legt den Rest auf den ersten Anteil –
-in Fließkomma zu teilen und je Anteil zu runden vernichtet Geld.
-
----
-
-## Repositories für die Lotto-Aggregate (2026-07-28, `7f4e638`)
-
-Sieben Repositories auf der gemeinsamen Basis `EventSourcedRepository`.
-
-- Append und Projektionsschreiben in **einer** Transaktion. Sonst bliebe nach einer vom
-  Unique Key abgelehnten Reihe ein Event im Store, das keine Zeile beschreibt
-- Neue Aggregate mit reinem `INSERT`, geladene mit `UPDATE` – kein
-  `ON DUPLICATE KEY UPDATE`, das würde eine zweite Tippreihe für dieselbe Periode
-  stillschweigend überschreiben statt den `409` auszulösen
-- SQLSTATE 23000 wird zu `DuplicateEntryException`: ein abgelehnter Unique Key ist eine
-  Geschäftsregel, die Nein sagt, kein Datenbankfehler
+- `ErrorMapper` as the only place that knows HTTP codes; handlers throw domain exceptions
+- `Authorization::requireSelf()` compares the identity **from the token** with the path, and
+  does so before the query – otherwise a `404` would already reveal that nothing exists for
+  someone else's participant
+- `Input` and `Support\Row` check `mixed` from the request and the database in one place
+  each, instead of casting it everywhere
 
 ---
 
-## Konfigurierbare Tippperiode (2026-07-28, `c554a18`)
+## Commands and queries for B-01 through B-14 (2026-07-28, `444d918`)
 
-Das feste „eine Reihe pro Tippjahr" wird zur **Tippperiode** (`BetPeriod`): ein frei
-wählbarer, überlappungsfreier Zeitraum innerhalb des Tippjahres. Der Unique Key wandert von
-`(participant_id, tipp_year_id)` auf `(participant_id, bet_period_id)`.
+Nine command handlers and ten query handlers, plus the nine controllers. Handlers know
+nothing about HTTP; commands answer with `202`, queries with `200`.
 
-Damit ist die Periodenlänge eine Konfiguration, keine Annahme im Code. Der Grenzfall „eine
-Periode = das ganze Tippjahr" reproduziert exakt das vorherige Verhalten.
+`WinningsDistribution` lives in the domain service because two callers need the same
+calculation: the command handler when recording the winnings, and the `DrawProjector` on a
+rebuild. `EvenSplit` divides money in whole cents and puts the remainder onto the first share
+– dividing in floating point and rounding per share destroys money.
 
 ---
 
-## Schema und Domäne auf das Lotto-Modell (2026-07-28, `5f8f9ea`)
+## Repositories for the lotto aggregates (2026-07-28, `7f4e638`)
 
-Sieben Aggregate (`TippYear`, `BetPeriod`, `BetRow`, `Ticket`, `Draw`, `Fee`,
-`Participant`), 14 Events, neue Value Objects (`LottoNumbers`, `Superzahl`, `DateRange`,
+Seven repositories on the shared base `EventSourcedRepository`.
+
+- Appending and writing the projection in **one** transaction. Otherwise a row rejected by
+  the unique key would leave an event in the store that describes no row
+- New aggregates with a plain `INSERT`, loaded ones with an `UPDATE` – no
+  `ON DUPLICATE KEY UPDATE`, which would silently overwrite a second bet row for the same
+  period instead of raising the `409`
+- SQLSTATE 23000 becomes `DuplicateEntryException`: a rejected unique key is a business rule
+  saying no, not a database error
+
+---
+
+## A configurable bet period (2026-07-28, `c554a18`)
+
+The fixed "one row per tipp year" becomes the **bet period** (`BetPeriod`): a freely chosen,
+non-overlapping window within the tipp year. The unique key moves from
+`(participant_id, tipp_year_id)` to `(participant_id, bet_period_id)`.
+
+The period length is thereby a configuration, not an assumption in code. The edge case "one
+period = the whole tipp year" reproduces exactly the previous behaviour.
+
+---
+
+## Schema and domain onto the lotto model (2026-07-28, `5f8f9ea`)
+
+Seven aggregates (`TippYear`, `BetPeriod`, `BetRow`, `Ticket`, `Draw`, `Fee`,
+`Participant`), 14 events, new value objects (`LottoNumbers`, `Superzahl`, `DateRange`,
 `EvenSplit`, `WinningClass`, `TippYearStatus`).
 
-Neue Tabellen: `tipp_year`, `membership`, `bet_period`, `bet_row`, `ticket`, `ticket_row`,
-`draw`, `ticket_draw_result`, `ticket_row_match`, `payout`, `payout_share`. Die
-Sport-Tabellen liegen als [database/schema-e2-sports.sql](database/schema-e2-sports.sql)
-für E2 bereit.
+New tables: `tipp_year`, `membership`, `bet_period`, `bet_row`, `ticket`, `ticket_row`,
+`draw`, `ticket_draw_result`, `ticket_row_match`, `payout`, `payout_share`. The sport tables
+are ready as [database/schema-e2-sports.sql](database/schema-e2-sports.sql) for E2.
 
 ---
 
-## Kurswechsel auf die Lotterie-Tippgemeinschaft (2026-07-27, `f1d0771`)
+## The change of course to the lottery syndicate (2026-07-27, `f1d0771`)
 
-**Die Domäne war missverstanden.** Das Projekt ist kein allgemeines Sportwetten-Tippspiel,
-sondern die Verwaltung einer Lotto-6-aus-49-Tippgemeinschaft. Der Commit stellt Modell,
-Stories und API-Spezifikation um und staffelt alles in eine Basisversion plus zwei
-Ausbaustufen (E1 Selbstverwaltung, E2 Sportwetten).
+**The domain had been misunderstood.** The project is not a general sports-betting game but
+the administration of a Lotto 6 aus 49 syndicate. The commit moves the model, the stories and
+the API specification over, and tiers everything into a base version plus two expansion
+stages (E1 self-service, E2 sports betting).
 
-| Bisher | Wird zu |
+| Previously | Becomes |
 |---|---|
 | `BettingGame` | `TippYear` |
 | `GameParticipation` | `Membership` |
-| `Prediction` | `BetRow` – kein `event_id`, sondern `bet_period_id`; sechs Zahlen statt freiem JSON |
-| `Event` | `Draw` – kein Tippschluss, weil nicht pro Ziehung getippt wird |
-| `Result` | geht in `Draw` auf |
+| `Prediction` | `BetRow` – no `event_id`, a `bet_period_id` instead; six numbers rather than free JSON |
+| `Event` | `Draw` – no betting deadline, because betting does not happen per draw |
+| `Result` | merges into `Draw` |
 | `ParticipantScore` | `TicketRowMatch` + `PayoutShare` |
 
-Neu und ohne Entsprechung im alten Modell: `Ticket`, `TicketRow`, `TicketDrawResult`,
+New and without a counterpart in the old model: `Ticket`, `TicketRow`, `TicketDrawResult`,
 `TicketRowMatch`, `Payout`, `PayoutShare`.
 
-**Mitgegangen:** das `demo/`-Verzeichnis (eine lauffähige Nur-Lese-Demo für Predictions und
-Results) wurde entfernt; die zugehörige `DEMO.md` beschrieb danach knapp zwei Wochen lang
-ein Verzeichnis, das es nicht mehr gab, und ist mit der Doku-Aktualisierung vom 2026-07-29
-gelöscht worden. Die alte OpenAPI-Spezifikation liegt als
-[betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) für E2 bereit.
+**Went along with it:** the `demo/` directory (a runnable read-only demo for predictions and
+results) was removed; the accompanying `DEMO.md` then described a directory that no longer
+existed for nearly two weeks, and was deleted with the documentation update of 2026-07-29.
+The old OpenAPI specification is ready as
+[betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2.
 
-**Nicht mitgegangen:** [frontend/](frontend/) bediente weiterhin Predictions, Scores und
-Games und passte zu keinem Endpunkt mehr. Nachgezogen am 2026-07-29, siehe den obersten
-Eintrag.
-
----
-
-## Keycloak-Integration
-
-**Neu:** OAuth2/OIDC-Authentifizierung über Keycloak 23.
-
-- Zwei neue Container: `keycloak` (Port 8090) und `keycloak-db` (PostgreSQL 16)
-- Realm `betting-game` wird beim Start automatisch aus `keycloak/realm-export.json`
-  importiert – 3 Demo-User, 2 Clients, Rollen `user`/`admin`, Custom Claim `participant_id`
-- Backend: `Infrastructure/Auth/KeycloakService.php` und `AuthMiddleware.php`,
-  registriert im DI-Container
-- Frontend: `services/keycloak.js`, überarbeiteter Auth Store, Keycloak-Login,
-  `public/silent-check-sso.html`, neue `.env`
-- Konfiguration in `config/config.php` und `.env.example` erweitert
-
-**Damals offen:** `AuthMiddleware` wurde von `public/index.php` noch nicht aufgerufen, dort
-lief eine Token-Simulation. Erledigt mit `bd83a0d` (Kernel) und `9378be8`
-(Signaturprüfung).
+**Did not go along with it:** [frontend/](frontend/) kept serving predictions, scores and
+games, and no longer matched any endpoint. Caught up on 2026-07-29, see the entry above.
 
 ---
 
-## PSR-Standards
+## Keycloak integration
 
-**Neu:** PSR-3 (Logging), PSR-11 (Container), PSR-16 (Cache) – zusätzlich zu den bereits
-vorhandenen PSR-4 und PSR-12.
+**New:** OAuth2/OIDC authentication through Keycloak 23.
 
-- `Infrastructure/Logging/LoggerFactory.php` – vier Monolog-Logger (App, Event Store,
-  Error, CQRS)
-- `Infrastructure/DI/PsrContainer.php` – PSR-11-Adapter um PHP-DI
-- `Infrastructure/Cache/FileCache.php` und `RedisCache.php` – PSR-16 mit TTL-Support
-- 4 neue Dependencies: `psr/log`, `psr/container`, `psr/simple-cache`, `monolog/monolog`
-- Neuer Test: `tests/Unit/Infrastructure/FileCacheTest.php`
+- Two new containers: `keycloak` (port 8090) and `keycloak-db` (PostgreSQL 16)
+- The realm `betting-game` is imported automatically at startup from
+  `keycloak/realm-export.json` – 3 demo users, 2 clients, the roles `user`/`admin`, the
+  custom claim `participant_id`
+- Backend: `Infrastructure/Auth/KeycloakService.php` and `AuthMiddleware.php`, registered in
+  the DI container
+- Frontend: `services/keycloak.js`, a reworked auth store, the Keycloak login,
+  `public/silent-check-sso.html`, a new `.env`
+- The configuration in `config/config.php` and `.env.example` was extended
 
-**Offen:** Die Anwendungslogik nutzt beides weiterhin nicht. Produktive Nutzer sind nur
-`KeycloakKeys` (Cache für das JWKS, seit `9378be8`) und `AuthMiddleware` (Logger).
+**Open at the time:** `AuthMiddleware` was not yet called by `public/index.php`; a token
+simulation ran there. Done with `bd83a0d` (kernel) and `9378be8` (signature verification).
+
+---
+
+## PSR standards
+
+**New:** PSR-3 (logging), PSR-11 (container), PSR-16 (cache) – in addition to the already
+present PSR-4 and PSR-12.
+
+- `Infrastructure/Logging/LoggerFactory.php` – four Monolog loggers (app, event store,
+  error, CQRS)
+- `Infrastructure/DI/PsrContainer.php` – a PSR-11 adapter around PHP-DI
+- `Infrastructure/Cache/FileCache.php` and `RedisCache.php` – PSR-16 with TTL support
+- 4 new dependencies: `psr/log`, `psr/container`, `psr/simple-cache`, `monolog/monolog`
+- A new test: `tests/Unit/Infrastructure/FileCacheTest.php`
+
+**Open:** the application logic still uses neither. The only users in production are
+`KeycloakKeys` (the cache for the JWKS, since `9378be8`) and `AuthMiddleware` (the logger).
 Details in [PSR.md](PSR.md).
 
 ---
 
-## Vue.js Frontend
+## The Vue.js frontend
 
-**Neu:** Single Page Application für die API.
+**New:** a single-page application for the API.
 
-- 6 Views (Login, Predictions-Liste/Neu/Bearbeiten, Scores, Games), später um 3
-  Admin-Views ergänzt
-- Pinia Auth Store, Axios API Client mit Interceptors, Vue Router mit Guards
-- Eigener Container im Stack: Production-Build via Vite, ausgeliefert von Nginx auf Port 3000
+- 6 views (login, predictions list/new/edit, scores, games), later extended by 3 admin views
+- A Pinia auth store, an axios API client with interceptors, Vue Router with guards
+- Its own container in the stack: a production build via Vite, served by nginx on port 3000
 
 Details in [FRONTEND.md](FRONTEND.md).
 
 ---
 
-## One Class Per File
+## One class per file
 
-**Umbau:** 12 Sammel-Dateien mit je mehreren Klassen wurden auf 48 Einzeldateien
-aufgeteilt. Keine funktionalen Änderungen, keine Breaking Changes – Namespaces und API
-blieben identisch.
+**Rebuild:** 12 collection files with several classes each were split into 48 individual
+files. No functional changes, no breaking changes – namespaces and API stayed identical.
 
-| Vorher | Nachher |
-|--------|---------|
-| `ValueObjects.php` | 6 Dateien in `Domain/ValueObject/` |
-| `Exceptions.php` | 8 Dateien in `Domain/Exception/` |
-| `PredictionEvents.php` | 3 Dateien + `DomainEvent.php` |
-| `RepositoryInterfaces.php` | 4 Dateien in `Domain/Repository/` |
-| `Commands.php` | 5 Dateien in `Application/Command/` |
-| `CommandHandlers.php` | 2 Handler-Dateien |
-| `Queries.php` | 6 Dateien in `Application/Query/` |
-| `QueryHandlers.php` | 4 Dateien (Handler + Read-Model-Interfaces) |
-| `Repositories.php` | 3 Dateien in `Infrastructure/Persistence/` |
-| `ReadModelRepositories.php` | 2 Dateien |
-| `Controllers.php` | 2 Controller-Dateien |
+| Before | After |
+|--------|-------|
+| `ValueObjects.php` | 6 files in `Domain/ValueObject/` |
+| `Exceptions.php` | 8 files in `Domain/Exception/` |
+| `PredictionEvents.php` | 3 files + `DomainEvent.php` |
+| `RepositoryInterfaces.php` | 4 files in `Domain/Repository/` |
+| `Commands.php` | 5 files in `Application/Command/` |
+| `CommandHandlers.php` | 2 handler files |
+| `Queries.php` | 6 files in `Application/Query/` |
+| `QueryHandlers.php` | 4 files (handlers + read-model interfaces) |
+| `Repositories.php` | 3 files in `Infrastructure/Persistence/` |
+| `ReadModelRepositories.php` | 2 files |
+| `Controllers.php` | 2 controller files |
 | `HttpHelpers.php` | `Request.php`, `JsonResponse.php` |
 
-**Nutzen:** exakte PSR-4-Zuordnung, präzisere Diffs, schnellere IDE-Navigation, weniger
-Merge-Konflikte.
+**The benefit:** an exact PSR-4 mapping, more precise diffs, faster IDE navigation, fewer
+merge conflicts.
 
-**Imports** änderten sich von `use …\ValueObject\ValueObjects;` (Zugriff über
-`ValueObjects\ParticipantId`) auf einzelne Imports pro Klasse.
+**Imports** changed from `use …\ValueObject\ValueObjects;` (access through
+`ValueObjects\ParticipantId`) to individual imports per class.
 
-Seitdem ist die Codebasis auf **153 Dateien** unter `src/` gewachsen. Zwei Ausnahmen von
-der Regel bestehen weiterhin: `PsrContainer.php` und `FileCache.php` enthalten jeweils
-zusätzlich ihre Exception-Klassen.
+Since then the codebase has grown to **153 files** under `src/`. Two exceptions to the rule
+still stand: `PsrContainer.php` and `FileCache.php` each additionally contain their exception
+classes.
 
 ---
 
-## Docker Stack v2.0 – Modernisierung
+## Docker stack v2.0 – modernisation
 
-**Ersetzt:** Apache mit mod_php → Caddy 2.7 + PHP-FPM 8.3 (Alpine).
-**Aktualisiert:** MariaDB 10.11 → 11.3.
+**Replaced:** Apache with mod_php → Caddy 2.7 + PHP-FPM 8.3 (Alpine).
+**Updated:** MariaDB 10.11 → 11.3.
 
-Neue Dateien:
+New files:
 
 ```
 docker/
-├── Dockerfile.php          # Custom PHP-FPM Image
-├── Caddyfile               # Caddy-Konfiguration
-├── php-fpm.conf            # Pool-Settings
-├── php.ini                 # Runtime-Settings
-├── nginx.conf.example      # Nginx-Alternative
-└── apache.conf             # Apache-Beispiel (Legacy)
+├── Dockerfile.php          # custom PHP-FPM image
+├── Caddyfile               # Caddy configuration
+├── php-fpm.conf            # pool settings
+├── php.ini                 # runtime settings
+├── nginx.conf.example      # the nginx alternative
+└── apache.conf             # the Apache example (legacy)
 .dockerignore
 ```
 
-Änderungen an `docker-compose.yml`: Webserver und PHP in getrennten Services, eigenes
-Netzwerk, persistente Volumes für Caddy, optimierte MariaDB-Parameter.
-Neue Make-Targets: `logs-php`, `logs-caddy`, `logs-db`, `build`, `fresh`, Shell-Zugriffe.
+Changes to `docker-compose.yml`: web server and PHP in separate services, a network of its
+own, persistent volumes for Caddy, optimised MariaDB parameters.
+New make targets: `logs-php`, `logs-caddy`, `logs-db`, `build`, `fresh`, shell access.
 
-**Warum Caddy:** automatisches HTTPS, HTTP/2 und HTTP/3, einfachere Konfiguration,
-eingebaute Kompression (Gzip, Zstd), Zero-Downtime-Reloads.
-**Warum PHP-FPM:** deutlich kleineres Image, besseres Prozess-Management, unabhängige
-Skalierung, vorkonfiguriertes OPcache.
+**Why Caddy:** automatic HTTPS, HTTP/2 and HTTP/3, simpler configuration, built-in
+compression (gzip, zstd), zero-downtime reloads.
+**Why PHP-FPM:** a considerably smaller image, better process management, independent
+scaling, a preconfigured OPcache.
 
-Richtwerte aus der Umstellung (nicht nachgemessen): Image ~400 MB → ~50 MB,
-RAM ~150 MB → ~80 MB, Latenz ~8 ms → ~5 ms.
+Rough figures from the switch (not measured): image ~400 MB → ~50 MB, RAM ~150 MB → ~80 MB,
+latency ~8 ms → ~5 ms.
 
-**Keine Breaking Changes** – die API blieb unverändert, URLs ebenfalls
+**No breaking changes** – the API stayed unchanged, and so did the URLs
 (API `:8080`, PHPMyAdmin `:8081`).
 
-**Security:** `expose_php` deaktiviert, Alpine-Basis, Security Headers in der Caddyfile,
-Netzwerk-Isolation, PHP-FPM-Worker laufen als `www-data` (der Master-Prozess läuft wie bei
-PHP-FPM üblich als root).
+**Security:** `expose_php` disabled, an Alpine base, security headers in the Caddyfile,
+network isolation, PHP-FPM workers run as `www-data` (the master process runs as root, as is
+usual with PHP-FPM).
 
 ---
 
-## Docker Stack – Konfigurationsfehler behoben
+## Docker stack – configuration errors fixed
 
-Zwei falsch benannte Direktiven verhinderten den Start:
+Two misnamed directives prevented startup:
 
-| Datei | Fehler | Ursache |
-|-------|--------|---------|
-| `docker/Caddyfile` | `unrecognized subdirective split_path` | Direktive heißt in Caddy 2 `split`, nicht `split_path` – und wird für den Standard-Front-Controller gar nicht gebraucht |
-| `docker/php-fpm.conf` | `unknown entry 'process_priority'` | korrekt wäre `process.priority` (mit Punkt) |
+| File | Error | Cause |
+|------|-------|-------|
+| `docker/Caddyfile` | `unrecognized subdirective split_path` | in Caddy 2 the directive is called `split`, not `split_path` – and is not needed at all for the standard front controller |
+| `docker/php-fpm.conf` | `unknown entry 'process_priority'` | the correct form is `process.priority` (with a dot) |
 
-Zusätzlich entfernt: `request_slowlog_timeout`, `slowlog`, `listen.backlog`, `access.log`,
-`access.format` – allesamt gültige Direktiven, die aber ein beschreibbares
-Log-Verzeichnis voraussetzen, das im Alpine-Image fehlt.
+Additionally removed: `request_slowlog_timeout`, `slowlog`, `listen.backlog`, `access.log`,
+`access.format` – all valid directives, but ones that assume a writable log directory, which
+the Alpine image lacks.
 
-Als Fallback entstanden `docker/Caddyfile.minimal`, `docker/Caddyfile.alternative`,
-`docker/php-fpm.conf.minimal` sowie die Skripte `fix-caddy.sh` und `fix-php-fpm.sh`
-(Make-Targets `fix-caddy`, `fix-php-fpm`, `fix-all`).
+As a fallback, `docker/Caddyfile.minimal`, `docker/Caddyfile.alternative`,
+`docker/php-fpm.conf.minimal` came into being, along with the scripts `fix-caddy.sh` and
+`fix-php-fpm.sh` (make targets `fix-caddy`, `fix-php-fpm`, `fix-all`).
 
-Diagnose und Fallbacks: [DOCKER.md](DOCKER.md), Abschnitt „Troubleshooting".
+Diagnosis and fallbacks: [DOCKER.md](DOCKER.md), section "Troubleshooting".
 
 ---
 
-## Geplant
+## Planned
 
-**Lücken der Basisversion**
+**Gaps in the base version**
 
-- [ ] Route und Command für den Lebenszyklus des Tippjahres (`start`, `close`) — heute nur
-      aus Tests erreichbar, siehe [ARCHITECTURE.md](ARCHITECTURE.md), Abschnitt 9
-- [ ] Endpunkt zum Anlegen eines Teilnehmers (Selbstregistrierung ist E1-01)
+- [ ] A route and command for the tipp year's lifecycle (`start`, `close`) — today only
+      reachable from tests, see [ARCHITECTURE.md](ARCHITECTURE.md), section 9
+- [ ] An endpoint for creating a participant (self-registration is E1-01)
 
-**Technisch**
+**Technical**
 
-- [ ] `LoggerInterface` in die Command-Handler
-- [ ] Read Models cachen (PSR-16 existiert), inklusive Invalidierung
-- [ ] Redis-Service in `docker-compose.yml`
-- [ ] Health Checks in `docker-compose.yml`, Multi-Stage Docker Build
-- [ ] Event Publishing: `event_publisher` wird geschrieben, aber von niemandem geleert
-- [ ] Prometheus-Metriken, Tracing, Rate Limiting
+- [ ] `LoggerInterface` into the command handlers
+- [ ] Cache the read models (PSR-16 exists), including invalidation
+- [ ] A Redis service in `docker-compose.yml`
+- [ ] Health checks in `docker-compose.yml`, a multi-stage Docker build
+- [ ] Event publishing: `event_publisher` is written but drained by nobody
+- [ ] Prometheus metrics, tracing, rate limiting
 
-**Fachlich**
+**Domain**
 
-- [ ] Ausbaustufe E1 (Selbstverwaltung), Ausbaustufe E2 (Sportwetten)
-- [ ] Frontend an die aktuelle API anschließen oder entfernen
+- [ ] Expansion stage E1 (self-service), expansion stage E2 (sports betting)
+- [ ] Connect the frontend to the current API, or remove it

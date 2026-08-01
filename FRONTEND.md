@@ -1,41 +1,45 @@
 # Frontend – Vue.js 3 SPA
 
-Oberfläche für die **Lotto-6-aus-49-Tippgemeinschaft**. Sie bedient die Endpunkte aus
-[betting_game_api.yaml](betting_game_api.yaml); maßgeblich für die Fachlichkeit ist
-[USER_STORIES.md](USER_STORIES.md), für die Routen
+The user interface for the **Lotto 6 aus 49 syndicate**. It drives the endpoints from
+[betting_game_api.yaml](betting_game_api.yaml); the authority on the domain is
+[USER_STORIES.md](USER_STORIES.md), on the routes
 [Router.php](src/Presentation/Router/Router.php).
 
-Setup-Hinweise stehen in [`frontend/README.md`](frontend/README.md), die Auth-Details in
+Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details in
 [KEYCLOAK.md](KEYCLOAK.md).
 
-> **Vorgeschichte.** Bis zum 2026-07-29 war hier eine SPA des alten Sportwetten-Tippspiels
-> dokumentiert (Predictions, Scores, Games). Diese Endpunkte gibt es seit dem Kurswechsel
-> auf die Lotterie (`f1d0771`) nicht mehr; jeder fachliche Request lief in einen `404`. Die
-> SPA ist auf die aktuelle API umgestellt worden — Views, Router und API-Client sind
-> ersetzt, Auth-Store und Keycloak-Wrapper blieben.
+> **Note on the interface language.** The SPA's user-facing text is German, deliberately:
+> that is the language of the syndicate using it. Everything else in this repository —
+> code, comments, documentation — is English.
 
-## Überblick
+> **Prehistory.** Until 2026-07-29 this documented an SPA of the old sports-betting game
+> (predictions, scores, games). Those endpoints have not existed since the change of course
+> to the lottery (`f1d0771`); every domain request ran into a `404`. The SPA has been moved
+> onto the current API — views, router and API client were replaced, auth store and Keycloak
+> wrapper stayed.
 
-| Metrik | Wert |
-|--------|------|
-| Views | 12 (1 Login, 5 Teilnehmer, 6 Admin) |
-| Komponenten | 2 gemeinsame + `App.vue` |
-| Routen | 14 (inkl. Redirect `/` → `/bet-row` und Catch-all) |
-| Services | 3 (API-Client, Fehlermeldungen, Keycloak-Wrapper) |
-| Sonstiges | 1 Composable, 1 Formatierungsmodul, 1 Auth-Store, 1 Stylesheet |
+## Overview
 
-**Stack:** Vue 3.5 (Composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0,
-Axios 1.19, keycloak-js 26, Vite 8.
+| Metric | Value |
+|--------|-------|
+| Views | 12 (1 login, 5 participant, 6 admin) |
+| Components | 2 shared + `App.vue` |
+| Routes | 14 (incl. the redirect `/` → `/bet-row` and a catch-all) |
+| Services | 3 (API client, error messages, Keycloak wrapper) |
+| Other | 1 composable, 1 formatting module, 1 auth store, 1 stylesheet |
 
-## Ausbaustufe Basis: was die Oberfläche zeigen darf
+**Stack:** Vue 3.5 (composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0,
+axios 1.19, keycloak-js 26, Vite 8.
 
-Teilnehmer lesen ausschließlich, der Administrator schreibt alles. Die SPA bildet das ab —
-in den fünf Teilnehmeransichten gibt es keinen einzigen Absende-Button, weil es dafür
-keinen Endpunkt gibt. Selbstverwaltung ist E1 und nicht implementiert.
+## Expansion stage base: what the interface may show
 
-## Views und Routen
+Participants only read, the administrator writes everything. The SPA mirrors that — the five
+participant views have not a single submit button, because there is no endpoint for one.
+Self-service is E1 and not implemented.
 
-| View | Route | Endpunkt | Story |
+## Views and routes
+
+| View | Route | Endpoint | Story |
 |------|-------|----------|-------|
 | LoginView | `/login` | — (Keycloak) | |
 | BetRowView | `/bet-row` | `GET /participants/{id}/bet-row` | B-01 |
@@ -47,22 +51,22 @@ keinen Endpunkt gibt. Selbstverwaltung ist E1 und nicht implementiert.
 | AdminBetRowsView | `/admin/bet-rows` | `PUT /admin/participants/{id}/bet-row` | B-06 |
 | AdminFeesView | `/admin/fees` | `GET /admin/fees`, `PUT /admin/fees/{id}/payment` | B-07 |
 | AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09 |
-| AdminTippYearsView | `/admin/tipp-years` | Tippjahre, Status, Perioden, Mitglieder, Scheine, Ausschüttung | B-10 – B-14, B-18 |
+| AdminTippYearsView | `/admin/tipp-years` | tipp years, status, periods, members, tickets, distribution | B-10 – B-14, B-18 |
 | AdminOperationsView | `/admin/operations` | `GET /commands/{id}`, `GET /admin/audit/…`, `GET/POST /admin/projections…` | OPS-01, OPS-03, OPS-04 |
 
-`/` leitet auf `/bet-row` um. Eine Catch-all-Route fängt unbekannte Pfade ab — darunter
-alle URLs der alten SPA, die sonst als weiße Seite endeten.
+`/` redirects to `/bet-row`. A catch-all route catches unknown paths — among them all URLs
+of the old SPA, which otherwise ended as a white page.
 
-Routen mit `requiresAuth` verlangen einen Login, `/admin/*` zusätzlich `requiresAdmin`.
-Der Guard verbirgt nur den Eingang; die Rolle prüft die API auf jeder Adminroute selbst,
-und dort fällt die Entscheidung.
+Routes with `requiresAuth` demand a login, `/admin/*` additionally `requiresAdmin`.
+The guard only hides the entrance; the API checks the role itself on every admin route, and
+that is where the decision is made.
 
-**Der Guard ist `async` und wartet auf `authStore.ready()`.** Vue Router startet seine
-erste Navigation bereits in `app.use(router)` — also bevor `main.js` den Keycloak-Start
-abgewartet hat. Ohne das Warten beurteilte der Guard einen angemeldeten Benutzer als
-anonym, schickte die angefragte Route auf `/login`, und bis die Session zurück war, war
-das Ziel verloren: Jeder Deep-Link und jeder Reload einer geschützten Seite landete auf
-`/bet-row`. `ready()` liefert dieselbe memoisierte Zusage, die auch der App-Start abwartet.
+**The guard is `async` and waits for `authStore.ready()`.** Vue Router starts its first
+navigation already inside `app.use(router)` — that is, before `main.js` has awaited the
+Keycloak start. Without that wait the guard judged a logged-in user to be anonymous, sent
+the requested route to `/login`, and by the time the session came back the destination was
+lost: every deep link and every reload of a protected page ended up on `/bet-row`.
+`ready()` returns the same memoised promise the app start awaits.
 
 ```javascript
 router.beforeEach(async (to, from, next) => {
@@ -82,30 +86,30 @@ router.beforeEach(async (to, from, next) => {
 })
 ```
 
-### Der `participant_id`-Claim
+### The `participant_id` claim
 
-Die vier Teilnehmeransichten und `DrawsView` brauchen den `participant_id`-Claim aus dem
-Token. Fehlt er, zeigt `ParticipantScope.vue` einen Hinweis statt Daten.
+The four participant views and `DrawsView` need the `participant_id` claim from the token.
+If it is missing, `ParticipantScope.vue` shows a note instead of data.
 
-Das ist Absicht und keine Lücke: Die API leitet die Identität aus dem Token ab, nie aus
-dem Pfad, und `Authorization::requireSelf()` lässt dort auch einen Administrator nicht
-durch. Ein Admin ohne eigene `participant_id` sieht diese Ansichten leer — seine Sicht auf
-fremde Daten sind die Admin-Endpunkte.
+That is deliberate and not a gap: the API derives identity from the token, never from the
+path, and `Authorization::requireSelf()` does not let an administrator through there either.
+An admin without a `participant_id` of their own sees these views empty — their view of
+other people's data is the admin endpoints.
 
-## API-Integration
+## API integration
 
 ```
-Vue-Komponente → api.js (Axios) → Request-Interceptor (Token) →
-Proxy /api → Backend → Response-Interceptor (401) → Komponente
+Vue component → api.js (axios) → request interceptor (token) →
+proxy /api → backend → response interceptor (401) → component
 ```
 
-Proxy in `vite.config.js`: `/api` → `http://localhost:8080`, Präfix wird entfernt. Im
-Container übernimmt das `nginx.conf`. Dev-Server auf Port 3000.
+The proxy is in `vite.config.js`: `/api` → `http://localhost:8080`, the prefix is stripped.
+In the container `nginx.conf` takes over. Dev server on port 3000.
 
-`services/api.js` hat für jede Route genau eine Methode:
+`services/api.js` has exactly one method per route:
 
 ```javascript
-// Teilnehmer, nur lesend
+// Participant, read only
 api.getBetRow(participantId, betPeriodId)
 api.getMemberships(participantId, tippYearId)
 api.getFees(participantId, { tippYearId, paymentStatus })
@@ -113,7 +117,7 @@ api.getPayoutShare(participantId, tippYearId)
 api.getDraws(tippYearId, { status, withWinningsOnly })
 api.getCommandStatus(commandId)
 
-// Administrator – unter api.admin.*, Commands mit Idempotency-Key
+// Administrator – under api.admin.*, commands with an idempotency key
 api.admin.assignBetRow(participantId, data, key)
 api.admin.getFees(filters)
 api.admin.recordFeePayment(feeId, data, key)
@@ -131,208 +135,203 @@ api.admin.getProjections()
 api.admin.rebuildProjection(name)
 ```
 
-### Commands und der Idempotency-Key
+### Commands and the idempotency key
 
-Der Schlüssel wird nicht im API-Client vergeben, sondern in
-`composables/useCommand.js` — nur der Aufrufer weiß, ob ein zweiter Klick eine
-Wiederholung desselben Vorhabens ist oder ein neuer Command:
+The key is not issued in the API client but in `composables/useCommand.js` — only the caller
+knows whether a second click is a repetition of the same intent or a new command:
 
-- **Keine Antwort** (Timeout, Netzwerk): Der Schlüssel bleibt. Ein erneuter Klick
-  wiederholt denselben Command, und die API liefert das gespeicherte Ergebnis mit
-  `Idempotent-Replay: true` zurück, statt ein zweites Mal zu buchen. Genau dafür
-  existiert der Header.
-- **Irgendein Status**: Der Schlüssel ist verbraucht. Ein Schlüssel, dessen erster Versuch
-  fehlschlug, bleibt serverseitig vergeben; ihn nach einem `400` weiterzuverwenden, würde
-  einen behebbaren Eingabefehler dauerhaft in ein `409` verwandeln.
+- **No response** (timeout, network): the key stays. Clicking again repeats the same
+  command, and the API returns the stored result with `Idempotent-Replay: true` instead of
+  recording a second time. That is exactly what the header exists for.
+- **Any status**: the key is used up. A key whose first attempt failed stays taken on the
+  server side; reusing it after a `400` would turn a fixable input error permanently into a
+  `409`.
 
-`AdminDrawsView` hält deshalb **einen** Command-Zustand **je Ziehung**: Ein aus einer
-Zeile übriggebliebener Schlüssel dürfte nicht die Buchung der nächsten Zeile beantworten.
+`AdminDrawsView` therefore keeps **one** command state **per draw**: a key left over from
+one row must not answer the booking of the next row.
 
-Die `commandId` aus der `202` wird angezeigt und verlinkt auf **Betrieb →
-Verarbeitungsstand** (`GET /commands/{id}`). Der Endpunkt ist bewusst nicht
-admin-geschützt.
+The `commandId` from the `202` is displayed and links to **Operations → processing state**
+(`GET /commands/{id}`). That endpoint is deliberately not admin-protected.
 
-### Ehrlich zur Asynchronität
+### Honest about asynchrony
 
-Die API beschreibt Commands als asynchron, die Implementierung schreibt synchron: Bei
-Ankunft der `202` sind Event Store und Lesemodelle bereits aktuell. Die Admin-Ansichten
-laden unmittelbar danach neu — kein Rennen, sondern die Konsequenz daraus.
+The API describes commands as asynchronous, the implementation writes synchronously: by the
+time the `202` arrives, event store and read models are already up to date. The admin views
+reload immediately afterwards — not a race, but the consequence of that.
 
-## Fehlerbehandlung
+## Error handling
 
-`services/errors.js` zeigt die `message` aus der API-Antwort statt der Axios-Meldung:
-„Request failed with status code 409“ sagt nicht, welche Geschäftsregel Nein gesagt hat.
+`services/errors.js` shows the `message` from the API response rather than the axios one:
+"Request failed with status code 409" does not say which business rule said no.
 
-| Status | Verhalten |
+| Status | Behaviour |
 |---|---|
-| `401` | Interceptor leitet zur Keycloak-Anmeldung |
-| `403` | Meldung der API (z. B. „You may only access your own data“) |
-| `404` | in Leseansichten ein **Leerzustand**, kein Fehler — „für diese Periode ist keine Reihe hinterlegt“ ist eine Aussage |
-| `409` | Meldung der abgelehnten Geschäftsregel |
-| `503` | Hinweis, dass der Aufruf wiederholbar ist — **keine** Weiterleitung zur Anmeldung |
+| `401` | the interceptor redirects to the Keycloak login |
+| `403` | the API's message (e.g. "You may only access your own data") |
+| `404` | in read views an **empty state**, not an error — "no row is stored for this period" is a statement |
+| `409` | the message of the rejected business rule |
+| `503` | a note that the call is repeatable — **no** redirect to the login |
 
-Die Unterscheidung `401` / `503` ist der Grund, warum der Interceptor nur auf `401`
-reagiert: Ein `503` heißt, dass Keycloak gerade nicht antwortet. Den Benutzer dorthin zu
-schicken, hieße ihn ausgerechnet zu dem Dienst zu schicken, von dem wir wissen, dass er
-nicht erreichbar ist.
+The distinction `401` / `503` is why the interceptor only reacts to `401`: a `503` means
+Keycloak is not answering right now. Sending the user there would mean sending them to
+precisely the service we know is unreachable.
 
-## Aufbau der Quellen
+## Layout of the sources
 
 ```
 frontend/src/
-├── views/                 11 Seiten, eine je Ansicht der Tabelle oben
+├── views/                 11 pages, one per view in the table above
 ├── components/
-│   ├── CommandFeedback.vue    Antwort eines Commands inkl. commandId
-│   └── ParticipantScope.vue   Hinweis, wenn dem Token participant_id fehlt
-├── composables/useCommand.js  useCommand (Idempotency-Key) und useQuery
+│   ├── CommandFeedback.vue    a command's response including commandId
+│   └── ParticipantScope.vue   note shown when the token lacks participant_id
+├── composables/useCommand.js  useCommand (idempotency key) and useQuery
 ├── services/
-│   ├── api.js                 eine Methode je Route
-│   ├── errors.js              Fehlermeldung aus der API-Antwort
-│   └── keycloak.js            keycloak-js-Wrapper
-├── stores/auth.js             Pinia-Auth-Store
-├── support/format.js          Geld, Datum, Lottozahlen, Statuslabels
-├── assets/app.css             gemeinsames Design System
+│   ├── api.js                 one method per route
+│   ├── errors.js              error message out of the API response
+│   └── keycloak.js            keycloak-js wrapper
+├── stores/auth.js             Pinia auth store
+├── support/format.js          money, dates, lotto numbers, status labels
+├── assets/app.css             shared design system
 ├── router/index.js
 ├── App.vue
 └── main.js
 ```
 
-## Authentifizierung
+## Authentication
 
-Login vollständig über Keycloak (OAuth2/OIDC mit PKCE). Tokens liegen ausschließlich im
-Speicher des Keycloak-JS-Adapters, **nicht** im localStorage.
+Login runs entirely through Keycloak (OAuth2/OIDC with PKCE). Tokens live exclusively in the
+memory of the keycloak-js adapter, **not** in localStorage.
 
 ```javascript
-await authStore.initKeycloak()   // beim App-Start (main.js)
-await authStore.login()          // Redirect zur Keycloak-Login-Seite
-await authStore.logout()         // Keycloak-Logout + lokalen State leeren
+await authStore.initKeycloak()   // at app start (main.js)
+await authStore.login()          // redirect to the Keycloak login page
+await authStore.logout()         // Keycloak logout + clear local state
 
 keycloakService.onTokenExpired(() => keycloakService.updateToken(30))
 ```
 
-Demo-Benutzer und Realm-Details: [KEYCLOAK.md](KEYCLOAK.md).
+Demo users and realm details: [KEYCLOAK.md](KEYCLOAK.md).
 
-## Design System
+## Design system
 
-Gemeinsam in `src/assets/app.css`, nicht als Scoped Styles je Komponente — die alte SPA
-trug dieselben Card-, Button- und Badge-Regeln neunmal, und jede Farbänderung war neunmal
-zu machen.
+Shared in `src/assets/app.css`, not as scoped styles per component — the old SPA carried the
+same card, button and badge rules nine times, and every colour change had to be made nine
+times.
 
 ```css
---blue:     #2563eb;   /* primäre Aktionen */
---green:    #10b981;   /* Gewinne, Erfolg */
---yellow:   #f59e0b;   /* offene Posten, Superzahl */
---red:      #ef4444;   /* Fehler, unumkehrbare Aktionen */
---gray-900: #1f2937;   /* Überschriften */
---gray-600: #6b7280;   /* Fließtext */
---gray-300: #d1d5db;   /* Rahmen */
---gray-100: #f3f4f6;   /* Flächen */
+--blue:     #2563eb;   /* primary actions */
+--green:    #10b981;   /* winnings, success */
+--yellow:   #f59e0b;   /* outstanding items, bonus number */
+--red:      #ef4444;   /* errors, irreversible actions */
+--gray-900: #1f2937;   /* headings */
+--gray-600: #6b7280;   /* body text */
+--gray-300: #d1d5db;   /* borders */
+--gray-100: #f3f4f6;   /* surfaces */
 ```
 
-**Bausteine:** `.card` / `.card-grid`, `.facts` (Definitionsliste), `table.data`,
-`.numbers .ball` (Lottokugeln, Superzahl gelb), `.badge` mit Statusklassen, `.field` /
-`.field-row` / `.field-inline`, `.btn-primary|secondary|danger|link`, `.state`
+**Building blocks:** `.card` / `.card-grid`, `.facts` (definition list), `table.data`,
+`.numbers .ball` (lotto balls, bonus number in yellow), `.badge` with status classes,
+`.field` / `.field-row` / `.field-inline`, `.btn-primary|secondary|danger|link`, `.state`
 (`loading`, `empty`, `error`, `success`, `note`).
 
-**Responsive:** Mobile First, Grid mit `repeat(auto-fill, minmax(320px, 1fr))`, Tabellen
-in `.table-wrap` mit horizontalem Scroll.
+**Responsive:** mobile first, grid with `repeat(auto-fill, minmax(320px, 1fr))`, tables in
+`.table-wrap` with horizontal scroll.
 
-## Entwicklung
+## Development
 
 ```bash
 cd frontend
 npm install
-npm run dev        # http://localhost:3000 (Backend muss auf :8080 laufen)
-npm run build      # Ausgabe nach dist/
-npm run lint       # prüft, ändert nichts
-npm run lint:fix   # korrigiert das automatisch Korrigierbare
+npm run dev        # http://localhost:3000 (the backend has to run on :8080)
+npm run build      # output into dist/
+npm run lint       # checks, changes nothing
+npm run lint:fix   # fixes what can be fixed automatically
 ```
 
-### Regelsatz
+### Rule set
 
-`eslint:recommended` + `plugin:vue/vue3-recommended`, konfiguriert in
-[`frontend/eslint.config.js`](frontend/eslint.config.js). `vue3-recommended` ist die strengste
-der drei Vue-Voreinstellungen — sie stapelt *essential* (echte Fehler),
-*strongly-recommended* (Lesbarkeit) und *recommended* (Reihenfolge und Benennung).
-Genau diese Kombination empfiehlt die Vue-Dokumentation selbst, wer sie kennt, muss hier
-keine Hausregeln lernen.
+`eslint:recommended` + `plugin:vue/vue3-recommended`, configured in
+[`frontend/eslint.config.js`](frontend/eslint.config.js). `vue3-recommended` is the strictest
+of the three Vue presets — it stacks *essential* (real errors),
+*strongly-recommended* (readability) and *recommended* (ordering and naming).
+The Vue documentation recommends exactly this combination itself; anyone who knows it does
+not have to learn house rules here.
 
-Eine Ausnahme ist konfiguriert: `vue/multi-word-component-names` erlaubt `App` — die eine
-Komponente, die sinnvoll kein zweites Wort trägt.
+One exception is configured: `vue/multi-word-component-names` permits `App` — the one
+component that sensibly does not carry a second word.
 
-Der Bestand ist **fehlerfrei** — halte ihn so. Ohne lokales Node läuft die Prüfung im
-Container:
+The codebase is **clean** — keep it that way. Without a local Node the check runs in the
+container:
 
 ```bash
 docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine \
   sh -c "npm install && npm run lint"
 ```
 
-Die Formatierungsregeln (`max-attributes-per-line`,
-`singleline-html-element-content-newline`) sind bewusst **nicht** abgeschaltet, obwohl sie
-die Templates länger machen: Sie ersetzen den Formatter, den dieses Projekt nicht hat.
-Wer sie doch abschaltet, braucht dafür einen — sonst driftet die Formatierung wieder
-auseinander.
+The formatting rules (`max-attributes-per-line`,
+`singleline-html-element-content-newline`) are deliberately **not** switched off, even
+though they make the templates longer: they replace the formatter this project does not
+have. Anyone switching them off needs one — otherwise the formatting drifts apart again.
 
-Läuft parallel der Frontend-Container, belegt dieser Port 3000 — vorher
-`docker-compose stop frontend`.
+If the frontend container runs in parallel it occupies port 3000 — `docker-compose stop
+frontend` first.
 
 ### Deployment
 
 ```bash
 docker-compose build frontend && docker-compose up -d
-# Frontend :3000 | API :8080 | PHPMyAdmin :8081 | Keycloak :8090
+# frontend :3000 | API :8080 | PHPMyAdmin :8081 | Keycloak :8090
 ```
 
-Statisches Hosting (Netlify, Vercel): `npm run build`, dann `dist/` deployen. Bei
-manuellem Nginx zusätzlich `try_files $uri $uri/ /index.html;` und einen `/api/`-Proxy.
+Static hosting (Netlify, Vercel): `npm run build`, then deploy `dist/`. With a manual nginx,
+additionally `try_files $uri $uri/ /index.html;` and an `/api/` proxy.
 
 ## Testing
 
-**Vitest** deckt Composables, Stores, Services und den Router-Guard ab —
-[`tests/unit/`](frontend/tests/unit/), gegliedert wie die Backend-Tests in `tests/Unit`.
-Jede Datei ist an einer konkreten User Story oder Akzeptanzkriterium verankert, nicht an der
-Implementierung:
+**Vitest** covers composables, stores, services and the router guard —
+[`tests/unit/`](frontend/tests/unit/), organised like the backend tests in `tests/Unit`.
+Every file is anchored to a concrete user story or acceptance criterion, not to the
+implementation:
 
-| Datei | Prüft |
+| File | Checks |
 |---|---|
-| `composables/useCommand.spec.js` | OPS-02: der Idempotency-Key bleibt bei einer antwortlosen Anfrage erhalten (Retry wiederholt denselben Command) und wird bei jeder Antwort — Erfolg wie Fehler — verworfen; `useQuery` fällt bei Fehlern auf den Ausgangswert zurück (B-01: 404 ist ein Leerzustand) |
-| `services/errors.spec.js` | `apiMessage` für 401 (iss-Claim-Hinweis), 503 (wiederholbar), durchgereichte API-Nachricht, nicht erreichbare API |
-| `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: Anteil ist `null`, bis die Ausschüttung gebucht ist); `parseNumbers` gegen B-06 (genau sechs verschiedene Zahlen 1–49, aufsteigend) |
-| `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), `displayName`-Fallback, `logout()` räumt lokalen State auch dann auf, wenn der Keycloak-Logout selbst fehlschlägt |
-| `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 bis B-17): anonym → `/login`, Teilnehmer → kein Zutritt zu `/admin/*` |
-| `components/ParticipantScope.spec.js` | Fehlender `participant_id`-Claim zeigt den Hinweis statt der Teilnehmeransichten |
+| `composables/useCommand.spec.js` | OPS-02: the idempotency key is retained on a response-less request (a retry repeats the same command) and dropped on any response — success as well as error; `useQuery` falls back to the initial value on errors (B-01: a 404 is an empty state) |
+| `services/errors.spec.js` | `apiMessage` for 401 (the iss-claim hint), 503 (repeatable), the passed-through API message, an unreachable API |
+| `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: the share is `null` until the distribution is recorded); `parseNumbers` against B-06 (exactly six distinct numbers 1–49, ascending) |
+| `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
+| `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
+| `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
 
 ```bash
-npm test          # einmaliger Lauf
+npm test          # single run
 npm run test:watch
 ```
 
-Ohne lokales Node läuft das im selben Container wie Lint:
+Without a local Node this runs in the same container as lint:
 
 ```bash
 docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine sh -c "npm install && npm test"
 ```
 
-**Playwright** deckt den Durchstich gegen den echten, laufenden Stack ab —
-[`tests/e2e/`](frontend/tests/e2e/): echter Keycloak-Login, echte API, echte Lesemodelle.
+**Playwright** covers the pass against the real, running stack —
+[`tests/e2e/`](frontend/tests/e2e/): a real Keycloak login, a real API, real read models.
 
-| Datei | Prüft |
+| File | Checks |
 |---|---|
-| `auth.spec.js` | Echter Keycloak-Login (B-15), Admin-Bereich für Teilnehmer unerreichbar (B-17), Logout |
-| `participant-views.spec.js` | B-01, B-03, B-05 mit echten, gesäten Daten für `testuser` |
-| `admin-fee-payment.spec.js` | B-07 als echter Schreibvorgang durch die Oberfläche, nicht nur ein Read |
-| `admin-participants.spec.js` | B-21: Teilnehmer anlegen, und dass er danach in den Auswahlfeldern auftaucht |
+| `auth.spec.js` | A real Keycloak login (B-15), the admin area unreachable for participants (B-17), logout |
+| `participant-views.spec.js` | B-01, B-03, B-05 with real, seeded data for `testuser` |
+| `admin-fee-payment.spec.js` | B-07 as a real write through the interface, not just a read |
+| `admin-participants.spec.js` | B-21: creating a participant, and that they then turn up in the dropdowns |
 
 ```bash
-docker-compose up -d          # der volle Stack muss laufen, .env baut localhost:* fest ein
+docker-compose up -d          # the full stack has to run, .env bakes localhost:* in
 npm run test:e2e
 ```
 
-Ohne lokales Node im offiziellen Playwright-Image. `--network host`, damit `localhost` im
-Browser dieselben Ports trifft wie auf dem Entwicklungsrechner; die Artefakte landen
-absichtlich **im Container**, sonst gehören sie hinterher einer UID, die der Host nicht mehr
-aufräumen kann:
+Without a local Node, in the official Playwright image. `--network host` so that `localhost`
+in the browser hits the same ports as on the development machine; the artefacts land
+deliberately **inside the container**, otherwise they end up owned by a UID the host can no
+longer clean up:
 
 ```bash
 docker run --rm --network host -e PLAYWRIGHT_OUTPUT_DIR=/tmp/pw-results \
@@ -340,83 +339,82 @@ docker run --rm --network host -e PLAYWRIGHT_OUTPUT_DIR=/tmp/pw-results \
   mcr.microsoft.com/playwright:v1.62.1-noble sh -c "npm run test:e2e"
 ```
 
-### Was `global-setup.js` vorbereitet
+### What `global-setup.js` prepares
 
-Es sät ein komplettes Tippjahr durch die echten Command-Handler — derselbe Ablauf wie in
-[QUICKSTART.md](QUICKSTART.md), nur automatisiert statt mit `curl`. Drei Eigenheiten, die
-nicht offensichtlich sind und ohne die die Suite beim **zweiten** Lauf bricht:
+It seeds a complete tipp year through the real command handlers — the same sequence as in
+[QUICKSTART.md](QUICKSTART.md), only automated instead of with `curl`. Three peculiarities
+that are not obvious, and without which the suite breaks on the **second** run:
 
-- **Jeder Lauf bekommt ein eigenes Kalenderjahr.** Tippjahre dürfen sich nicht überlappen
-  (`TippYear::assertNoOverlap`), also wählt das Setup das erste Jahr nach dem spätesten
-  vorhandenen `endDate`. Ein fester Zeitraum ließe genau einen Lauf zu und danach nur noch `409`.
-- **Das Jahr bleibt am Ende `closed`.** B-18 erlaubt höchstens ein laufendes Tippjahr; ein
-  laufend zurückgelassenes Jahr blockiert den nächsten Lauf.
-- **Jeder Test bekommt seine eigene Gebühr.** Der Admin-Test bucht die des Administrators,
-  der Teilnehmer-Test liest die von `testuser` — sonst hinge das Ergebnis daran, in welcher
-  Reihenfolge die Dateien zufällig laufen.
+- **Every run gets its own calendar year.** Tipp years must not overlap
+  (`TippYear::assertNoOverlap`), so the setup picks the first year after the latest existing
+  `endDate`. A fixed period would allow exactly one run and nothing but `409` afterwards.
+- **The year is left `closed`.** B-18 permits at most one running tipp year; a year left
+  running blocks the next run.
+- **Every test gets its own fee.** The admin test records the administrator's, the
+  participant test reads `testuser`'s — otherwise the outcome would depend on the order the
+  files happen to run in.
 
-Teilnehmer anzulegen hat keinen Endpunkt (Selbstregistrierung ist E1-01), deshalb liegt das
-als [`database/seed-demo-participants.sql`](database/seed-demo-participants.sql) daneben. Das
-Setup spielt es über `docker-compose` ein; ist die Compose-CLI nicht erreichbar (etwa im
-Container oben), warnt es und setzt voraus, dass die Zeilen schon da sind:
+Creating participants has no endpoint (self-registration is E1-01), which is why that sits
+alongside as [`database/seed-demo-participants.sql`](database/seed-demo-participants.sql).
+The setup loads it through `docker-compose`; if the Compose CLI is unreachable (in the
+container above, for instance) it warns and assumes the rows are already there:
 
 ```bash
 docker-compose exec -T db mariadb -uroot -psecret betting_game < database/seed-demo-participants.sql
 ```
 
-### Warum die Ansichtstests über die Navigation klicken
+### Why the view tests click through the navigation
 
-`page.goto()` funktioniert, seit der Guard auf den Keycloak-Start wartet (siehe
-„Navigations-Guard" oben) — `auth.spec.js` prüft genau das. Die Ansichtstests klicken
-trotzdem über `navigateTo()` aus `fixtures.js`: derselbe Weg, den ein Benutzer nimmt, und
-ohne vollständigen Reload je Test.
+`page.goto()` works now that the guard waits for the Keycloak start (see "navigation guard"
+above) — `auth.spec.js` checks exactly that. The view tests still click through
+`navigateTo()` from `fixtures.js`: the same path a user takes, and without a full reload per
+test.
 
-Manuelle Checkliste für das, was auch Playwright nicht abdeckt:
+A manual checklist for what Playwright does not cover either:
 
-- [ ] Login über Keycloak, Logout, Redirect auf `/login` ohne Session
-- [ ] Session bleibt nach Reload erhalten (Silent SSO)
-- [ ] `/admin/*` nur mit Admin-Rolle erreichbar
-- [ ] Token ohne `participant_id`: Teilnehmeransichten zeigen den Hinweis, keinen Fehler
-- [ ] Tippjahr anlegen → auf `running` setzen → Periode anlegen → Mitglied aufnehmen →
-      Reihe zuordnen → Tippschein einreichen → Ziehung eintragen → Gewinn nachtragen →
-      Gebühr buchen (der Durchstich aus [QUICKSTART.md](QUICKSTART.md))
-- [ ] Status-Dropdown: zweites Jahr auf `running` → `409`, und das Dropdown springt auf
-      den alten Wert zurück statt eine Lüge stehenzulassen
-- [ ] Tippschein auf ein Tippjahr im Status `planned`: `409` mit lesbarer Meldung
-- [ ] Ausschüttung ohne Häkchen: Button bleibt gesperrt
-- [ ] Gebühr ohne Zahlen im System: Leerzustand statt Fehler
-- [ ] Betrieb: Projektionen anzeigen, eine neu aufbauen, Event-Historie einer Tippreihe
-- [ ] Responsive Layout, Loading-, Leer- und Fehlerzustände
+- [ ] Login through Keycloak, logout, redirect to `/login` without a session
+- [ ] The session survives a reload (silent SSO)
+- [ ] `/admin/*` reachable only with the admin role
+- [ ] A token without `participant_id`: the participant views show the note, not an error
+- [ ] Create a tipp year → set it to `running` → create a period → add a member →
+      assign a row → submit the ticket → record a draw → add the winnings →
+      record the fee (the walkthrough from [QUICKSTART.md](QUICKSTART.md))
+- [ ] Status dropdown: a second year to `running` → `409`, and the dropdown jumps back to
+      the old value instead of leaving a lie on screen
+- [ ] A ticket on a tipp year in status `planned`: `409` with a readable message
+- [ ] Distribution without the checkbox: the button stays disabled
+- [ ] A fee with no numbers in the system: an empty state instead of an error
+- [ ] Operations: show the projections, rebuild one, event history of a bet row
+- [ ] Responsive layout, loading, empty and error states
 
 ## Troubleshooting
 
-**API-Calls schlagen fehl** – läuft das Backend auf 8080 (`curl http://localhost:8080/health`)?
-Proxy in `vite.config.js` prüfen; CORS-Header setzt Caddy.
+**API calls fail** – is the backend running on 8080 (`curl http://localhost:8080/health`)?
+Check the proxy in `vite.config.js`; Caddy sets the CORS headers.
 
-**Login funktioniert nicht** – siehe [KEYCLOAK.md](KEYCLOAK.md), Abschnitt „Troubleshooting“.
+**Login does not work** – see [KEYCLOAK.md](KEYCLOAK.md), section "Troubleshooting".
 
-**Teilnehmeransichten zeigen den `participant_id`-Hinweis** – das Token trägt den Claim
-nicht. Er kommt aus dem Benutzerattribut im Realm, siehe `keycloak/realm-export.json`.
+**The participant views show the `participant_id` note** – the token does not carry the
+claim. It comes from the user attribute in the realm, see `keycloak/realm-export.json`.
 
-**Alles leer, aber ohne Fehler** – vermutlich sind schlicht keine Daten angelegt.
-[QUICKSTART.md](QUICKSTART.md) spielt ein Tippjahr von Hand durch.
+**Everything empty, but without an error** – most likely no data has been created.
+[QUICKSTART.md](QUICKSTART.md) plays a tipp year through by hand.
 
-**Frontend-Container startet nicht**
+**The frontend container does not start**
 
 ```bash
 docker-compose build frontend --no-cache
 docker-compose logs frontend
 ```
 
-**Build-Fehler** – `rm -rf node_modules dist && npm install && npm run build`
+**Build errors** – `rm -rf node_modules dist && npm install && npm run build`
 
-## Offene Punkte
+## Open points
 
-- **Teilnehmer sehen ihre `participant_id` nirgends verknüpft.** B-21 legt Teilnehmer an,
-  aber die Zuordnung zum Keycloak-Benutzer geschieht weiterhin von Hand über das
-  Realm-Attribut `participant_id`. Solange die beiden auseinanderlaufen, zeigen die
-  Teilnehmeransichten fremde oder gar keine Daten. Das sauber zu schließen heißt, Konten
-  zu verwalten — E1.
-- **Keine Selbstverwaltung.** Teilnehmer lesen ausschließlich; Registrierung, Profil und
-  eigene Reihenwahl sind E1-01 bis E1-03.
-- Danach erst: TypeScript, Dark Mode, Mehrsprachigkeit.
+- **Participants see their `participant_id` linked nowhere.** B-21 creates participants, but
+  the mapping to the Keycloak user still happens by hand through the realm attribute
+  `participant_id`. For as long as the two drift apart, the participant views show someone
+  else's data or none at all. Closing that properly means managing accounts — E1.
+- **No self-service.** Participants only read; registration, profile and choosing one's own
+  row are E1-01 through E1-03.
+- Only after that: TypeScript, dark mode, multilingual support.
