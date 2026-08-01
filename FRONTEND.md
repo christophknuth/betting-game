@@ -24,7 +24,7 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 |--------|-------|
 | Views | 12 (1 login, 5 participant, 6 admin) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
-| Components | 2 shared + `App.vue` |
+| Components | 4 shared + `App.vue` |
 | Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 1 auth store, 1 stylesheet |
@@ -112,6 +112,57 @@ router.beforeEach(async (to, from, next) => {
   }
 })
 ```
+
+### Setting up a tipp year
+
+A tipp year is only usable once four things have happened, in this order: the year exists
+(B-10), it has bet periods (B-14), it has members (B-11), and it is `running` (B-18). None of
+that is guessable from a page of forms, and the forms did not help: twelve monthly periods
+meant twelve submissions with hand-computed dates, and every slip came back as a `409` from
+the overlap rule.
+
+Two components carry that now, both in `components/`:
+
+| | `TippYearSetupWizard` | `TippYearChecklist` |
+|---|---|---|
+| For | a new tipp year | one that already exists |
+| Shape | four steps, each writing before the next | status per step with the action inline |
+| Opened by | **Neues Tippjahr** | **öffnen** on a row |
+
+**Periods are computed, not typed.** [`support/betPeriods.js`](frontend/src/support/betPeriods.js)
+turns a template — whole year, halves, quarters, months — into periods that tile the year
+exactly: the first starts on its first day, the last ends on its last, and each begins the day
+after its predecessor ends. That tiling is the invariant, and it is what
+`tests/unit/support/betPeriods.spec.js` checks rather than any individual date.
+
+The period *count* is derived, not fixed. A tipp year is a freely defined range, so "quarters"
+over an eighteen-month year is six periods, not four — and the names say what the dates
+actually cover (`Jan–Mär 2027`) rather than claiming an ordinal (`Q1`) the range does not
+support.
+
+**The wizard writes as it goes.** The year is created at the end of step 1, because periods
+need its ID. Leaving the wizard afterwards leaves a `planned` tipp year behind — the step says
+so before the button is pressed.
+
+**Several commands in a row are their own problem**, which is what `useBatch` in
+`composables/useCommand.js` exists for. Twelve periods are twelve commands, and it
+
+- **stops at the first failure** rather than pushing on. If period three overlaps, four to
+  twelve rest on an assumption that no longer holds; what was written stays written and the
+  run reports how far it got.
+- **retries only what is left.** Accepted items are remembered, so pressing the button again
+  after fixing the cause does not collect `409`s for work that already succeeded.
+- gives **each item its own idempotency key**, for the same reason one form does (OPS-02).
+
+**The checklist duplicates the API's rules to explain them, not to enforce them.**
+`rejectionReason()` says why a period cannot be added — outside the year, overlapping,
+inverted — next to the field instead of after a round trip. The aggregate and the unique key
+still decide.
+
+The parts below the checklist are **running operations**, not setup: a ticket is submitted
+monthly (B-12), the distribution happens once at year end (B-13). They used to sit in the same
+stack of forms as "create a tipp year", which is what made the page read as a pile of
+unrelated fields.
 
 ### The `participant_id` claim
 
@@ -212,15 +263,19 @@ frontend/src/
 │   └── AdminLayout.vue        dark bar + sidebar, everything under /admin
 ├── views/                 11 pages, one per view in the table above
 ├── components/
-│   ├── CommandFeedback.vue    a command's response including commandId
-│   └── ParticipantScope.vue   note shown when the token lacks participant_id
-├── composables/useCommand.js  useCommand (idempotency key) and useQuery
+│   ├── CommandFeedback.vue      a command's response including commandId
+│   ├── ParticipantScope.vue     note shown when the token lacks participant_id
+│   ├── TippYearSetupWizard.vue  B-10 → B-14 → B-11 → B-18 in four steps
+│   └── TippYearChecklist.vue    what is still missing on an existing year
+├── composables/useCommand.js  useCommand, useBatch (n commands) and useQuery
 ├── services/
 │   ├── api.js                 one method per route
 │   ├── errors.js              error message out of the API response
 │   └── keycloak.js            keycloak-js wrapper
 ├── stores/auth.js             Pinia auth store
-├── support/format.js          money, dates, lotto numbers, status labels
+├── support/
+│   ├── format.js              money, dates, lotto numbers, status labels
+│   └── betPeriods.js          period templates, tiling, B-14 rule checks
 ├── assets/app.css             shared design system
 ├── router/index.js
 ├── App.vue
@@ -332,6 +387,7 @@ implementation:
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
 | `layouts/ParticipantLayout.spec.js` | B-17 at the door: the `Verwaltung` link is offered to an admin and withheld from a participant, and no `/admin/*` link ever appears in the participant navigation |
+| `support/betPeriods.spec.js` | B-14: generated periods tile the tipp year exactly — no gap, no overlap, first and last day on the year's boundaries — for calendar years, leap years and ranges that are neither; plus the three rejection reasons and the suggested next start |
 
 ```bash
 npm test          # single run
@@ -353,6 +409,7 @@ docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine sh -c "npm instal
 | `participant-views.spec.js` | B-01, B-03, B-05 with real, seeded data for `testuser` |
 | `admin-fee-payment.spec.js` | B-07 as a real write through the interface, not just a read |
 | `admin-participants.spec.js` | B-21: creating a participant, and that they then turn up in the dropdowns |
+| `admin-tipp-year-setup.spec.js` | B-10/B-14/B-11 through the wizard: a year, four generated quarters that tile it, one member — checked against the read models afterwards, not the wizard's own optimism. Also the checklist on the seeded year |
 
 ```bash
 docker-compose up -d          # the full stack has to run, .env bakes localhost:* in
@@ -384,6 +441,10 @@ that are not obvious, and without which the suite breaks on the **second** run:
 - **Every test gets its own fee.** The admin test records the administrator's, the
   participant test reads `testuser`'s — otherwise the outcome would depend on the order the
   files happen to run in.
+- **The wizard spec gets a reserved year** (`wizardYear` in the fixture, the one after the
+  seeded range). It creates a tipp year of its own through the UI, so it needs a range
+  nothing else occupies, and it leaves that year `planned` — a second running year would
+  block the next run before it started.
 
 Creating participants has no endpoint (self-registration is E1-01), which is why that sits
 alongside as [`database/seed-demo-participants.sql`](database/seed-demo-participants.sql).
