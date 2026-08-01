@@ -9,6 +9,10 @@ A Vue 3 SPA for the **Lotto 6 aus 49 syndicate**. It drives the endpoints from
 **Expansion stage base:** participants only read, the administrator writes everything.
 The SPA mirrors exactly that — the participant views have not a single submit button.
 
+The two roles get **two separate areas**: the participant views under a light top bar, and
+everything under `/admin` behind its own layout with a dark bar and a sidebar. A single
+`Verwaltung` link leads across, and it is only shown to an admin.
+
 > The user interface is German, deliberately: it is the language of the syndicate using it.
 > Everything else in this repository — code, comments, documentation — is English.
 
@@ -51,6 +55,9 @@ If the frontend container from `docker-compose.yml` runs in parallel it occupies
 ```
 frontend/
 ├── src/
+│   ├── layouts/
+│   │   ├── ParticipantLayout.vue      # light top bar, the read-only views
+│   │   └── AdminLayout.vue            # dark bar + sidebar, everything /admin
 │   ├── views/
 │   │   ├── LoginView.vue              # Keycloak login
 │   │   ├── BetRowView.vue             # B-01 own bet row
@@ -188,8 +195,9 @@ keycloak-js 26, Vite 8.
 
 ## Open points
 
-- Vitest (`tests/unit/`, 58 tests) and Playwright (`tests/e2e/`, 8 tests against the real
+- Vitest (`tests/unit/`, 61 tests) and Playwright (`tests/e2e/`, 10 tests against the real
   stack) are green. See [FRONTEND.md](../FRONTEND.md), section "Testing".
 - No TypeScript.
-- Participant and admin lists partly work with IDs instead of names, because the base
-  version has no endpoint that lists participants.
+- Linking a participant to their Keycloak account is still manual: `POST /admin/participants`
+  hands out a `resourceId`, and that number has to be entered as the user's `participant_id`
+  attribute in the realm by hand. Closing that means managing accounts — E1-01.

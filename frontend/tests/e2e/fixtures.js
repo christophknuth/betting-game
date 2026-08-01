@@ -32,6 +32,21 @@ export async function loginAs(page, username, password) {
  * reload per test.
  */
 export async function navigateTo(page, linkName, expectedPath) {
-  await page.getByRole('link', { name: linkName }).click()
+  // `exact` matters: Playwright matches an accessible name as a substring by
+  // default, and the admin area's back link reads "Zur Teilnehmersicht" -
+  // which contains the sidebar's "Teilnehmer" and made that click ambiguous.
+  await page.getByRole('link', { name: linkName, exact: true }).click()
   await page.waitForURL(new RegExp(`${expectedPath}$`))
+}
+
+/**
+ * Walks an admin from the participant area into the admin area.
+ *
+ * A login always lands on /bet-row, and the admin views live behind their own
+ * layout - the single "Verwaltung" link is the only door, and /admin redirects
+ * to the tipp years. Going through it rather than `page.goto` keeps the specs
+ * honest about that door existing.
+ */
+export async function enterAdmin(page) {
+  await navigateTo(page, 'Verwaltung', '/admin/tipp-years')
 }

@@ -6,6 +6,44 @@ what was changed when, and why.
 
 ---
 
+## The admin area became its own place (2026-08-01)
+
+**One navigation bar served both roles, and it showed.** `Ziehungen` and `Gebühren` appeared
+twice in the same bar — once as the participant's own data, once as the administrator's
+ledger — told apart only by a trailing `⚙`. Eleven links stood in one row, split by a
+single `|`.
+
+The two are now separate areas, each under its own layout component:
+
+| | `ParticipantLayout` | `AdminLayout` |
+|---|---|---|
+| Routes | `/bet-row`, `/memberships`, `/fees`, `/payout-share`, `/draws` | `/admin/*` |
+| Chrome | light top bar, five links | dark top bar, sidebar grouped into Tippjahr / Spielbetrieb / System |
+| Way out | `Verwaltung` → `/admin`, shown to admins only | `Zur Teilnehmersicht` → `/bet-row` |
+
+Each name is unambiguous inside its own area, so the gear suffixes are gone. `App.vue` holds
+no chrome any more — it is a bare `<router-view />`.
+
+**No path changed.** The routes were nested under the layouts rather than renamed, so every
+bookmark, every link in the docs and every existing test still points where it did. Vue
+Router merges a parent's `meta` into its children, so the guard reads `requiresAdmin` on the
+leaf exactly as before — the six guard tests passed untouched, which is what confirmed it.
+
+**Decorative characters were moved out of accessible names.** The `⚙` and `←` sit in
+`aria-hidden` spans. That was not cosmetics: Playwright matches an accessible name as a
+substring by default, and `Zur Teilnehmersicht` contains the sidebar's `Teilnehmer`, so the
+click was ambiguous until `navigateTo` also switched to exact matching.
+
+New tests: `layouts/ParticipantLayout.spec.js` pins B-17 at the door (the link is offered to
+an admin, withheld from a participant, and no `/admin/*` link ever leaks into the participant
+navigation), and `auth.spec.js` now crosses into the admin layout and checks it actually
+arrived in the other area rather than merely at another URL.
+
+Verified: ESLint clean, Vitest 61/61, Vite build clean, Playwright 10/10 against the real
+stack — run twice in a row, because this suite has broken on a second run before.
+
+---
+
 ## The repository is English throughout (2026-07-31)
 
 **The repository mixed two languages.** Code and commit messages were English, the project

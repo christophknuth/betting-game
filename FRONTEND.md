@@ -23,8 +23,9 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 | Metric | Value |
 |--------|-------|
 | Views | 12 (1 login, 5 participant, 6 admin) |
+| Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
 | Components | 2 shared + `App.vue` |
-| Routes | 14 (incl. the redirect `/` → `/bet-row` and a catch-all) |
+| Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 1 auth store, 1 stylesheet |
 
@@ -54,12 +55,38 @@ Self-service is E1 and not implemented.
 | AdminTippYearsView | `/admin/tipp-years` | tipp years, status, periods, members, tickets, distribution | B-10 – B-14, B-18 |
 | AdminOperationsView | `/admin/operations` | `GET /commands/{id}`, `GET /admin/audit/…`, `GET/POST /admin/projections…` | OPS-01, OPS-03, OPS-04 |
 
-`/` redirects to `/bet-row`. A catch-all route catches unknown paths — among them all URLs
-of the old SPA, which otherwise ended as a white page.
+`/` redirects to `/bet-row`, `/admin` to `/admin/tipp-years`. A catch-all route catches
+unknown paths — among them all URLs of the old SPA, which otherwise ended as a white page.
 
 Routes with `requiresAuth` demand a login, `/admin/*` additionally `requiresAdmin`.
 The guard only hides the entrance; the API checks the role itself on every admin route, and
 that is where the decision is made.
+
+### Two areas, two layouts
+
+The participant views and the admin views are separate places, and the routing says so: each
+group sits under its own layout component, and `meta` on the parent is merged into the
+children, so the guard still reads `requiresAdmin` on the leaf.
+
+| | `ParticipantLayout` | `AdminLayout` |
+|---|---|---|
+| Routes | `/bet-row`, `/memberships`, `/fees`, `/payout-share`, `/draws` | `/admin/*` |
+| Chrome | light top bar, five links | dark top bar, grouped sidebar |
+| Way out | `Verwaltung ⚙` → `/admin` (admins only) | `Zur Teilnehmersicht` → `/bet-row` |
+
+Before the split, one bar carried both sets of links. It showed: **`Ziehungen` and `Gebühren`
+appeared twice**, told apart only by a trailing gear, because the participant's own fees and
+the administrator's fee ledger are genuinely different pages with the same name. Each name is
+now unambiguous inside its own area, and the gear is gone from the link text.
+
+`App.vue` holds no chrome at all any more — it is a bare `<router-view />`. `LoginView` is the
+one route under no layout: it has neither navigation nor a user to show.
+
+**Decorative characters are kept out of accessible names.** The `⚙` and `←` sit in
+`aria-hidden` spans, so the links are named exactly `Verwaltung` and `Zur Teilnehmersicht`.
+That is not cosmetic: Playwright matches an accessible name as a *substring* by default, and
+`Zur Teilnehmersicht` contains the sidebar's `Teilnehmer` — which made that click ambiguous
+until `navigateTo` switched to exact matching.
 
 **The guard is `async` and waits for `authStore.ready()`.** Vue Router starts its first
 navigation already inside `app.use(router)` — that is, before `main.js` has awaited the
@@ -180,6 +207,9 @@ precisely the service we know is unreachable.
 
 ```
 frontend/src/
+├── layouts/
+│   ├── ParticipantLayout.vue  light top bar, the five read-only views
+│   └── AdminLayout.vue        dark bar + sidebar, everything under /admin
 ├── views/                 11 pages, one per view in the table above
 ├── components/
 │   ├── CommandFeedback.vue    a command's response including commandId
@@ -301,6 +331,7 @@ implementation:
 | `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
+| `layouts/ParticipantLayout.spec.js` | B-17 at the door: the `Verwaltung` link is offered to an admin and withheld from a participant, and no `/admin/*` link ever appears in the participant navigation |
 
 ```bash
 npm test          # single run
@@ -318,7 +349,7 @@ docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine sh -c "npm instal
 
 | File | Checks |
 |---|---|
-| `auth.spec.js` | A real Keycloak login (B-15), the admin area unreachable for participants (B-17), logout |
+| `auth.spec.js` | A real Keycloak login (B-15), the admin area unreachable for participants (B-17), the crossing into the admin layout and back, logout |
 | `participant-views.spec.js` | B-01, B-03, B-05 with real, seeded data for `testuser` |
 | `admin-fee-payment.spec.js` | B-07 as a real write through the interface, not just a read |
 | `admin-participants.spec.js` | B-21: creating a participant, and that they then turn up in the dropdowns |
@@ -375,6 +406,8 @@ A manual checklist for what Playwright does not cover either:
 - [ ] Login through Keycloak, logout, redirect to `/login` without a session
 - [ ] The session survives a reload (silent SSO)
 - [ ] `/admin/*` reachable only with the admin role
+- [ ] Crossing between the two areas in both directions, and the admin sidebar collapsing
+      into a scrolling strip below 820 px
 - [ ] A token without `participant_id`: the participant views show the note, not an error
 - [ ] Create a tipp year → set it to `running` → create a period → add a member →
       assign a row → submit the ticket → record a draw → add the winnings →
