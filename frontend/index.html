@@ -24,6 +24,12 @@
 </head>
 <body>
   <div id="app"></div>
+  <!--
+    Classic script, not a module, and before the bundle: it has to have run by
+    the time any module reads the configuration. The production container
+    rewrites this file from its environment at start-up.
+  -->
+  <script src="/config.js"></script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

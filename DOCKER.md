@@ -45,6 +45,87 @@ The application uses a modern, high-performance Docker stack:
 - **Full MySQL compatibility**: Drop-in replacement
 - **InnoDB optimizations**: Faster transactions
 
+## 📦 The production image
+
+Everything above describes the **development** stack: three containers for the
+application, the repository bind-mounted so edits are live, passwords everyone knows.
+Production is a different shape — **one image**, built from
+[`Dockerfile`](Dockerfile) and run by
+[`docker-compose.prod.yml`](docker-compose.prod.yml).
+
+```bash
+cp .env.production.example .env      # fill in every value
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+### One image, one process
+
+The runtime is **FrankenPHP** — Caddy with PHP embedded. The same server that runs the
+front controller serves the built SPA as static files, so there is no php-fpm, no second
+web server and no supervisor holding two processes together in one container.
+
+| Path | Handled by |
+|---|---|
+| `/api/*` | the PHP front controller, prefix stripped |
+| everything else | the built SPA, with `index.html` as the fallback so Vue Router owns the URLs |
+
+Same origin, which removes CORS from the picture entirely. The development Caddyfile still
+answers `Access-Control-Allow-Origin "*"`; that header has no business in front of an
+authenticated API and is absent here.
+
+The image runs as `www-data` and listens on **8080**, not 80 — binding a privileged port
+would need a capability the container is better off without. Terminating TLS is the
+reverse proxy's job.
+
+### Two traps in the API routing
+
+Both cost time, both look identical from outside (`404 Route not found` while every static
+file works), and both are commented in
+[`docker/Caddyfile.production`](docker/Caddyfile.production):
+
+1. `handle_path` strips `/api` from the path Caddy routes on, but deliberately hands PHP
+   the URI the *client* asked for. The router reads `$_SERVER['REQUEST_URI']`, so it needs
+   an explicit override or it never sees `/health`.
+2. `php_server` expands to `try_files` + `php`, and `try_files` rewrites anything that is
+   not a file on disk to `/index.php`. A plain `env REQUEST_URI {uri}` is evaluated *after*
+   that, so the router receives `/index.php`. Capturing the URI in an explicit `route`
+   block, before `try_files` runs, is what orders the two correctly.
+
+### One image, several environments
+
+Vite bakes `VITE_*` values into the bundle at build time, which would tie a built image to
+exactly one environment. So the entrypoint writes `/app/spa/config.js` from the container's
+environment at every start, and the SPA reads that before falling back to what was built in
+(see [`frontend/src/support/runtimeConfig.js`](frontend/src/support/runtimeConfig.js)).
+
+| Variable | What it configures |
+|---|---|
+| `KEYCLOAK_PUBLIC_URL` | The URL the **browser** uses. Also the basis of `KEYCLOAK_ISSUER` |
+| `KEYCLOAK_URL` | The URL the **API** uses internally to fetch the JWKS |
+| `KEYCLOAK_ISSUER` | Compared verbatim against the token's `iss` — the public one, never the internal one |
+| `KEYCLOAK_REALM`, `KEYCLOAK_FRONTEND_CLIENT_ID` | Passed to both |
+| `DB_*` | The database |
+
+`VITE_API_URL` is gone: at one origin the SPA simply calls `/api`.
+
+### What production mode turns on
+
+`APP_ENV=production` makes PHP-DI compile the container and cache its definitions in APCu.
+That is why the image installs **apcu** alongside `pdo_mysql` and `opcache`, and why the
+container definitions may not use closures that capture the outer scope — including arrow
+functions, which capture implicitly. See AGENTS.md section 9.
+
+`var/cache` holds the compiled container and the JWKS cache and must be writable by the
+image's user. The entrypoint checks this and refuses to start rather than letting every
+authenticated route fail as a 500 later.
+
+### Schema changes
+
+`schema.sql` is mounted into `docker-entrypoint-initdb.d` and therefore runs **only into an
+empty data directory**. A database that already holds data keeps its old definition, and
+the application fails against it. Apply changes by hand — the CHANGELOG entry for a change
+that needs it carries the exact statements.
+
 ## 🚀 Quick Start
 
 ### First Time Setup

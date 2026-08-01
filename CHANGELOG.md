@@ -6,6 +6,55 @@ what was changed when, and why.
 
 ---
 
+## One image for production, and production mode made to work (2026-08-01)
+
+**Caddy now serves the SPA too**, which was the actual question: same origin, `/api/*` to
+the PHP front controller with the prefix stripped, everything else the built SPA with
+`index.html` as the fallback. The nginx container is gone, and with it CORS — the
+development Caddyfile still answers `Access-Control-Allow-Origin "*"`, which has no
+business in front of an authenticated API.
+
+The runtime is **FrankenPHP**: Caddy with PHP embedded, so one process serves static files
+and runs PHP. No php-fpm, no second web server, no supervisor holding two of them together.
+`Dockerfile` builds SPA, vendor and runtime in three stages;
+`docker-compose.prod.yml` runs it beside its database and Keycloak.
+
+**One image has to serve more than one environment**, so the SPA's configuration moved out
+of the bundle. Vite bakes `VITE_*` in at build time; the entrypoint now writes
+`config.js` from the container's environment at every start, and the SPA reads that before
+falling back to what was built in. `VITE_API_URL` disappeared entirely — at one origin it
+calls `/api`.
+
+**Along the way it turned out `APP_ENV=production` had never worked.** Production switches
+on PHP-DI's compiled container, and compilation cannot handle a closure that captures the
+outer scope — six factories were written as `function () use ($settings)`. They now resolve
+`Config` from the container instead. The last one took longest to find because it was an
+arrow function: `fn () => new ErrorMapper($settings->bool('debug'))` captures implicitly and
+is invisible to a search for `use (`. Nothing in development notices, because compilation is
+off there.
+
+Three more things the smoke test found, each of which looks like something else:
+
+- **APCu was missing.** Production also enables PHP-DI's definition cache, which requires
+  it; without the extension the bootstrap fails before any route is reached.
+- **`--classmap-authoritative` was built without the sources.** The vendor stage only had
+  `composer.json`, so the classmap was empty — and authoritative means no fallback to
+  PSR-4. Every `BettingGame\…` class was simply "not found". The autoloader is now dumped
+  after `src/` is copied in.
+- **`REQUEST_URI` needed overriding twice over.** `handle_path` strips `/api` from the path
+  Caddy routes on but hands PHP the URI the client asked for, so the router 404s. And
+  `php_server`'s `try_files` rewrites to `/index.php` *before* a plain `env REQUEST_URI
+  {uri}` is evaluated, so the router then receives `/index.php` — same symptom, different
+  cause. Capturing the URI in an explicit `route` block orders the two correctly.
+
+Verified by building the image and driving it against the real database and Keycloak:
+health, an unauthenticated `401`, an authenticated `200`, a query string, a `202` write
+through the API, the SPA at `/`, a deep link, `config.js` served `no-cache` and hashed
+assets `immutable`. Plus PHPUnit 405, Vitest 93, ESLint clean and Playwright 12/12 on the
+development stack.
+
+---
+
 ## A ticket costs more than its rows (2026-08-01)
 
 **The Bearbeitungsentgelt was missing from the model entirely.** LOTTO charges a fee for

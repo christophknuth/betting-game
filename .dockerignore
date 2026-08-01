@@ -26,10 +26,13 @@ coverage/
 .travis.yml
 
 # Docker
+#
+# docker/ stays in: the production image copies its Caddyfile, php.ini and
+# entrypoint from there. The compose files and the Dockerfile itself are not
+# needed inside an image.
 docker-compose.yml
 docker-compose.*.yml
 Dockerfile
-docker/
 
 # Logs
 *.log
@@ -40,23 +43,25 @@ var/cache/
 var/log/
 .phpunit.result.cache
 
-# Frontend
-# The PHP image copies the whole context (COPY . /var/www/html) and needs none
-# of this: the SPA has its own image with its own context (./frontend).
+# Node
 #
-# Without this entry the build breaks on Windows as soon as someone runs
-# `npm install` inside frontend/: npm creates the entries in node_modules/.bin
-# as symlinks, and the Windows client finds no file mode for those to write
-# into the context tar ("unknown file mode ?rw-rw-rw-").
-frontend/
-
-# Node - in case node_modules ever turns up elsewhere in the tree.
-# A pattern without ** only matches at the top level.
+# node_modules is the one that has to stay out, and not only for size: on
+# Windows npm writes the entries in node_modules/.bin as symlinks, and the
+# client finds no file mode for those to put in the context tar, so the build
+# dies with "unknown file mode ?rw-rw-rw-". A pattern without ** would only
+# match at the top level.
 **/node_modules
 
+# Built by the image itself in its own stage; a copy from the host would just
+# shadow it with whatever was last built locally.
+frontend/dist
+
 # Composer
+#
+# vendor/ is installed inside the image; composer.lock must NOT be excluded -
+# it is what makes the install reproducible, and without it the build resolves
+# a fresh dependency tree that nothing has tested.
 vendor/
-composer.lock
 
 # Environment
 .env
