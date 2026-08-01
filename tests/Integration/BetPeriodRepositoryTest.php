@@ -9,6 +9,7 @@ use BettingGame\Domain\Model\BetPeriod;
 use BettingGame\Domain\ValueObject\DateRange;
 use BettingGame\Infrastructure\Persistence\BetPeriodRepository;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
 
 final class BetPeriodRepositoryTest extends IntegrationTestCase
 {
@@ -19,7 +20,11 @@ final class BetPeriodRepositoryTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->repository = new BetPeriodRepository($this->db, $this->eventStore);
+        $this->repository = new BetPeriodRepository(
+            $this->db,
+            $this->eventStore,
+            new ProjectionStateRepository($this->db),
+        );
         $this->year = DateRange::fromStrings('2026-01-01', '2026-12-31');
 
         $this->db->execute(

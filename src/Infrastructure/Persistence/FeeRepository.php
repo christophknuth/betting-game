@@ -8,10 +8,17 @@ use BettingGame\Support\Row;
 use BettingGame\Domain\Model\Fee;
 use BettingGame\Domain\Repository\FeeRepositoryInterface;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Projection\FeeProjector;
 
 final class FeeRepository extends EventSourcedRepository implements FeeRepositoryInterface
 {
     private const STREAM_PREFIX = 'fee-';
+
+    /** The read model this repository keeps current; see EventSourcedRepository. */
+    protected function projectionName(): string
+    {
+        return FeeProjector::NAME;
+    }
 
     public function find(int $id): ?Fee
     {

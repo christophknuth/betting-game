@@ -9,6 +9,7 @@ use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\ValueObject\DisplayName;
 use BettingGame\Infrastructure\Persistence\ParticipantRepository;
 use BettingGame\Support\Row;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
 
 /**
  * Covers the repository after it moved onto EventSourcedRepository and the
@@ -23,7 +24,11 @@ final class ParticipantRepositoryTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->repository = new ParticipantRepository($this->db, $this->eventStore);
+        $this->repository = new ParticipantRepository(
+            $this->db,
+            $this->eventStore,
+            new ProjectionStateRepository($this->db),
+        );
 
         $this->db->execute(
             "

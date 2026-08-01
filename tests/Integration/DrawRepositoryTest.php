@@ -11,6 +11,7 @@ use BettingGame\Domain\ValueObject\Superzahl;
 use BettingGame\Infrastructure\Persistence\DrawRepository;
 use BettingGame\Support\Row;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
 
 final class DrawRepositoryTest extends IntegrationTestCase
 {
@@ -20,7 +21,7 @@ final class DrawRepositoryTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->repository = new DrawRepository($this->db, $this->eventStore);
+        $this->repository = new DrawRepository($this->db, $this->eventStore, new ProjectionStateRepository($this->db));
 
         $this->givenParticipant(7, 'Anna');
 

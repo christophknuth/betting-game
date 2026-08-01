@@ -9,6 +9,7 @@ use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Infrastructure\Persistence\BetRowRepository;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
 
 final class BetRowRepositoryTest extends IntegrationTestCase
 {
@@ -18,7 +19,11 @@ final class BetRowRepositoryTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->repository = new BetRowRepository($this->db, $this->eventStore);
+        $this->repository = new BetRowRepository(
+            $this->db,
+            $this->eventStore,
+            new ProjectionStateRepository($this->db),
+        );
 
         $this->db->execute(
             "

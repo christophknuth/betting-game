@@ -403,6 +403,16 @@ tables, a route without the `command` flag, a controller method with
 - **A rebuild reaches downwards.** Read models hang together through `ON DELETE CASCADE`
   (emptying `participant` empties `membership`, `bet_row`, `fee`). A rebuild rebuilds the
   dependent projections along with it.
+- **Rows written by hand cannot survive a rebuild.**
+  [`seed-demo-participants.sql`](database/seed-demo-participants.sql) inserts participants 1
+  and 2 directly, because their IDs have to match the realm's `participant_id` claims. Those
+  rows stand in no event, so rebuilding `participant_read_model` drops them — and then
+  `membership` events referring to them fail on the foreign key, which takes the whole
+  rebuild down with them. On a database seeded that way, rebuild from
+  `tipp_year_read_model` instead and leave the participants alone.
+- **A new repository has to name its projection.** `EventSourcedRepository` is abstract on
+  `projectionName()`, and the write path records that position as it commits. Return the
+  matching projector's `NAME` constant rather than a string, so the two cannot drift.
 - **A rebuild is not a command.** `POST /admin/projections/{name}/rebuild` is deliberately
   *not* marked `'command' => true` — it changes no domain state and does not belong in the
   command history.

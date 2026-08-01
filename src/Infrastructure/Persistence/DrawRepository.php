@@ -11,6 +11,7 @@ use BettingGame\Domain\Repository\DrawRepositoryInterface;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Projection\DrawProjector;
 
 /**
  * The draw, and what the ticket won in it.
@@ -22,6 +23,12 @@ use DateTimeImmutable;
 final class DrawRepository extends EventSourcedRepository implements DrawRepositoryInterface
 {
     private const STREAM_PREFIX = 'draw-';
+
+    /** The read model this repository keeps current; see EventSourcedRepository. */
+    protected function projectionName(): string
+    {
+        return DrawProjector::NAME;
+    }
 
     public function find(int $id): ?Draw
     {

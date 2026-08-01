@@ -288,10 +288,16 @@ final class OperationsApiTest extends HttpTestCase
             $byName[$projection['name']] = $projection;
         }
 
-        // The repositories project as they write, but projection_state is only
-        // moved by a rebuild - so the tipp year projection reads as behind.
-        self::assertSame(1, $byName['tipp_year_read_model']['lag']);
-        self::assertFalse($byName['tipp_year_read_model']['upToDate']);
+        // The repository projected the tipp year as it wrote it and recorded
+        // how far it got, so nothing is outstanding. This used to assert the
+        // opposite - projection_state was only ever moved by a rebuild, which
+        // made the endpoint report a backlog that grew with every command while
+        // the data was current. A monitor that always cries wolf is worse than
+        // none, because a projection that really stops being written looks the
+        // same. ProjectionStatusTest covers the other half: that a genuine
+        // backlog is still reported.
+        self::assertSame(0, $byName['tipp_year_read_model']['lag']);
+        self::assertTrue($byName['tipp_year_read_model']['upToDate']);
 
         // Nothing happened that the fee projection cares about
         self::assertSame(0, $byName['fee_read_model']['lag']);

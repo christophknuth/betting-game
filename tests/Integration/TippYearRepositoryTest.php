@@ -8,6 +8,7 @@ use BettingGame\Domain\Model\TippYear;
 use BettingGame\Support\Row;
 use BettingGame\Infrastructure\Persistence\TippYearRepository;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Persistence\ProjectionStateRepository;
 
 final class TippYearRepositoryTest extends IntegrationTestCase
 {
@@ -17,7 +18,11 @@ final class TippYearRepositoryTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->repository = new TippYearRepository($this->db, $this->eventStore);
+        $this->repository = new TippYearRepository(
+            $this->db,
+            $this->eventStore,
+            new ProjectionStateRepository($this->db),
+        );
     }
 
     private function givenYear(int $id = 1, string $name = 'Tippjahr 2026'): TippYear

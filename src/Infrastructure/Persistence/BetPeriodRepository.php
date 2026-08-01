@@ -9,10 +9,17 @@ use BettingGame\Domain\Model\BetPeriod;
 use BettingGame\Domain\Repository\BetPeriodRepositoryInterface;
 use BettingGame\Domain\ValueObject\DateRange;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Projection\BetPeriodProjector;
 
 final class BetPeriodRepository extends EventSourcedRepository implements BetPeriodRepositoryInterface
 {
     private const STREAM_PREFIX = 'bet_period-';
+
+    /** The read model this repository keeps current; see EventSourcedRepository. */
+    protected function projectionName(): string
+    {
+        return BetPeriodProjector::NAME;
+    }
 
     public function find(int $id): ?BetPeriod
     {

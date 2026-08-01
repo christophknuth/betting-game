@@ -58,6 +58,20 @@ final class ProjectionStateRepository implements ProjectionStateRepositoryInterf
         );
     }
 
+    public function advance(string $name, int $position): void
+    {
+        // Only the position moves. `status` and `error_message` keep whatever a
+        // rebuild left there - see the interface for why.
+        $this->db->execute(
+            "
+            INSERT INTO projection_state (projection_name, last_processed_position, status, error_message)
+            VALUES (?, ?, 'running', NULL)
+            ON DUPLICATE KEY UPDATE last_processed_position = VALUES(last_processed_position)
+            ",
+            [$name, $position]
+        );
+    }
+
     private function upsert(string $name, string $status, int $position, ?string $error): void
     {
         $this->db->execute(

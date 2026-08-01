@@ -10,6 +10,7 @@ use BettingGame\Domain\Repository\TicketRepositoryInterface;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Projection\TicketProjector;
 
 /**
  * The shared monthly ticket and the row snapshots on it.
@@ -21,6 +22,12 @@ use DateTimeImmutable;
 final class TicketRepository extends EventSourcedRepository implements TicketRepositoryInterface
 {
     private const STREAM_PREFIX = 'ticket-';
+
+    /** The read model this repository keeps current; see EventSourcedRepository. */
+    protected function projectionName(): string
+    {
+        return TicketProjector::NAME;
+    }
 
     public function find(int $id): ?Ticket
     {

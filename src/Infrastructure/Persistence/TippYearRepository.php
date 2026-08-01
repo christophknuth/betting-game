@@ -12,6 +12,7 @@ use BettingGame\Domain\Repository\TippYearRepositoryInterface;
 use BettingGame\Domain\ValueObject\DateRange;
 use BettingGame\Domain\ValueObject\TippYearStatus;
 use DateTimeImmutable;
+use BettingGame\Infrastructure\Projection\TippYearProjector;
 
 /**
  * The tipp year and everything its own stream projects.
@@ -23,6 +24,12 @@ use DateTimeImmutable;
 final class TippYearRepository extends EventSourcedRepository implements TippYearRepositoryInterface
 {
     private const STREAM_PREFIX = 'tipp_year-';
+
+    /** The read model this repository keeps current; see EventSourcedRepository. */
+    protected function projectionName(): string
+    {
+        return TippYearProjector::NAME;
+    }
 
     public function find(int $id): ?TippYear
     {
