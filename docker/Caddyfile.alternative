@@ -1,4 +1,4 @@
-# Alternative Caddyfile mit expliziter Konfiguration
+# An alternative Caddyfile with explicit configuration
 # Use this one if the default Caddyfile does not work
 
 {
