@@ -4,167 +4,96 @@ declare(strict_types=1);
 
 namespace BettingGame\Infrastructure\Logging;
 
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
-use Monolog\Handler\RotatingFileHandler;
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Formatter\LineFormatter;
+use Monolog\Handler\StreamHandler;
 use Monolog\Level;
+use Monolog\Logger;
 use Psr\Log\LoggerInterface;
 
 /**
- * Logger Factory for creating PSR-3 compliant loggers
+ * PSR-3 loggers, all of them writing to the container's output.
+ *
+ * They used to write into `var/log/*.log` with a rotating handler. In a
+ * container that is the wrong end: the files sit inside a filesystem nobody
+ * looks at, `docker-compose logs` shows nothing, and rotation duplicates work
+ * the runtime already does. So everything goes to stdout - warnings and worse
+ * to stderr - and whatever collects the container's output decides what
+ * happens next.
+ *
+ * The format follows suit: JSON in production, because something is going to
+ * parse it, and a readable line in development, because a person is.
  */
 final class LoggerFactory
 {
-    /**
-     * Create application logger with file handlers
-     */
+    /** General application logging. */
     public static function createApplicationLogger(string $environment = 'development'): LoggerInterface
     {
-        $logger = new Logger('betting-game');
-
-        // Log directory
-        $logPath = __DIR__ . '/../../../var/log';
-        if (!is_dir($logPath)) {
-            mkdir($logPath, 0755, true);
-        }
-
-        if ($environment === 'production') {
-            // Production: Rotating file handler, only warnings and above
-            $handler = new RotatingFileHandler(
-                $logPath . '/app.log',
-                30, // Keep 30 days
-                Level::Warning
-            );
-        } else {
-            // Development: Stream handler, all levels
-            $handler = new StreamHandler(
-                $logPath . '/app.log',
-                Level::Debug
-            );
-        }
-
-        // Custom formatter for better readability
-        $formatter = new LineFormatter(
-            "[%datetime%] %channel%.%level_name%: %message% %context% %extra%\n",
-            'Y-m-d H:i:s',
-            true,
-            true
-        );
-        $handler->setFormatter($formatter);
-
-        $logger->pushHandler($handler);
-
-        return $logger;
+        return self::streamLogger('betting-game', $environment);
     }
 
-    /**
-     * Create event store logger for event sourcing operations
-     */
+    /** Event sourcing operations. */
     public static function createEventStoreLogger(string $environment = 'development'): LoggerInterface
     {
-        $logger = new Logger('event-store');
-
-        $logPath = __DIR__ . '/../../../var/log';
-        if (!is_dir($logPath)) {
-            mkdir($logPath, 0755, true);
-        }
-
-        if ($environment === 'production') {
-            $handler = new RotatingFileHandler(
-                $logPath . '/event-store.log',
-                30,
-                Level::Info
-            );
-        } else {
-            $handler = new StreamHandler(
-                $logPath . '/event-store.log',
-                Level::Debug
-            );
-        }
-
-        $formatter = new LineFormatter(
-            "[%datetime%] %message% %context%\n",
-            'Y-m-d H:i:s.u', // Microseconds for precise event timing
-            true,
-            true
-        );
-        $handler->setFormatter($formatter);
-
-        $logger->pushHandler($handler);
-
-        return $logger;
+        return self::streamLogger('event-store', $environment);
     }
 
-    /**
-     * Create error logger for critical errors
-     */
+    /** Errors only, always, whatever the environment. */
     public static function createErrorLogger(): LoggerInterface
     {
         $logger = new Logger('errors');
-
-        $logPath = __DIR__ . '/../../../var/log';
-        if (!is_dir($logPath)) {
-            mkdir($logPath, 0755, true);
-        }
-
-        // Always log errors, regardless of environment
-        $handler = new RotatingFileHandler(
-            $logPath . '/error.log',
-            90, // Keep 90 days for errors
-            Level::Error
-        );
-
-        $formatter = new LineFormatter(
-            "[%datetime%] %level_name%: %message%\n%context%\n%extra%\n",
-            'Y-m-d H:i:s',
-            true,
-            true
-        );
-        $handler->setFormatter($formatter);
-
-        $logger->pushHandler($handler);
+        $logger->pushHandler(self::handler('php://stderr', Level::Error, 'production'));
 
         return $logger;
     }
 
-    /**
-     * Create command/query logger for CQRS operations
-     */
+    /** Command and query processing (OPS-01). */
     public static function createCqrsLogger(string $environment = 'development'): LoggerInterface
     {
-        $logger = new Logger('cqrs');
+        return self::streamLogger('cqrs', $environment);
+    }
 
-        $logPath = __DIR__ . '/../../../var/log';
-        if (!is_dir($logPath)) {
-            mkdir($logPath, 0755, true);
-        }
+    /**
+     * Two handlers rather than one: anything from warning upwards belongs on
+     * stderr, so a runtime that separates the two streams - and most do - keeps
+     * complaints apart from routine chatter without having to parse anything.
+     *
+     * The push order is the part that is easy to get backwards. Monolog calls
+     * handlers in reverse: the one pushed *last* runs *first*. So stderr goes
+     * on last, and it stops the record from bubbling - otherwise a warning
+     * would be written twice, and pushing them the other way round would send
+     * warnings to stdout and never reach stderr at all.
+     */
+    private static function streamLogger(string $channel, string $environment): LoggerInterface
+    {
+        $logger = new Logger($channel);
 
-        if ($environment === 'production') {
-            // In production, only log important operations
-            $handler = new RotatingFileHandler(
-                $logPath . '/cqrs.log',
-                7,
-                Level::Info
-            );
-        } else {
-            // In development, log everything
-            $handler = new StreamHandler(
-                $logPath . '/cqrs.log',
-                Level::Debug
-            );
-        }
+        $floor = $environment === 'production' ? Level::Info : Level::Debug;
 
-        $formatter = new LineFormatter(
-            "[%datetime%] %level_name%: %message% %context%\n",
-            'Y-m-d H:i:s',
-            true,
-            true
-        );
-        $handler->setFormatter($formatter);
+        $stderr = self::handler('php://stderr', Level::Warning, $environment);
+        $stderr->setBubble(false);
 
-        $logger->pushHandler($handler);
+        $logger->pushHandler(self::handler('php://stdout', $floor, $environment));
+        $logger->pushHandler($stderr);
 
         return $logger;
+    }
+
+    private static function handler(string $stream, Level $level, string $environment): StreamHandler
+    {
+        $handler = new StreamHandler($stream, $level);
+
+        $handler->setFormatter(
+            $environment === 'production'
+                ? new JsonFormatter()
+                : new LineFormatter(
+                    "[%datetime%] %channel%.%level_name%: %message% %context%\n",
+                    'Y-m-d H:i:s',
+                    true,
+                    true
+                )
+        );
+
+        return $handler;
     }
 }

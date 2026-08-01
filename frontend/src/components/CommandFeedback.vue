@@ -10,45 +10,50 @@
     v-else-if="command.result"
     class="state success feedback"
   >
-    <p>
-      Angenommen.
-      <template v-if="command.result.resourceId">
-        Neue ID: <strong>#{{ command.result.resourceId }}</strong>.
-      </template>
-    </p>
-    <p class="small">
-      Command <code>{{ command.result.commandId }}</code> —
-      <router-link :to="{ name: 'Operations', query: { commandId: command.result.commandId } }">
-        Verarbeitungsstand ansehen
-      </router-link>
-    </p>
+    Angenommen.<template v-if="showId">
+      Neue ID: <strong>#{{ command.result.resourceId }}</strong>.
+    </template>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 /**
- * The answer to a command, in the shape the API actually sends it.
+ * The answer to a command, reduced to the two things the person who pressed the
+ * button needs: did it work, and if not, what went wrong.
  *
- * `commandId` is worth showing rather than swallowing: it is the only handle a
- * caller has on `GET /commands/{id}`, and an idempotent retry looks up its
- * original result by exactly that id.
+ * The `commandId` used to be printed here on every write, with a link to the
+ * processing state. It is the handle for `GET /commands/{id}` and genuinely
+ * useful - to whoever is reading a log, not to whoever is booking a fee. It
+ * goes to the container's output now, next to the actor and the outcome (see
+ * Kernel::executeCommand).
+ *
+ * The resource id stays, but only where the caller has to act on it: after
+ * creating a participant it has to be entered into the realm by hand as their
+ * `participant_id`, so hiding it would cost a lookup. Everywhere else it is a
+ * number nobody types.
  */
-defineProps({
+const props = defineProps({
   command: {
     type: Object,
     required: true
+  },
+
+  /** Set where a newly created id is something the caller needs. */
+  showResourceId: {
+    type: Boolean,
+    default: false
   }
 })
+
+const showId = computed(
+  () => props.showResourceId && Boolean(props.command.result?.resourceId)
+)
 </script>
 
 <style scoped>
 .feedback {
   margin-top: 1rem;
-}
-
-.small {
-  font-size: 0.8125rem;
-  margin-top: 0.375rem;
-  opacity: 0.85;
 }
 </style>

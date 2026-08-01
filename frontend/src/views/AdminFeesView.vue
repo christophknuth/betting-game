@@ -203,10 +203,11 @@
         <span class="hint">Beim Erlass einer Gebühr erforderlich.</span>
       </div>
 
-      <p class="state note">
-        Wer gebucht hat, nimmt die API aus dem Token — der Client kann niemanden
-        anderes als Buchenden eintragen.
-      </p>
+      <!--
+        Gone: an explanation that the API takes the booking user from the token
+        rather than from the client. True, and a property of the security model
+        rather than anything the person booking a payment decides.
+      -->
 
       <div class="actions">
         <button

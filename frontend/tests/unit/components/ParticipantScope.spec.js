@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
@@ -29,22 +29,31 @@ import { useAuthStore } from '@/stores/auth'
 describe('ParticipantScope', () => {
   let pinia
 
+  function mountScope() {
+    return mount(ParticipantScope, {
+      global: { plugins: [pinia] },
+      slots: { default: '<p id="content">bet row data</p>' }
+    })
+  }
+
   beforeEach(() => {
     pinia = createPinia()
     setActivePinia(pinia)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('renders the slot when the token carries a participant_id', () => {
     const store = useAuthStore()
     store.participantId = 7
 
-    const wrapper = mount(ParticipantScope, {
-      global: { plugins: [pinia] },
-      slots: { default: '<p id="content">bet row data</p>' }
-    })
+    const wrapper = mountScope()
 
     expect(wrapper.find('#content').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('participant_id')
+    expect(console.warn).not.toHaveBeenCalled()
   })
 
   it('shows a note instead of the slot when participant_id is missing', () => {
@@ -52,38 +61,44 @@ describe('ParticipantScope', () => {
     store.participantId = null
     store.roles = ['user']
 
-    const wrapper = mount(ParticipantScope, {
-      global: { plugins: [pinia] },
-      slots: { default: '<p id="content">bet row data</p>' }
-    })
+    const wrapper = mountScope()
 
     expect(wrapper.find('#content').exists()).toBe(false)
-    expect(wrapper.text()).toContain('participant_id')
+    expect(wrapper.text()).toContain('Administrator')
   })
 
-  it('adds the realm-configuration hint only when the token has no roles either', () => {
-    const store = useAuthStore()
-    store.participantId = null
-    store.roles = []
-
-    const wrapper = mount(ParticipantScope, {
-      global: { plugins: [pinia] },
-      slots: { default: '<p id="content">bet row data</p>' }
-    })
-
-    expect(wrapper.text()).toContain('Client Scopes')
-  })
-
-  it('omits the realm-configuration hint when roles are present', () => {
+  it('keeps the diagnosis out of the interface and puts it in the console', () => {
+    // The panel used to name the missing claim and the realm's client scopes.
+    // Neither is something the person reading it can act on - the fix is an
+    // attribute only an administrator can set - so the interface says that, and
+    // the detail goes where someone debugging will look.
     const store = useAuthStore()
     store.participantId = null
     store.roles = ['user']
 
-    const wrapper = mount(ParticipantScope, {
-      global: { plugins: [pinia] },
-      slots: { default: '<p id="content">bet row data</p>' }
-    })
+    const wrapper = mountScope()
 
-    expect(wrapper.text()).not.toContain('Client Scopes')
+    expect(wrapper.text()).not.toContain('participant_id')
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('participant_id'))
+  })
+
+  it('blames the realm rather than the user when the token has no roles either', () => {
+    const store = useAuthStore()
+    store.participantId = null
+    store.roles = []
+
+    mountScope()
+
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('client scopes'))
+  })
+
+  it('does not blame the realm when roles are present', () => {
+    const store = useAuthStore()
+    store.participantId = null
+    store.roles = ['user']
+
+    mountScope()
+
+    expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('client scopes'))
   })
 })

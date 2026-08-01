@@ -26,6 +26,8 @@ use BettingGame\Presentation\Http\Request;
 use BettingGame\Presentation\Router\Router;
 use BettingGame\Tests\Integration\Application\ApplicationTestCase;
 use BettingGame\Tests\Support\SigningKey;
+use Monolog\Handler\TestHandler;
+use Monolog\Logger;
 use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
 
@@ -43,9 +45,14 @@ abstract class HttpTestCase extends ApplicationTestCase
 
     protected Kernel $kernel;
 
+    /** Everything the kernel logged during a test. */
+    protected TestHandler $logRecords;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->logRecords = new TestHandler();
 
         $controllers = [
             'BettingGame\Presentation\Controller\HealthController' => new HealthController(),
@@ -116,7 +123,12 @@ abstract class HttpTestCase extends ApplicationTestCase
                 new NullLogger()
             ),
             new ErrorMapper(true),
-            $this->commandLog
+            $this->commandLog,
+            // Captured rather than silenced: what the kernel logs about a
+            // command is now the only record of it outside the database, since
+            // the interface stopped printing command ids. CommandLoggingTest
+            // asserts on exactly these records.
+            new Logger('test', [$this->logRecords])
         );
     }
 
@@ -130,7 +142,7 @@ abstract class HttpTestCase extends ApplicationTestCase
      *
      * @param list<string> $roles
      */
-    protected function token(?int $participantId, array $roles = []): string
+    protected function token(?int $participantId, array $roles = [], string $username = 'tester'): string
     {
         return SigningKey::shared()->token([
             'iss' => self::ISSUER,
@@ -138,7 +150,7 @@ abstract class HttpTestCase extends ApplicationTestCase
             'exp' => time() + 3600,
             'iat' => time(),
             'participant_id' => $participantId,
-            'preferred_username' => 'tester',
+            'preferred_username' => $username,
             'realm_access' => ['roles' => $roles],
         ]);
     }

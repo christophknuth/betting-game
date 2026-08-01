@@ -81,7 +81,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # has to belong to the user the server runs as. A deployment that mounts a
 # volume here has to match that ownership - the entrypoint checks and refuses
 # to start rather than failing later as a 500 on every authenticated route.
-RUN mkdir -p var/cache var/log var/caddy/config var/caddy/data \
+# No var/log: the loggers write to stdout and stderr, so the container's output
+# is the log and nothing here has to be collected from a filesystem afterwards.
+RUN mkdir -p var/cache var/caddy/config var/caddy/data \
     && chown -R www-data:www-data var
 
 # Caddy keeps its autosaved config and certificate storage under the XDG

@@ -412,6 +412,12 @@ tables, a route without the `command` flag, a controller method with
   `membership` events referring to them fail on the foreign key, which takes the whole
   rebuild down with them. On a database seeded that way, rebuild from
   `tipp_year_read_model` instead and leave the participants alone.
+- **The interface answers two questions; the log carries the rest.** Did it work, and if
+  not what can the reader do about it. Command ids, the rule a rejection tripped, HTTP
+  status codes and how something is computed belong in the container's output, which is
+  where the `Kernel` puts them. The test for a sentence on screen: does it change what the
+  reader *does*? Browser-side diagnostics go to the console — nothing in the SPA can reach
+  the container log without an endpoint that would have to work before login.
 - **A container definition may not capture the outer scope.** `APP_ENV=production` makes
   PHP-DI compile the container, and it cannot compile a closure that imports a variable —
   the whole bootstrap dies with *"Cannot compile closures which import variables using the

@@ -9,6 +9,7 @@ use BettingGame\Infrastructure\Auth\AuthMiddleware;
 use BettingGame\Presentation\Router\Router;
 use FastRoute\Dispatcher;
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use RuntimeException;
 use Throwable;
@@ -30,7 +31,8 @@ final class Kernel
         private Router $router,
         private AuthMiddleware $auth,
         private ErrorMapper $errors,
-        private CommandLogRepositoryInterface $commandLog
+        private CommandLogRepositoryInterface $commandLog,
+        private LoggerInterface $logger
     ) {
     }
 
@@ -106,6 +108,11 @@ final class Kernel
         $commandId = Uuid::uuid4()->toString();
 
         if (!$this->commandLog->claim($commandId, $commandType, $idempotencyKey)) {
+            $this->logger->info('Command replayed from its idempotency key', [
+                'command' => $commandType,
+                'actor' => $this->actor($request),
+            ]);
+
             return $this->replay($idempotencyKey);
         }
 
@@ -114,6 +121,19 @@ final class Kernel
         } catch (Throwable $e) {
             $mapped = $this->errors->toResponse($e);
             $this->commandLog->markFailed($commandId, $mapped->statusCode(), $e->getMessage());
+
+            // Warning, not error: a rejected command is usually a business rule
+            // doing its job - a second running tipp year, a duplicate bet row -
+            // and the interface deliberately no longer explains which. This is
+            // where that goes, with the reason intact.
+            $this->logger->warning('Command rejected', [
+                'command' => $commandType,
+                'commandId' => $commandId,
+                'actor' => $this->actor($request),
+                'status' => $mapped->statusCode(),
+                'reason' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
 
             return $mapped;
         }
@@ -131,7 +151,32 @@ final class Kernel
             is_int($resourceId) ? $resourceId : null
         );
 
+        // The commandId used to be printed into the interface on every write,
+        // where it meant nothing to the person reading it. It belongs here: the
+        // handle for GET /commands/{id}, next to who did what and to which
+        // resource.
+        $this->logger->info('Command accepted', [
+            'command' => $commandType,
+            'commandId' => $commandId,
+            'actor' => $this->actor($request),
+            'status' => $response->statusCode(),
+            'resourceId' => is_int($resourceId) ? $resourceId : null,
+        ]);
+
         return $response;
+    }
+
+    /**
+     * Who issued this, for the log.
+     *
+     * The username from the verified token - an assertion by Keycloak, not by
+     * the caller. Absent only on the public route, which is not a command.
+     */
+    private function actor(Request $request): string
+    {
+        $username = $request->attribute('username');
+
+        return is_string($username) ? $username : 'anonymous';
     }
 
     /**

@@ -81,9 +81,11 @@
         </div>
       </div>
 
-      <p class="state note">
-        Ein doppeltes Ziehungsdatum wird mit 409 abgelehnt.
-      </p>
+      <!--
+        The note that used to stand here explained that a duplicate draw date is
+        rejected. If it happens, the error message says so - announcing it in
+        advance is a rule nobody can act on while filling the form.
+      -->
       <div
         v-if="numbersError"
         class="state error"
