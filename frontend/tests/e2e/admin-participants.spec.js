@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAs, navigateTo } from './fixtures'
+import { loginAs, navigateTo, enterAdmin } from './fixtures'
 
 /**
  * B-21: creating a participant through the UI.
@@ -14,6 +14,7 @@ test.describe('admin creates a participant (B-21)', () => {
     const name = `E2E Person ${Date.now()}`
 
     await loginAs(page, 'admin', 'admin123')
+    await enterAdmin(page)
     await navigateTo(page, 'Teilnehmer', '/admin/participants')
 
     await page.locator('#displayName').fill(name)
@@ -34,6 +35,7 @@ test.describe('admin creates a participant (B-21)', () => {
     const name = `E2E Pick ${Date.now()}`
 
     await loginAs(page, 'admin', 'admin123')
+    await enterAdmin(page)
     await navigateTo(page, 'Teilnehmer', '/admin/participants')
 
     await page.locator('#displayName').fill(name)
@@ -42,7 +44,7 @@ test.describe('admin creates a participant (B-21)', () => {
 
     // The point of the list endpoint: the bet-row view used to ask for a raw
     // participant id, which meant knowing it by heart.
-    await navigateTo(page, 'Reihen', '/admin/bet-rows')
+    await navigateTo(page, 'Tippreihen', '/admin/bet-rows')
 
     await expect(page.locator('#participantId')).toContainText(name)
   })

@@ -12,15 +12,22 @@ test.describe('authentication and role gating', () => {
 
     await expect(page).toHaveURL(/\/bet-row$/)
 
-    await page.getByRole('link', { name: 'Tippjahre' }).click()
+    // The admin area sits behind its own layout, and this link is the only way
+    // in. /admin itself redirects onto the tipp years.
+    await page.getByRole('link', { name: 'Verwaltung' }).click()
     await expect(page).toHaveURL(/\/admin\/tipp-years$/)
+
+    // Arrived in the other area, not merely at another URL: the participant
+    // navigation is gone and the admin sidebar has taken its place.
+    await expect(page.getByRole('link', { name: 'Meine Reihe' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Betrieb' })).toBeVisible()
   })
 
   test('a non-admin participant cannot reach an admin route (B-17)', async ({ page }) => {
     await loginAs(page, 'testuser', 'test123')
 
-    // No admin nav links are offered - this part is meaningful on its own.
-    await expect(page.getByRole('link', { name: 'Tippjahre' })).toHaveCount(0)
+    // The door is not even shown - this part is meaningful on its own.
+    await expect(page.getByRole('link', { name: 'Verwaltung' })).toHaveCount(0)
 
     // Typing the URL lands back on /bet-row and never renders the admin view.
     // Meaningful on its own now that deep links survive a reload: a

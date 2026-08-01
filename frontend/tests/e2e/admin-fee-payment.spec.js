@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAs, navigateTo, readFixture } from './fixtures'
+import { loginAs, navigateTo, enterAdmin, readFixture } from './fixtures'
 
 /**
  * B-07 through the real UI, not just a read: books a payment for the fee
@@ -17,9 +17,12 @@ test.describe('admin books a fee payment (B-07)', () => {
 
     await loginAs(page, 'admin', 'admin123')
 
-    // An admin sees two "Gebühren" links - their own fees and the admin view.
-    // The admin one carries the gear suffix.
-    await navigateTo(page, /Gebühren\s*⚙/, '/admin/fees')
+    // Inside the admin layout "Gebühren" is unambiguous: the participant's own
+    // fees live in the other area, under its own navigation. Before the split
+    // both sat in one bar and this had to match a gear suffix to tell them
+    // apart.
+    await enterAdmin(page)
+    await navigateTo(page, 'Gebühren', '/admin/fees')
 
     await page.locator('#tippYearId').fill(String(tippYearId))
     await page.locator('#participantId').fill('1')
