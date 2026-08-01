@@ -4,16 +4,17 @@ Analysis, state of implementation and use of the PHP-FIG standards in this proje
 
 > ⚠️ **A note before reading:** not every implemented interface already has a user.
 > `CacheInterface` is used in production by [KeycloakKeys](src/Infrastructure/Auth/KeycloakKeys.php)
-> (the JWKS cache), `LoggerInterface` only by
-> [AuthMiddleware](src/Infrastructure/Auth/AuthMiddleware.php). **Command and query
-> handlers, controllers and repositories use neither logger nor cache.** In those places
-> the code examples below show the intended use, not the current state.
+> (the JWKS cache), `LoggerInterface` by
+> [AuthMiddleware](src/Infrastructure/Auth/AuthMiddleware.php) and the
+> [Kernel](src/Presentation/Http/Kernel.php). **Command and query handlers, controllers and
+> repositories use neither logger nor cache.** In those places the code examples below show
+> the intended use, not the current state.
 
 ## State of implementation
 
 | PSR | Topic | Status | Files |
 |-----|-------|--------|-------|
-| PSR-3 | Logger Interface | implemented, one user | `Infrastructure/Logging/LoggerFactory.php` |
+| PSR-3 | Logger Interface | implemented, two users, writes to the container's output | `Infrastructure/Logging/LoggerFactory.php` |
 | PSR-4 | Autoloader | active | `composer.json` |
 | PSR-11 | Container Interface | implemented, used everywhere | `Infrastructure/DI/PsrContainer.php` |
 | PSR-12 | Coding Style | applied | `src`, `tests`, `public`, `config` |
@@ -32,8 +33,7 @@ src/Infrastructure/
     ├── Container.php              # container definitions
     └── PsrContainer.php           # PSR-11 adapter (+ Container[NotFound]Exception)
 
-var/cache/    # cache files
-var/log/      # log files
+var/cache/    # cache files (the compiled DI container, the JWKS cache)
 
 tests/Unit/Infrastructure/FileCacheTest.php
 ```
@@ -95,15 +95,27 @@ composer cs-fix       # phpcbf --standard=PSR12 src tests public config
 
 `LoggerFactory` creates four preconfigured loggers on top of Monolog:
 
-| Logger | Log file | Purpose |
-|--------|----------|---------|
-| `createApplicationLogger()` | `var/log/app.log` | general application logging |
-| `createEventStoreLogger()` | `var/log/event-store.log` | event sourcing operations |
-| `createErrorLogger()` | `var/log/error.log` | critical errors |
-| `createCqrsLogger()` | `var/log/cqrs.log` | command/query processing |
+| Logger | Channel | Purpose |
+|--------|---------|---------|
+| `createApplicationLogger()` | `betting-game` | general application logging |
+| `createEventStoreLogger()` | `event-store` | event sourcing operations |
+| `createErrorLogger()` | `errors` | critical errors |
+| `createCqrsLogger()` | `cqrs` | command/query processing |
 
-Development uses a stream handler at DEBUG level, production a rotating file handler with a
-higher threshold. Controlled through `APP_ENV` respectively `config('environment')`.
+**Everything goes to the container's output**, not to a file. They used to write into
+`var/log/*.log` with a rotating handler, which in a container is the wrong end: the files
+sit in a filesystem nobody looks at, `docker-compose logs` shows nothing, and rotation
+duplicates what the runtime already does.
+
+Records from `warning` upwards go to **stderr**, the rest to **stdout**, so a runtime that
+separates the two keeps complaints apart from routine chatter. The format follows the
+environment: JSON in production, because something is going to parse it, and a readable
+line in development, because a person is. The floor is `info` in production and `debug`
+otherwise.
+
+> The push order in `streamLogger()` is worth reading before changing: Monolog calls
+> handlers in reverse, so stderr is pushed *last* to run *first*, and it stops the record
+> bubbling. Pushed the other way round, warnings would go to stdout and never reach stderr.
 
 ### Log levels (RFC 5424)
 
@@ -111,8 +123,29 @@ higher threshold. Controlled through `APP_ENV` respectively `config('environment
 
 ### Use
 
-Currently only `AuthMiddleware` writes – rejected tokens and unreachable key sources. This
-is how it would be intended in a command handler:
+Two places write today. `AuthMiddleware` records rejected tokens and unreachable key
+sources, and the [`Kernel`](src/Presentation/Http/Kernel.php) records every command:
+
+```json
+{"message":"Command accepted","context":{"command":"AdminParticipantController::create",
+ "commandId":"3b355714-…","actor":"admin","status":202,"resourceId":49},"level_name":"INFO"}
+
+{"message":"Command rejected","context":{"command":"AdminParticipantController::create",
+ "commandId":"9a4d6ae5-…","actor":"admin","status":400,
+ "reason":"Display name must be at least 2 characters",
+ "exception":"…\\InvalidArgumentException"},"level_name":"WARNING"}
+```
+
+That is deliberate division of labour with the interface. The `commandId` used to be
+printed under every write in the SPA, where it meant nothing to the person reading it; a
+rejected business rule was explained on screen in terms of the rule. Both now go here,
+where whoever is diagnosing something will look, and the interface says only whether it
+worked. `CommandLoggingTest` pins the three outcomes down.
+
+A rejection is a **warning**, not an error: a business rule saying no is that rule doing its
+job.
+
+This is how the logger would be intended in a command handler, which still does not use it:
 
 ```php
 use Psr\Log\LoggerInterface;

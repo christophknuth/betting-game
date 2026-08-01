@@ -237,6 +237,32 @@ The API describes commands as asynchronous, the implementation writes synchronou
 time the `202` arrives, event store and read models are already up to date. The admin views
 reload immediately afterwards — not a race, but the consequence of that.
 
+## What the interface says, and what it does not
+
+The interface answers two questions and stops there: **did it work**, and if not, **what
+can I do about it**. Everything else moved into the container's log.
+
+What went, and where:
+
+| Was on screen | Now |
+|---|---|
+| The `commandId` under every write, linked to its processing state | `Kernel` logs it with the actor, the outcome and the resource id |
+| Why a business rule refused, in terms of the rule | The message stays; the rule, the exception and the actor are logged |
+| `participant_id` claim missing, and the realm's client scopes | One sentence the person can act on; the diagnosis goes to the browser console |
+| How the ticket cost is split, that the correction lives in the event history, which status codes an endpoint answers | Gone. Documented here, not in the product |
+
+The line is whether a sentence changes what the reader *does*. "Laufen darf immer nur ein
+Tippjahr" does, and stayed. "Die Rundungsdifferenz geht auf den ersten Anteil" does not.
+
+The resource id survives in exactly one place — after creating a participant, because it
+has to be typed into the realm as their `participant_id`. `CommandFeedback` takes
+`show-resource-id` for that, and shows nothing otherwise.
+
+**Browser diagnostics stay in the browser.** Nothing in a SPA can reach the container's log
+without being shipped to the server, and a route that accepts log lines has to be reachable
+before login — which makes it a write handle on your logs for anyone. The events worth
+having are server-side anyway.
+
 ## Error handling
 
 `services/errors.js` shows the `message` from the API response rather than the axios one:

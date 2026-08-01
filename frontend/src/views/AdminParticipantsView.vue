@@ -38,12 +38,19 @@
       </div>
 
       <p class="state note">
-        Es wird kein Benutzerkonto verknüpft. Die Identität kommt aus dem Keycloak-Token;
-        damit jemand seine eigenen Daten sieht, muss die hier vergebene Teilnehmer-ID im
-        Realm als <code>participant_id</code>-Attribut hinterlegt werden.
+        Damit jemand seine eigenen Daten sieht, muss die hier vergebene ID im Keycloak-Realm
+        als Attribut <code>participant_id</code> beim Benutzer eingetragen werden.
       </p>
 
-      <CommandFeedback :command="command" />
+      <!--
+        The one place the new id is worth showing: it has to be entered into
+        the realm by hand as the user's participant_id, or they see nobody's
+        data (E1-01 would close that).
+      -->
+      <CommandFeedback
+        :command="command"
+        show-resource-id
+      />
     </form>
   </div>
 

@@ -6,6 +6,53 @@ what was changed when, and why.
 
 ---
 
+## The interface says less, the log says more (2026-08-01)
+
+**The interface explained itself to people who had not asked.** Every write printed its
+`commandId` with a link to the processing state. Forms carried paragraphs about the event
+history, which status code an endpoint answers, that the rounding difference goes onto the
+first share. A participant whose token lacked a `participant_id` claim was told exactly
+that, plus a note about the realm's client scopes.
+
+All of it true; none of it anything the reader could act on. It now answers two questions —
+did it work, and if not what can I do — and the rest goes to the container's log.
+
+**Which first had to be able to reach the container's log at all.** `LoggerFactory` wrote
+into `var/log/*.log` with a rotating handler, so `docker-compose logs` showed nothing and
+rotation duplicated what the runtime already does. Everything goes to stdout now, warnings
+and worse to stderr, JSON in production and a readable line in development.
+
+The `Kernel` logs every command, which is where the `commandId` went:
+
+```json
+{"message":"Command accepted","context":{"command":"AdminParticipantController::create",
+ "commandId":"3b355714-…","actor":"admin","status":202,"resourceId":49},"level_name":"INFO"}
+
+{"message":"Command rejected","context":{"actor":"admin","status":400,
+ "reason":"Display name must be at least 2 characters"},"level_name":"WARNING"}
+```
+
+A rejection is a **warning**, not an error — a business rule saying no is that rule doing
+its job. An idempotent replay is logged too, or a retry storm would be invisible.
+
+The line for what stays on screen is whether a sentence changes what the reader *does*.
+"Laufen darf immer nur ein Tippjahr" does, and stayed. The resource id survives in exactly
+one place: after creating a participant, because it has to be typed into the realm as their
+`participant_id`.
+
+**Browser diagnostics deliberately stay in the browser.** Nothing in a SPA reaches the
+container's log without being shipped to the server, and an endpoint that accepts log lines
+has to work before login — which makes it a write handle on the log for anyone who finds
+it. The events worth having are server-side anyway. What the participant panel used to
+display now goes to the console instead.
+
+Verified by building the production image and driving two commands through it, one accepted
+and one rejected, then reading them back out of `podman logs`. Plus PHPStan level 10,
+phpcs, PHPUnit 409 including the new `CommandLoggingTest`, ESLint, Vitest 94 and Playwright
+12/12.
+
+---
+
 ## One image for production, and production mode made to work (2026-08-01)
 
 **Caddy now serves the SPA too**, which was the actual question: same origin, `/api/*` to

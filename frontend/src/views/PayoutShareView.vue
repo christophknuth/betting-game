@@ -98,9 +98,8 @@
           v-if="!distributed"
           class="state note"
         >
-          Solange die Ausschüttung nicht gebucht ist, gibt es keinen Anteil, sondern nur
-          diesen Zwischenstand. Er wird genauso gerechnet wie die spätere Ausschüttung und
-          bewegt sich mit jeder weiteren Ziehung.
+          Solange die Ausschüttung nicht gebucht ist, ist das nur ein Zwischenstand — er
+          ändert sich mit jeder weiteren Ziehung.
         </p>
       </div>
     </template>

@@ -88,9 +88,8 @@
       </dl>
 
       <p class="state note">
-        Ändern kann die Reihe nur der Administrator. Regulär wechselt sie mit der nächsten
-        Periode; eine Korrektur innerhalb der laufenden Periode verlangt einen Grund und
-        steht danach in der Event-Historie.
+        Ändern kann die Reihe nur der Administrator; regulär wechselt sie mit der nächsten
+        Periode.
       </p>
     </div>
   </ParticipantScope>

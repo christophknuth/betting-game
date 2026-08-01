@@ -152,11 +152,9 @@
       v-if="tippYears.length"
       class="state note"
     >
-      Der Status ist frei wählbar, auch rückwärts — ein zu früh geschlossenes Jahr muss
-      sich wieder öffnen lassen, und diese Korrektur gehört in die Event-Historie statt in
-      die Datenbank. <strong>Laufen darf immer nur ein Tippjahr.</strong> Nur ein
-      <code>running</code> Jahr nimmt Tippscheine an; ausgeschüttet wird nur aus
-      <code>closed</code> heraus.
+      <strong>Laufen darf immer nur ein Tippjahr.</strong> Nur ein laufendes nimmt
+      Tippscheine an, ausgeschüttet wird nur aus einem abgeschlossenen. Der Status lässt
+      sich jederzeit auch zurücksetzen.
     </p>
   </template>
 
@@ -279,17 +277,16 @@
           einem laufenden Tippjahr angenommen — siehe die Checkliste oben.
         </p>
         <p class="state note">
-          Der Schein bündelt alle Reihen mit aktiver Teilnahme als Snapshot und erzeugt je
-          Teilnehmer eine Gebühr. Eine spätere Korrektur einer Reihe ändert ihn nicht mehr.
+          Der Schein übernimmt alle Reihen mit aktiver Teilnahme und erzeugt je Teilnehmer
+          eine Gebühr. Eine spätere Korrektur einer Reihe ändert ihn nicht mehr.
         </p>
         <p
           v-if="applicableFee !== null"
           class="state note"
         >
           Für diesen Zeitraum gilt das <strong>{{ applicableFee.label }}</strong>
-          Bearbeitungsentgelt von {{ formatAmount(applicableFee.amount) }}. Es fällt einmal
-          je Schein an und wird zusammen mit den Reihenkosten cent-genau auf die Teilnehmer
-          aufgeteilt.
+          Bearbeitungsentgelt von {{ formatAmount(applicableFee.amount) }} — einmal je
+          Schein, zusätzlich zu den Reihenkosten.
         </p>
         <button
           class="btn-primary"
@@ -321,10 +318,9 @@
           Ja, ausschütten — die Buchung ist nicht rücknehmbar.
         </label>
         <p class="state note">
-          Summiert alle Scheingewinne des Jahres und teilt sie gleichmäßig auf die
-          Teilnehmer auf, unabhängig davon, wie viele Perioden jemand bezahlt hat. Die
-          Rundungsdifferenz geht auf den ersten Anteil. Solange das Tippjahr nicht
-          <code>closed</code> ist, antwortet der Endpunkt mit 409.
+          Alle Gewinne des Jahres werden gleichmäßig auf die Teilnehmer verteilt —
+          unabhängig davon, wie viele Perioden jemand bezahlt hat. Möglich erst, wenn das
+          Tippjahr abgeschlossen ist.
         </p>
         <button
           class="btn-danger"
