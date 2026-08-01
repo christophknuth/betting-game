@@ -72,14 +72,18 @@ frontend/
 │   │   └── AdminOperationsView.vue    # OPS-01, OPS-03, OPS-04
 │   ├── components/
 │   │   ├── CommandFeedback.vue        # a command's response including commandId
-│   │   └── ParticipantScope.vue       # note shown when the token lacks participant_id
-│   ├── composables/useCommand.js      # command/query state, idempotency key
+│   │   ├── ParticipantScope.vue       # note shown when the token lacks participant_id
+│   │   ├── TippYearSetupWizard.vue    # B-10 → B-14 → B-11 → B-18, guided
+│   │   └── TippYearChecklist.vue      # what an existing tipp year still needs
+│   ├── composables/useCommand.js      # command/query state, idempotency key, batches
 │   ├── services/
 │   │   ├── api.js                     # axios client, one method per route
 │   │   ├── errors.js                  # error message out of the API response
 │   │   └── keycloak.js                # keycloak-js wrapper
 │   ├── stores/auth.js                 # Pinia auth store
-│   ├── support/format.js              # money, dates, lotto numbers, status labels
+│   ├── support/
+│   │   ├── format.js                  # money, dates, lotto numbers, status labels
+│   │   └── betPeriods.js              # period templates and the B-14 rules
 │   ├── assets/app.css                 # shared design system
 │   ├── router/index.js
 │   ├── App.vue
@@ -195,7 +199,7 @@ keycloak-js 26, Vite 8.
 
 ## Open points
 
-- Vitest (`tests/unit/`, 61 tests) and Playwright (`tests/e2e/`, 10 tests against the real
+- Vitest (`tests/unit/`, 80 tests) and Playwright (`tests/e2e/`, 12 tests against the real
   stack) are green. See [FRONTEND.md](../FRONTEND.md), section "Testing".
 - No TypeScript.
 - Linking a participant to their Keycloak account is still manual: `POST /admin/participants`

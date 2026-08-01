@@ -61,6 +61,80 @@ export function useCommand() {
 }
 
 /**
+ * Several commands of the same kind, sent one after another.
+ *
+ * The API creates one bet period and one membership per call, so a template of
+ * twelve months is twelve commands. Two things that a plain loop gets wrong:
+ *
+ * It **stops at the first failure** instead of pushing on. If period three
+ * overlaps, periods four to twelve are built on an assumption that no longer
+ * holds, and finishing the run would leave a half-filled year nobody asked
+ * for. What was written stays written - the run reports how far it got.
+ *
+ * A retry **only sends what is left**. Items already accepted are remembered,
+ * so pressing the button again after fixing the cause does not attempt them a
+ * second time and collect 409s for work that succeeded.
+ *
+ * Each item gets its own idempotency key, for the same reason one form does:
+ * a key left over from one item must not answer for another (OPS-02).
+ */
+export function useBatch() {
+  const pending = ref(false)
+  const error = ref(null)
+  const completed = ref(0)
+  const total = ref(0)
+
+  const keys = new Map()
+  let doneUpTo = 0
+
+  async function run(items, send) {
+    pending.value = true
+    error.value = null
+    total.value = items.length
+
+    try {
+      for (let index = doneUpTo; index < items.length; index++) {
+        completed.value = index
+
+        if (!keys.has(index)) {
+          keys.set(index, crypto.randomUUID())
+        }
+
+        try {
+          await send(items[index], keys.get(index))
+        } catch (e) {
+          error.value = apiMessage(e)
+
+          if (hasResponse(e)) {
+            keys.delete(index)
+          }
+
+          return false
+        }
+
+        doneUpTo = index + 1
+      }
+
+      completed.value = items.length
+
+      return true
+    } finally {
+      pending.value = false
+    }
+  }
+
+  function reset() {
+    error.value = null
+    completed.value = 0
+    total.value = 0
+    doneUpTo = 0
+    keys.clear()
+  }
+
+  return reactive({ pending, error, completed, total, run, reset })
+}
+
+/**
  * The read-side counterpart: load a query, keep loading and error next to it.
  *
  * Queries need none of the idempotency machinery above - a GET may be repeated

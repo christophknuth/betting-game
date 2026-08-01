@@ -6,6 +6,47 @@ what was changed when, and why.
 
 ---
 
+## Setting up a tipp year is guided now (2026-08-01)
+
+**The order was invisible and the forms did not help.** A tipp year is only usable once four
+things have happened in sequence — the year exists (B-10), it has periods (B-14), it has
+members (B-11), and it is `running` (B-18) — but the page showed five forms stacked on top of
+each other with nothing to say which came first. Twelve monthly periods meant twelve
+submissions with hand-computed dates, and every slip came back as a `409` from the overlap
+rule.
+
+- **`TippYearSetupWizard`** walks a new year through the four steps, writing as it goes.
+- **`TippYearChecklist`** shows an existing year what it is still missing, with the matching
+  action inline — otherwise adding a member mid-year would have had nowhere to happen.
+- Ticket (B-12) and distribution (B-13) moved into a **Laufender Betrieb** section. They are
+  monthly and yearly operations, not setup, and standing in the same stack was what made the
+  page read as a pile of unrelated fields.
+
+**Periods are computed rather than typed.** `support/betPeriods.js` turns a template — whole
+year, halves, quarters, months — into periods that tile the year exactly: first day to last,
+each beginning the day after its predecessor ends. That tiling is the invariant the tests
+check, not any individual date.
+
+The period *count* is derived, not fixed. A tipp year is a freely defined range, so
+"quarters" over an eighteen-month year is six periods; and the names describe what the dates
+cover (`Jan–Mär 2027`) instead of claiming an ordinal (`Q1`) the range does not support.
+
+**Twelve periods are twelve commands**, which needed its own composable. `useBatch` stops at
+the first failure instead of pushing on — if period three overlaps, four to twelve rest on an
+assumption that no longer holds — keeps what was already written, reports how far it got, and
+on a retry sends only what is left rather than collecting `409`s for work that succeeded.
+Each item carries its own idempotency key (OPS-02).
+
+The checklist repeats the API's three period rules to *explain* them, next to the field
+rather than after a round trip. The aggregate and the unique key still decide.
+
+Verified: ESLint clean, Vitest 80/80 (19 of them on the tiling alone, including leap years
+and ranges that are not calendar years), Vite build clean, Playwright 12/12 against the real
+stack — run three times in a row, since the new spec creates a tipp year of its own and
+repeatability was the thing most likely to break.
+
+---
+
 ## The admin area became its own place (2026-08-01)
 
 **One navigation bar served both roles, and it showed.** `Ziehungen` and `Gebühren` appeared

@@ -197,7 +197,16 @@ export default async function globalSetup() {
   const adminToken = await token('admin', 'admin123')
   const api = command(adminToken)
 
-  const fixture = await seedTippYear(api, await nextFreeYear(adminToken))
+  const calendarYear = await nextFreeYear(adminToken)
+  const fixture = await seedTippYear(api, calendarYear)
 
-  writeFileSync(FIXTURE_PATH, JSON.stringify(fixture, null, 2))
+  // Reserved for the setup wizard spec, which creates a tipp year of its own
+  // through the UI. Handing it a range nothing else uses keeps it from
+  // colliding with the seeded year - tipp years may not overlap. The spec
+  // leaves that year `planned`, so the next run's nextFreeYear simply moves
+  // past it.
+  writeFileSync(
+    FIXTURE_PATH,
+    JSON.stringify({ ...fixture, wizardYear: calendarYear + 1 }, null, 2)
+  )
 }
