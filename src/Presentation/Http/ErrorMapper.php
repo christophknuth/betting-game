@@ -6,6 +6,7 @@ namespace BettingGame\Presentation\Http;
 
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Exception\ConcurrencyException;
+use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Domain\Exception\InvalidArgumentException;
 use BettingGame\Domain\Exception\UnauthorizedAccessException;
@@ -43,8 +44,15 @@ final class ErrorMapper
             // conflict rather than a server fault
             $e instanceof ConcurrencyException => JsonResponse::conflict($e->getMessage()),
 
-            // DuplicateEntryException lands here too - a unique key rejecting a
-            // write is a business rule saying no, not a database malfunction
+            // A unique key rejecting a write is a business rule saying no, not
+            // a database malfunction - but the driver's message names the key,
+            // its columns and the values that collided, so it is replaced by
+            // the rule in words. The original stays on the exception, which is
+            // what the log records.
+            $e instanceof DuplicateEntryException => JsonResponse::conflict(
+                ConstraintMessages::of($e->constraint())
+            ),
+
             $e instanceof BusinessRuleViolationException => JsonResponse::conflict($e->getMessage()),
 
             default => JsonResponse::internalError(

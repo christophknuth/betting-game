@@ -36,13 +36,27 @@ final class Kernel
     ) {
     }
 
+    /**
+     * The one place an error is put into the caller's language.
+     *
+     * At the very edge, and after everything else: the exception, the command
+     * log and the container log keep the English wording, so a log line never
+     * depends on which browser happened to send the request. Wrapping the whole
+     * dispatch rather than the ErrorMapper alone also catches what never
+     * reaches it - a rejected token, an unknown route, a method that is not
+     * allowed - which are error messages as much as a broken rule is.
+     */
     public function handle(Request $request): JsonResponse
     {
+        $language = Translator::preferredLanguage($request->header('Accept-Language'));
+
         try {
-            return $this->dispatch($request);
+            $response = $this->dispatch($request);
         } catch (Throwable $e) {
-            return $this->errors->toResponse($e);
+            $response = $this->errors->toResponse($e);
         }
+
+        return Translator::localise($response, $language);
     }
 
     private function dispatch(Request $request): JsonResponse

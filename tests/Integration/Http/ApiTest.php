@@ -323,12 +323,101 @@ final class ApiTest extends HttpTestCase
         self::assertSame(409, $conflict->statusCode());
         self::assertSame('Conflict', $conflict->data()['error']);
 
+        // B-06 finds the existing row itself rather than letting
+        // uk_participant_period fire, so this is a sentence the handler wrote
+        self::assertStringStartsWith(
+            'This participant already has a row for this bet period.',
+            $conflict->data()['message']
+        );
+
+        // The same rule, asked for in German
+        $german = $this->send(
+            'PUT',
+            '/admin/participants/7/bet-row',
+            $admin,
+            ['betPeriodId' => $betPeriodId, 'numbers' => [1, 2, 3, 4, 5, 6]],
+            ['Accept-Language' => 'de-DE,de;q=0.9,en;q=0.8']
+        );
+
+        self::assertSame(409, $german->statusCode());
+        self::assertStringStartsWith(
+            'Dieser Teilnehmer hat für diese Tippperiode bereits eine Reihe.',
+            $german->data()['message']
+        );
+
         // With a reason it goes through
         self::assertSame(202, $this->send('PUT', '/admin/participants/7/bet-row', $admin, [
             'betPeriodId' => $betPeriodId,
             'numbers' => [1, 2, 3, 4, 5, 6],
             'replaceReason' => 'wrong slip transcribed',
         ])->statusCode());
+    }
+
+    /**
+     * Not every rule is checked before the write. A duplicate draw date is left
+     * to `uk_draw_date`, so the database is what rejects it - and what came
+     * back was the driver's own words, naming the key and the values that
+     * collided, straight into the browser.
+     */
+    public function testAUniqueKeyRejectingAWriteDoesNotReturnTheDriversMessage(): void
+    {
+        $admin = $this->token(1, ['admin']);
+
+        $year = $this->send('POST', '/admin/tipp-years', $admin, [
+            'name' => 'Tippjahr 2026',
+            'startDate' => '2026-01-01',
+            'endDate' => '2026-12-31',
+            'ticketCostPerRow' => 1.20,
+        ]);
+        $tippYearId = $year->data()['resourceId'];
+
+        $draw = ['tippYearId' => $tippYearId, 'drawDate' => '2026-01-07',
+                 'numbers' => [3, 12, 19, 27, 40, 41], 'superzahl' => 7];
+
+        self::assertSame(202, $this->send('POST', '/admin/draws', $admin, $draw)->statusCode());
+
+        $conflict = $this->send('POST', '/admin/draws', $admin, $draw);
+        $message = $conflict->data()['message'];
+
+        self::assertSame(409, $conflict->statusCode());
+        self::assertSame('A draw has already been recorded for this date', $message);
+        self::assertStringNotContainsString('SQLSTATE', $message);
+        self::assertStringNotContainsString('uk_draw_date', $message);
+
+        $german = $this->send('POST', '/admin/draws', $admin, $draw, ['Accept-Language' => 'de']);
+
+        self::assertSame(
+            'Für dieses Datum ist bereits eine Ziehung eingetragen',
+            $german->data()['message']
+        );
+    }
+
+    public function testAnErrorWithoutATranslationStaysEnglish(): void
+    {
+        // French has no catalogue, so the documented fallback applies
+        $response = $this->send(
+            'GET',
+            '/tipp-years/999/draws',
+            $this->token(7),
+            [],
+            ['Accept-Language' => 'fr-FR,fr;q=0.9']
+        );
+
+        self::assertSame(404, $response->statusCode());
+        self::assertSame('Tipp year 999 does not exist', $response->data()['message']);
+    }
+
+    public function testTheNumbersInAMessageSurviveTheTranslation(): void
+    {
+        $response = $this->send(
+            'GET',
+            '/tipp-years/999/draws',
+            $this->token(7),
+            [],
+            ['Accept-Language' => 'de']
+        );
+
+        self::assertSame('Das Tippjahr 999 gibt es nicht', $response->data()['message']);
     }
 
     public function testAMissingEntityIs404(): void
