@@ -133,7 +133,7 @@ abstract class ApplicationTestCase extends IntegrationTestCase
 
     protected function recordDraw(): RecordDrawHandler
     {
-        return new RecordDrawHandler($this->draws, $this->tippYears);
+        return new RecordDrawHandler($this->draws, $this->tippYears, $this->tickets);
     }
 
     protected function recordDrawWinnings(): RecordDrawWinningsHandler

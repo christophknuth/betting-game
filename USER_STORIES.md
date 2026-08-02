@@ -97,6 +97,7 @@ The period length is therefore a **configuration, not an assumption in code**. T
 | **B-07** | As an **administrator** I want to set a participant's payment status for a period, so that the fee situation is correct. | `PUT /admin/fees/{feeId}/payment` | `Fee.payment_status`, `.paid_at`, `.booked_by` | 🟢 ♻️ |
 | **B-08** | As an **administrator** I want to record a draw with its numbers and bonus number. | `POST /admin/draws` | **Draw** | 🟢 |
 | **B-09** | As an **administrator** I want to record the winnings of a draw, so that they feed into the yearly total. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 🟢 |
+| **B-22** | As an **administrator** I want the winning classes of every row of the active ticket to be worked out and stored as soon as I record a draw, so that I can see what the syndicate hit without waiting for the statement. | `POST /admin/draws` | **TicketRowMatch** | 🟢 |
 
 **Acceptance criteria:**
 
@@ -104,6 +105,10 @@ The period length is therefore a **configuration, not an assumption in code**. T
 - B-06: exactly six distinct numbers from 1–49, stored ascending
 - B-08: `409` on a duplicate draw date; numbers and bonus number (0–9) are checked against the same rules
 - B-09: computes the hits per row (**TicketRowMatch**) from `Draw.numbers` and the `TicketRow` snapshots, and sums the ticket's winnings
+- B-22: recording the draw evaluates the rows of the ticket covering its date — every row, not only the winning ones. The amounts stay at `0.00`: what the ticket won is not known yet, and a guessed figure would be indistinguishable from a booked one
+- B-22: the draw stays `drawn`. `evaluated` says the money is booked, and that is what B-13 sums the year from
+- B-22: a draw with no covering ticket is recorded all the same — nothing to evaluate against is not an error, and B-09 catches the evaluation up when the winnings arrive
+- B-22: the evaluation runs on the `TicketRow` snapshots, like B-09, and through the same `WinningsDistribution` — the projection recomputes it on a rebuild, so two implementations would drift apart into different money
 
 ## Implicitly required
 
@@ -324,7 +329,7 @@ model.
 
 | Area | Effect |
 |---|---|
-| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 386 test methods (213 unit, 173 integration) |
+| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 413 test methods (223 unit, 190 integration) |
 | `demo/` | The read-only demo for Prediction/Result disappeared with the change of course and has not been replaced |
 | [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.3.0, 21 paths, 24 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
 | PHPStan level 10, PSR-12 | Unchanged and still met |
@@ -356,6 +361,7 @@ mainly the infrastructure that is usable for the base version, not the domain lo
 | B-06 | `PUT /admin/participants/{id}/bet-row` | `AssignBetRowHandler` | — |
 | B-07 | `PUT /admin/fees/{id}/payment`, `GET /admin/fees` | `RecordFeePaymentHandler` | `GetFeesHandler` |
 | B-08 | `POST /admin/draws` | `RecordDrawHandler` | — |
+| B-22 | `POST /admin/draws` | `RecordDrawHandler` | — |
 | B-09 | `PUT /admin/draws/{id}/winnings` | `RecordDrawWinningsHandler` | — |
 | B-10 | `POST`/`GET /admin/tipp-years` | `CreateTippYearHandler` | `GetTippYearsHandler` |
 | B-11 | `POST /admin/tipp-years/{id}/members` | `AddMemberHandler` | — |
@@ -469,7 +475,7 @@ the unique key would leave a `bet_row.assigned` event in the store that describe
 
 ## Tests
 
-386 test methods (213 unit across 19 files, 173 integration across 17 files). The integration
+413 test methods (223 unit across 20 files, 190 integration across 17 files). The integration
 tests need a database and skip themselves when none is reachable — so `make test` stays green
 without one too.
 

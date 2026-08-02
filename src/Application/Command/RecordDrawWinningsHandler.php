@@ -17,6 +17,12 @@ use BettingGame\Domain\Service\WinningsDistribution;
  * The evaluation runs against the row snapshots on the ticket, not against the
  * current bet rows: a row corrected after submission did not take part in this
  * draw with its new numbers.
+ *
+ * Since B-22 the same matches already exist, worked out when the draw was
+ * recorded and carrying no amounts. They are recomputed rather than updated in
+ * place: the hits are a function of the numbers and cannot have changed, and
+ * recomputing is also the path that catches up a draw recorded before its
+ * ticket was handed in.
  */
 final class RecordDrawWinningsHandler
 {
@@ -48,22 +54,11 @@ final class RecordDrawWinningsHandler
             );
         }
 
-        $ticketRowIds = $this->tickets->rowIdsOf($ticket->id());
-        $rows = [];
-
-        foreach ($ticket->rows() as $row) {
-            $ticketRowId = $ticketRowIds[$row['betRowId']] ?? null;
-
-            if ($ticketRowId !== null) {
-                $rows[] = ['ticketRowId' => $ticketRowId, 'numbers' => $row['numbers']];
-            }
-        }
-
         $matches = WinningsDistribution::of(
             $drawnNumbers,
             $draw->superzahl(),
             $ticket->superzahl(),
-            $rows,
+            $this->tickets->snapshotRowsOf($ticket->id()),
             $command->totalAmount,
             $command->winningClasses
         );

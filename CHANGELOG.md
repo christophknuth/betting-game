@@ -6,6 +6,44 @@ what was changed when, and why.
 
 ---
 
+## The rows are evaluated with the draw, not with the money (2026-08-02)
+
+**B-22.** The hits per row were worked out when the winnings were recorded, which is days
+later — the statement arrives when it arrives. Until then the system held the drawn numbers
+and the row snapshots and said nothing about how they compare, although that is a pure
+function of the two.
+
+Recording a draw now evaluates every row of the ticket covering its date and stores hits,
+Superzahl and winning class in `ticket_row_match`. Every row, not only the winning ones: "no
+class" is a result too, and the read model would otherwise be unable to tell a losing row
+from one nobody looked at.
+
+**The amounts stay at `0.00`, and the draw stays `drawn`.** What the ticket won is not known
+yet, and a guessed figure in an amount column is indistinguishable from a booked one.
+`evaluated` says the money is in, which is what B-13 sums the year from — moving that
+forward would have made the status mean two things.
+
+B-09 recomputes the same matches with the money in hand rather than updating them in place.
+The hits are a function of the numbers and cannot have changed; recomputing is also what
+catches up a draw that was recorded before its ticket was handed in. A draw no ticket covers
+is recorded all the same — there is simply nothing to evaluate it against yet.
+
+**The projector had to learn the same trick**, or a rebuilt read model would show no hits
+for every draw whose winnings are still outstanding. `ProjectionManager` already guarantees
+what that needs: the ticket projection runs before the draw projection, so the rows are
+there when the draw is replayed. `ProjectionRebuildTest` compares every read model table
+column by column and covers the new case through the draw it deliberately leaves unpaid.
+
+While in there, `TicketRepository::rowIdsOf()` became `snapshotRowsOf()` and returns the
+rows themselves in `ticket_row_id` order. Three callers assembled that list, one of them by
+joining bet row ids back to snapshot ids by hand — and the order is not cosmetic, because
+`WinningsDistribution` puts the remainder cent on the first winning row.
+
+Verified: PHPStan level 10 clean, phpcs clean, PHPUnit 413 with `--fail-on-skipped` (four
+new, one pre-existing deprecation).
+
+---
+
 ## The six numbers are picked, not typed (2026-08-02)
 
 **A Lottoschein is a grid, so the form is one too.** Both places that took the six numbers —

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BettingGame\Domain\Repository;
 
 use BettingGame\Domain\Model\Ticket;
+use BettingGame\Domain\ValueObject\LottoNumbers;
 use DateTimeImmutable;
 
 interface TicketRepositoryInterface
@@ -33,13 +34,16 @@ interface TicketRepositoryInterface
     public function findWithParticipation(int $tippYearId, int $participantId): array;
 
     /**
-     * Maps the ticket's bet rows to their snapshot ids.
+     * The rows as they were printed on the ticket, in the order they are stored.
      *
-     * Evaluating a draw works on the aggregate, which knows bet row ids, but
-     * the per-row result is stored against the snapshot - the snapshot is what
-     * actually took part in the draw.
+     * Evaluating a draw works on these rather than on the aggregate's rows: the
+     * per-row result is keyed by the snapshot, because the snapshot is what
+     * actually took part in the draw. The order is fixed here rather than left
+     * to the caller because WinningsDistribution puts the remainder cent on the
+     * first winning row - two callers ordering differently would attribute
+     * different amounts to the same draw.
      *
-     * @return array<int, int> bet row id => ticket row id
+     * @return list<array{ticketRowId: int, numbers: LottoNumbers}>
      */
-    public function rowIdsOf(int $ticketId): array;
+    public function snapshotRowsOf(int $ticketId): array;
 }

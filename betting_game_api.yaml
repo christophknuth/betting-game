@@ -516,10 +516,16 @@ paths:
     post:
       tags:
         - Admin - Draws
-      summary: Record draw (B-08)
+      summary: Record draw (B-08, B-22)
       description: |
         Records a lottery draw with its six winning numbers and the bonus number (CQRS
         command). A duplicate draw date is rejected with `409`.
+
+        B-22: recording also evaluates every row of the ticket covering the draw date
+        against the numbers and stores the hits and winning classes per row. The amounts
+        stay at `0.00` until the winnings are recorded (B-09) — what the ticket won is not
+        known yet. A draw that no ticket covers is recorded all the same and is evaluated
+        when its winnings arrive.
       operationId: recordDraw
       security:
         - bearerAuth: []
@@ -558,7 +564,9 @@ paths:
         Records what the ticket won on this draw (CQRS command).
 
         The hits per row are computed from the winning numbers and the ticket's row
-        snapshots; the amount recorded is the winnings of the whole ticket.
+        snapshots; the amount recorded is the winnings of the whole ticket. Since B-22 the
+        hits are already known from the draw — this recomputes them with the money in hand,
+        which is also how a draw recorded before its ticket gets its evaluation.
       operationId: recordDrawWinnings
       security:
         - bearerAuth: []
