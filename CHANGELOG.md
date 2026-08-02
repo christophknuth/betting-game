@@ -6,6 +6,33 @@ what was changed when, and why.
 
 ---
 
+## A write does not lose the reader's place (2026-08-02)
+
+Changing a tipp year's status from the dropdown in its row said nothing and then reloaded the
+list. The reload replaced the table with the loading box — which takes the page's height with
+it and leaves the browser nowhere to keep the scroll position, so twenty rows down every
+change ended at the top of the page, with no word about what had happened.
+
+**The loading box appears only when there is nothing to show.** A refresh dims the table and
+leaves it standing, so nothing moves at all. That is the fix for the jump; the two below are
+for finding the row again when it was off-screen anyway. The fee ledger had the identical
+defect and got the same treatment.
+
+**The row is scrolled back into view** — `scrollIntoView({ block: "nearest" })`, smooth unless
+the reader asked for reduced motion — and **marked for two and a half seconds**, a green fade
+that takes itself away. The notification at the top says what happened; the mark says where,
+and has no business staying once it has been seen. Under `prefers-reduced-motion` the mark
+stays and the animation does not.
+
+The answer names both halves: `Tippjahr 2027 ist jetzt laufend.` rather than `Angenommen.`
+With a dropdown per row, *which* year was written to is the part that is easy to get wrong,
+and this is the only place that confirms it.
+
+Verified: ESLint clean, Vitest 149/149, `npm run build`. The scroll and the fade were not
+seen in a browser — no stack was up for it.
+
+---
+
 ## Three smaller things (2026-08-02)
 
 **The Superzahl is picked, not typed.** It sat beside the 7x7 grid as a number field with

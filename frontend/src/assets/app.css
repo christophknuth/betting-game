@@ -131,6 +131,18 @@
   overflow-x: auto;
 }
 
+/*
+ * A list being fetched again, with the old one still on screen.
+ *
+ * The alternative used to be replacing it with the loading box, which takes
+ * the page's height away - and with it the scroll position, so every write
+ * dropped the reader back at the top of the page.
+ */
+.refreshing {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
 table.data {
   width: 100%;
   border-collapse: collapse;

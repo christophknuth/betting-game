@@ -76,8 +76,11 @@
     </div>
   </div>
 
+  <!-- Only while there is nothing to show: replacing the list on every refresh
+       takes the page's height with it, and booking a fee then dropped the
+       reader back at the top. A refresh dims the table instead. -->
   <div
-    v-if="query.loading"
+    v-if="query.loading && !fees.length"
     class="state loading"
   >
     Wird geladen …
@@ -98,6 +101,7 @@
   <div
     v-else
     class="card table-wrap"
+    :class="{ refreshing: query.loading }"
   >
     <table class="data">
       <thead>
