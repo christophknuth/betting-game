@@ -6,6 +6,28 @@ what was changed when, and why.
 
 ---
 
+## One word for loading, one idiom for it (2026-08-02)
+
+The same action was called **Anzeigen** in three views, **Filtern** in two and
+**Aktualisieren** in two more. Worse than the vocabulary: half of them loaded when the
+selection changed and the other half waited for the button, so which one applied was a coin
+toss on every page.
+
+A dropdown or a checkbox loads by itself now — every filter in this interface is one of the
+two, so nothing fires per keystroke, and a button beside a dropdown only ever asked for a
+second click on a decision already made. A typed value keeps its button: the audit trail is
+looked up by an id somebody enters, and a request per keystroke would be wrong there.
+
+`Aktualisieren` survives as the one button beside a filter and means what it says — the same
+query again, after somebody else has written something. It no longer shares a name with
+filtering.
+
+Verified: ESLint clean, Vitest 127/127. Playwright not run; the two specs that pressed
+`Filtern` were adjusted, and the draws spec now waits for the year's option to appear
+instead of for a button.
+
+---
+
 ## Nobody types a primary key any more (2026-08-02)
 
 Six fields across five views asked for a database id. `Tippjahr` was a number input, and the

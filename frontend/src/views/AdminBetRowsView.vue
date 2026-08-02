@@ -18,7 +18,6 @@
         <select
           id="tippYear"
           v-model="tippYearId"
-          @change="loadPeriods"
         >
           <option value="">
             bitte wählen
@@ -132,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
 import NumberGrid from '@/components/NumberGrid.vue'
 import api from '@/services/api'
@@ -164,6 +163,10 @@ function loadPeriods() {
     periods.load(() => api.admin.getBetPeriods(tippYearId.value))
   }
 }
+
+// Through the watcher rather than @change on the select, so that loading is
+// driven the same way in every view.
+watch(tippYearId, loadPeriods)
 
 async function assign() {
   // No parsing and no check of the six numbers left to do here: the grid hands

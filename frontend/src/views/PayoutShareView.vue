@@ -15,13 +15,6 @@
           v-model="tippYearId"
           empty-label="laufendes Jahr"
         />
-        <button
-          class="btn-primary"
-          :disabled="query.loading"
-          @click="reload"
-        >
-          Anzeigen
-        </button>
       </div>
     </div>
 
@@ -101,7 +94,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import ParticipantScope from '@/components/ParticipantScope.vue'
 import TippYearPicker from '@/components/TippYearPicker.vue'
 import api from '@/services/api'
@@ -120,6 +113,10 @@ const distributed = computed(() => query.data?.amount !== null && query.data?.am
 
 const reload = () =>
   query.load(() => api.getPayoutShare(authStore.participantId, tippYearId.value || null))
+
+// Choosing a year is the request - there was nothing an "Anzeigen" button
+// added except a second click on a decision already made.
+watch(tippYearId, reload)
 
 onMounted(() => {
   if (authStore.participantId) {

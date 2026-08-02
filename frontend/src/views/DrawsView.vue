@@ -41,14 +41,6 @@
         >
         nur Ziehungen mit Gewinn
       </label>
-
-      <button
-        class="btn-primary"
-        :disabled="query.loading || !tippYearId"
-        @click="reload"
-      >
-        Anzeigen
-      </button>
     </div>
   </div>
 
@@ -223,7 +215,9 @@ const bestMatchLabel = (bestMatch) =>
 
 // Nothing is loaded on mount: TippYearPicker preselects the newest year once
 // the memberships are in, and this watcher turns that into the first request.
-watch(tippYearId, reload)
+// The two filters below it load the same way - all three are dropdowns, and a
+// dropdown that needs a button pressed afterwards is a dropdown twice.
+watch([tippYearId, filters], reload)
 </script>
 
 <style scoped>
