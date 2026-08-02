@@ -64,12 +64,54 @@ describe('NumberGrid', () => {
     const grid = mountGrid([3, 12, 19, 27, 33, 45])
 
     // Picked ones stay clickable - that is the only way back out of a full grid.
-    expect(balls(grid)[2].attributes('disabled')).toBeUndefined()
-    expect(balls(grid)[0].attributes('disabled')).toBeDefined()
+    expect(balls(grid)[2].attributes('aria-disabled')).toBe('false')
+    expect(balls(grid)[0].attributes('aria-disabled')).toBe('true')
 
     await balls(grid)[0].trigger('click')
 
     expect(grid.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('keeps a locked number reachable, so the keyboard can pass over it', () => {
+    const grid = mountGrid([3, 12, 19, 27, 33, 45])
+
+    // `disabled` would take it out of the tab order entirely, and with it the
+    // way to the picked numbers beyond it.
+    expect(balls(grid)[0].attributes('disabled')).toBeUndefined()
+  })
+
+  it('puts one number in the tab order, not forty-nine', () => {
+    const grid = mountGrid()
+
+    const tabbable = balls(grid).filter(ball => ball.attributes('tabindex') === '0')
+
+    expect(tabbable).toHaveLength(1)
+    expect(tabbable[0].text()).toBe('1')
+  })
+
+  it('moves the tab stop with the arrow keys', async () => {
+    const grid = mountGrid()
+
+    await grid.find('.number-grid').trigger('keydown', { key: 'ArrowRight' })
+    expect(balls(grid)[1].attributes('tabindex')).toBe('0')
+
+    // A row is seven numbers, so down from 2 is 9
+    await grid.find('.number-grid').trigger('keydown', { key: 'ArrowDown' })
+    expect(balls(grid)[8].attributes('tabindex')).toBe('0')
+
+    await grid.find('.number-grid').trigger('keydown', { key: 'End' })
+    expect(balls(grid)[48].attributes('tabindex')).toBe('0')
+  })
+
+  it('stops at the edge rather than wrapping round', async () => {
+    const grid = mountGrid()
+
+    // Left of 1 is off the board; wrapping to 49 would read as a reset
+    await grid.find('.number-grid').trigger('keydown', { key: 'ArrowLeft' })
+    expect(balls(grid)[0].attributes('tabindex')).toBe('0')
+
+    await grid.find('.number-grid').trigger('keydown', { key: 'ArrowUp' })
+    expect(balls(grid)[0].attributes('tabindex')).toBe('0')
   })
 
   it('marks the picked numbers as pressed for screen readers', () => {
