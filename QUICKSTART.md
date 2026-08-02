@@ -162,6 +162,10 @@ have already been submitted.
 api POST /admin/draws '{"tippYearId":1,"drawDate":"2026-01-07","numbers":[3,12,19,27,40,41],"superzahl":7}'
 ```
 
+**B-22** runs with it: the rows of the covering ticket are evaluated straight away and land
+in `ticket_row_match` with their winning class and no amount. The response says how many —
+`"message": "Draw recorded, 3 rows of ticket 1 evaluated"`.
+
 **B-09 — record the winnings.** The amount is the winnings of the *whole* ticket. The
 system computes the hits per row from the winning numbers and the row snapshots; the split
 runs in whole cents through `EvenSplit`.

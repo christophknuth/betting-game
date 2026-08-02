@@ -11,14 +11,18 @@ use BettingGame\Application\Command\CreateTippYearCommand;
 use BettingGame\Application\Command\RecordDrawCommand;
 use BettingGame\Application\Command\RecordDrawWinningsCommand;
 use BettingGame\Application\Command\SubmitTicketCommand;
+use BettingGame\Domain\Model\Draw;
 use BettingGame\Support\Row;
 
 /**
- * How the ticket's winnings land on individual rows (B-09).
+ * What each row of the ticket achieved in a draw (B-22), and how the ticket's
+ * winnings are attributed to those rows (B-09).
  *
  * Money, so it gets its own file: the amounts have to add back up to what the
  * administrator entered, whether or not a breakdown per winning class came
- * with it.
+ * with it. The two stories share this fixture because they are two moments of
+ * one calculation - the hits are known with the numbers, the amounts only with
+ * the statement.
  */
 final class RecordDrawWinningsTest extends ApplicationTestCase
 {
@@ -91,6 +95,62 @@ final class RecordDrawWinningsTest extends ApplicationTestCase
         }
 
         return $byParticipant;
+    }
+
+    public function testRecordingTheDrawAlreadyEvaluatesEveryRow(): void
+    {
+        // No winnings have been recorded in setUp - only the draw
+        $matches = $this->matchesByParticipant();
+
+        self::assertCount(3, $matches, 'every row of the covering ticket, not only the winners');
+        self::assertSame(4, Row::int($matches[7], 'matched_numbers'));
+        self::assertSame(5, Row::int($matches[7], 'winning_class'), 'four plus the Superzahl');
+        self::assertSame(0, Row::int($matches[9], 'matched_numbers'));
+        self::assertNull($matches[9]['winning_class']);
+    }
+
+    public function testTheRowsCarryNoAmountUntilTheWinningsAreKnown(): void
+    {
+        foreach ($this->matchesByParticipant() as $match) {
+            self::assertSame(0.0, Row::float($match, 'amount'));
+        }
+
+        // ... and the draw is not "evaluated" either. That status says the money
+        // is booked, which is what B-13 sums the year from.
+        $draw = $this->draws->find($this->drawId);
+        self::assertNotNull($draw);
+        self::assertSame(Draw::DRAWN, $draw->status());
+    }
+
+    public function testADrawWithoutACoveringTicketIsStillRecorded(): void
+    {
+        // February is outside the January ticket's period, so there is nothing
+        // to evaluate against - which must not stop the draw being recorded.
+        $draw = $this->recordDraw()->handle(
+            new RecordDrawCommand($this->tippYearId, '2026-02-04', [1, 2, 3, 4, 5, 6], 3)
+        );
+
+        self::assertNotNull($draw->resourceId);
+        self::assertSame([], $this->draws->winningClassesOf($draw->resourceId));
+    }
+
+    public function testTheWinningsCatchUpADrawThatHadNoTicketYet(): void
+    {
+        $draw = $this->recordDraw()->handle(
+            new RecordDrawCommand($this->tippYearId, '2026-02-04', [3, 12, 19, 27, 40, 41], 7)
+        );
+        self::assertNotNull($draw->resourceId);
+
+        // The ticket arrives after the draw - late, but it covers it
+        $this->submitTicket()->handle(
+            new SubmitTicketCommand($this->tippYearId, '2026-02-01', '2026-02-28', 4, 7, 'LOT-2026-02')
+        );
+        $this->recordDrawWinnings()->handle(new RecordDrawWinningsCommand($draw->resourceId, 60.00));
+
+        $classes = $this->draws->winningClassesOf($draw->resourceId);
+
+        self::assertCount(1, $classes);
+        self::assertSame(2, $classes[0]['rowCount'], 'the two four-hit rows found their draw after all');
     }
 
     public function testEveryRowIsEvaluatedNotJustTheWinners(): void

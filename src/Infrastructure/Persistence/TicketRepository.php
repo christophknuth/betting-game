@@ -183,20 +183,21 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
         );
     }
 
-    /** @return array<int, int> */
-    public function rowIdsOf(int $ticketId): array
+    /** @return list<array{ticketRowId: int, numbers: LottoNumbers}> */
+    public function snapshotRowsOf(int $ticketId): array
     {
         $rows = $this->db->fetchAll(
-            'SELECT bet_row_id, ticket_row_id FROM ticket_row WHERE ticket_id = ?',
+            'SELECT ticket_row_id, numbers FROM ticket_row WHERE ticket_id = ? ORDER BY ticket_row_id',
             [$ticketId]
         );
 
-        $ids = [];
-        foreach ($rows as $row) {
-            $ids[Row::int($row, 'bet_row_id')] = Row::int($row, 'ticket_row_id');
-        }
-
-        return $ids;
+        return array_map(
+            static fn (array $row): array => [
+                'ticketRowId' => Row::int($row, 'ticket_row_id'),
+                'numbers' => LottoNumbers::fromMixed(Row::json($row, 'numbers')),
+            ],
+            $rows
+        );
     }
 
     /**

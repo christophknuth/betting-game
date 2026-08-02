@@ -88,6 +88,38 @@ final class DrawProjector implements Projector
                 $record->version,
             ]
         );
+
+        // B-22: the rows are evaluated with the draw, so a rebuild has to
+        // produce them here too - otherwise a rebuilt read model would show no
+        // hits for every draw whose winnings have not been recorded yet.
+        $ticketId = $this->coveringTicketId(Row::int($data, 'tipp_year_id'), Row::string($data, 'draw_date'));
+
+        if ($ticketId !== null) {
+            $this->rebuildRowMatches(Row::int($data, 'draw_id'), $ticketId, 0.0, []);
+        }
+    }
+
+    /**
+     * The ticket a draw belongs to: the one whose period contains its date.
+     *
+     * On a rebuild this can legitimately come back empty - the ticket's own
+     * event may not have been replayed yet, or the draw was recorded before the
+     * ticket was handed in. The winnings then bring the matches in later.
+     */
+    private function coveringTicketId(int $tippYearId, string $drawDate): ?int
+    {
+        $row = $this->db->fetchOne(
+            '
+            SELECT ticket_id
+            FROM ticket
+            WHERE tipp_year_id = ? AND period_start <= ? AND period_end >= ?
+            ORDER BY period_start DESC
+            LIMIT 1
+            ',
+            [$tippYearId, $drawDate, $drawDate]
+        );
+
+        return $row === null ? null : Row::int($row, 'ticket_id');
     }
 
     /** @param array<string, mixed> $data */

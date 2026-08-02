@@ -338,10 +338,10 @@ class belongs to. No comments that restate the signature.
 
 | Suite | Scope | Prerequisite |
 |---|---|---|
-| `tests/Unit` | 19 files, 213 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
-| `tests/Integration` | 17 files, 173 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
+| `tests/Unit` | 20 files, 223 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
+| `tests/Integration` | 17 files, 190 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
 
-386 test methods in total.
+413 test methods in total.
 
 - Integration tests **skip themselves** when no database is reachable
   (`IntegrationTestCase::setUpBeforeClass()`). The suite therefore stays green without a DB —
