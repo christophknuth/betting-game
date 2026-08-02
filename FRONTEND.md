@@ -291,6 +291,7 @@ frontend/src/
 ├── components/
 │   ├── CommandFeedback.vue      a command's response including commandId
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
+│   ├── WinningsEntry.vue        B-23: the winnings as a sum or per winning class
 │   ├── ParticipantScope.vue     note shown when the token lacks participant_id
 │   ├── TippYearSetupWizard.vue  B-10 → B-14 → B-11 → B-18 in four steps
 │   └── TippYearChecklist.vue    what is still missing on an existing year
@@ -414,6 +415,7 @@ implementation:
 | `components/NumberGrid.spec.js` | B-06 through the grid the numbers are picked off: 49 numbers, ascending whatever the click order, a second click releases one again, and a full grid locks the rest — so a seventh number, a 50 or a duplicate is unreachable |
 | `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
+| `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the class sum added up in cents |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
 | `layouts/ParticipantLayout.spec.js` | B-17 at the door: the `Verwaltung` link is offered to an admin and withheld from a participant, and no `/admin/*` link ever appears in the participant navigation |
 | `support/betPeriods.spec.js` | B-14: generated periods tile the tipp year exactly — no gap, no overlap, first and last day on the year's boundaries — for calendar years, leap years and ranges that are neither; plus the three rejection reasons and the suggested next start |

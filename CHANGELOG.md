@@ -6,6 +6,37 @@ what was changed when, and why.
 
 ---
 
+## The winnings are entered the way the statement reads them (2026-08-02)
+
+**B-23.** The lottery statement comes in two shapes. Sometimes it is one figure for the
+Spielauftrag, sometimes it lists what each winning class paid. The API only ever took the
+first: `totalAmount` was required, and whoever held the detailed statement had to add nine
+numbers up by hand before they could enter anything — which is precisely the arithmetic the
+system should be doing.
+
+`totalAmount` is now optional in the presence of `winningClasses`, and the new `DrawWinnings`
+value object decides between them. Without a total the classes are added up into one, **in
+whole cents**: three times 0.10 is not 0.30 in binary floating point, and the year's total is
+the sum of these.
+
+**Sending both keeps its older meaning**, which the existing tests were right to defend. A
+breakdown may account for only part of the total — 500 won, of which 300 is attributable to
+class 5 — and the remaining 200 counts towards the year without any row being able to claim
+it. That predates this change, and the first version of the rule here broke it by insisting
+the two figures match. What is rejected is narrower and harder to argue with: a breakdown
+adding up to *more* than the ticket won, a class listed twice, and neither figure at all.
+
+**In the interface, the choice is a pair of radio buttons.** `WinningsEntry` offers either
+one amount or one field per winning class with the sum computed underneath, and sends exactly
+one of the two shapes — never both, because the two could then contradict each other on the
+way out. `AdminDrawsView` passes the payload through unchanged rather than deciding again
+locally what the API already decides.
+
+Verified: PHPStan level 10 clean, phpcs clean, PHPUnit 428 with `--fail-on-skipped` (eleven
+new), ESLint clean, Vitest 98/98 including six new for the entry form.
+
+---
+
 ## The rows are evaluated with the draw, not with the money (2026-08-02)
 
 **B-22.** The hits per row were worked out when the winnings were recorded, which is days

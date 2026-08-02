@@ -559,7 +559,7 @@ paths:
     put:
       tags:
         - Admin - Draws
-      summary: Record the winnings of a draw (B-09)
+      summary: Record the winnings of a draw (B-09, B-23)
       description: |
         Records what the ticket won on this draw (CQRS command).
 
@@ -1648,17 +1648,28 @@ components:
 
     RecordDrawWinningsCommand:
       type: object
-      required:
-        - totalAmount
+      description: |
+        B-23: state the winnings as one sum for the ticket **or** as the amounts per
+        winning class - at least one of the two, `400` when both are missing.
+
+        Sent together, the total is what the ticket won and the breakdown says how much of
+        it is attributable to named classes; the remainder counts towards the year without
+        any row being able to claim it. A breakdown adding up to more than the total is
+        `400`, as is a class listed twice.
+      anyOf:
+        - required: [totalAmount]
+        - required: [winningClasses]
       properties:
         totalAmount:
           type: number
           format: decimal
-          description: Winnings of the whole ticket on this draw
+          description: |
+            Winnings of the whole ticket on this draw. May be omitted when `winningClasses`
+            states them class by class - they are then added up into it.
         winningClasses:
           type: array
           description: |
-            Optional breakdown. If omitted, the system computes the hits per row itself and
+            The breakdown. If omitted, the system computes the hits per row itself and
             distributes the total amount across them.
           items:
             type: object

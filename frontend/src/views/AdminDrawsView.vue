@@ -158,37 +158,17 @@
         {{ formatAmount(draw.ticket.totalAmount) }} gewonnen.
       </div>
 
-      <!-- B-09 -->
-      <form @submit.prevent="recordWinnings(draw.drawId)">
-        <div class="field">
-          <label :for="`amount-${draw.drawId}`">Gewinn des gesamten Scheins</label>
-          <input
-            :id="`amount-${draw.drawId}`"
-            v-model="amounts[draw.drawId]"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-          >
-          <span class="hint">
-            Ohne Aufschlüsselung rechnet das System die Treffer je Reihe selbst aus den
-            Reihen-Snapshots des Scheins.
-          </span>
-        </div>
+      <!-- B-09, B-23 -->
+      <WinningsEntry
+        :draw-id="draw.drawId"
+        :pending="winningsCmds[draw.drawId]?.pending ?? false"
+        @submit="payload => recordWinnings(draw.drawId, payload)"
+      />
 
-        <button
-          class="btn-primary"
-          :disabled="winningsCmds[draw.drawId]?.pending"
-          type="submit"
-        >
-          {{ winningsCmds[draw.drawId]?.pending ? 'Wird gesendet …' : 'Gewinn eintragen' }}
-        </button>
-
-        <CommandFeedback
-          v-if="winningsCmds[draw.drawId]"
-          :command="winningsCmds[draw.drawId]"
-        />
-      </form>
+      <CommandFeedback
+        v-if="winningsCmds[draw.drawId]"
+        :command="winningsCmds[draw.drawId]"
+      />
     </div>
   </template>
 </template>
@@ -197,6 +177,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
 import NumberGrid from '@/components/NumberGrid.vue'
+import WinningsEntry from '@/components/WinningsEntry.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
 import { formatAmount, formatDate, statusLabel } from '@/support/format'
@@ -206,7 +187,6 @@ const draws = useQuery()
 const recordCmd = useCommand()
 
 const tippYearId = ref('')
-const amounts = reactive({})
 const winningsCmds = reactive({})
 
 const tippYears = computed(() => years.data?.tippYears ?? [])
@@ -254,9 +234,15 @@ async function recordDraw() {
   }
 }
 
-async function recordWinnings(drawId) {
+/**
+ * The payload comes from WinningsEntry and is already one of the two shapes
+ * B-23 allows - a total, or the amounts per class. It is passed on unchanged:
+ * deciding here which of them applies would be the same rule in a second
+ * place, and the API would still have the last word.
+ */
+async function recordWinnings(drawId, payload) {
   const accepted = await commandFor(drawId).run(
-    key => api.admin.recordDrawWinnings(drawId, { totalAmount: Number(amounts[drawId]) }, key)
+    key => api.admin.recordDrawWinnings(drawId, payload, key)
   )
 
   if (accepted) {

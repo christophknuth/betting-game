@@ -252,6 +252,25 @@ final class ApiTest extends HttpTestCase
             'totalAmount' => 123.45,
         ])->statusCode());
 
+        // B-23: the second statement was read class by class, so no total comes
+        // with it - the classes add up to one.
+        $second = $this->send('POST', '/admin/draws', $admin, [
+            'tippYearId' => $tippYearId,
+            'drawDate' => '2026-01-10',
+            'numbers' => [3, 12, 19, 33, 44, 45],
+            'superzahl' => 7,
+        ]);
+        self::assertSame(202, $second->statusCode());
+        $secondId = $second->data()['resourceId'];
+        self::assertIsInt($secondId);
+
+        self::assertSame(202, $this->send('PUT', "/admin/draws/$secondId/winnings", $admin, [
+            'winningClasses' => [
+                ['winningClass' => 7, 'amount' => 10.30],
+                ['winningClass' => 8, 'amount' => 5.20],
+            ],
+        ])->statusCode());
+
         // The participant can now see it all
         $participant = $this->token(7);
 
@@ -265,7 +284,7 @@ final class ApiTest extends HttpTestCase
 
         $draws = $this->send('GET', "/tipp-years/$tippYearId/draws", $participant);
         self::assertSame(200, $draws->statusCode());
-        self::assertSame(123.45, $draws->data()['totalWinnings']);
+        self::assertSame(138.95, $draws->data()['totalWinnings'], '123.45 plus the 15.50 of the breakdown');
     }
 
     // --- Exceptions become the documented status codes ---

@@ -11,6 +11,7 @@ use BettingGame\Application\Command\CreateTippYearCommand;
 use BettingGame\Application\Command\RecordDrawCommand;
 use BettingGame\Application\Command\RecordDrawWinningsCommand;
 use BettingGame\Application\Command\SubmitTicketCommand;
+use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Model\Draw;
 use BettingGame\Support\Row;
 
@@ -253,6 +254,41 @@ final class RecordDrawWinningsTest extends ApplicationTestCase
         // The per-row split is an attribution; the year's total stays the
         // amount actually received.
         self::assertSame(500.00, $this->draws->totalWinnings($this->tippYearId));
+    }
+
+    public function testTheBreakdownAloneBooksItsSumForTheTicket(): void
+    {
+        // B-23: no totalAmount at all - the statement was read class by class
+        $this->recordDrawWinnings()->handle(
+            new RecordDrawWinningsCommand($this->drawId, null, [
+                ['winningClass' => 5, 'amount' => 300.00],
+                ['winningClass' => 8, 'amount' => 12.50],
+            ])
+        );
+
+        self::assertSame(312.50, $this->draws->totalWinnings($this->tippYearId));
+
+        $matches = $this->matchesByParticipant();
+        self::assertSame(150.0, Row::float($matches[7], 'amount'), 'class 5 split over its two rows');
+        self::assertSame(0.0, Row::float($matches[9], 'amount'), 'class 8 reached nobody');
+    }
+
+    public function testABreakdownClaimingMoreThanTheTicketWonIsRejected(): void
+    {
+        $this->expectException(BusinessRuleViolationException::class);
+
+        $this->recordDrawWinnings()->handle(
+            new RecordDrawWinningsCommand($this->drawId, 100.00, [
+                ['winningClass' => 5, 'amount' => 300.00],
+            ])
+        );
+    }
+
+    public function testWithoutEitherFigureNothingIsBooked(): void
+    {
+        $this->expectException(BusinessRuleViolationException::class);
+
+        $this->recordDrawWinnings()->handle(new RecordDrawWinningsCommand($this->drawId, null));
     }
 
     public function testWinningClassesAreSummarisedForTheReadModel(): void

@@ -44,7 +44,7 @@ final class AdminDrawController
     }
 
     /**
-     * B-09
+     * B-09, B-23
      *
      * @param array<string, string> $params
      */
@@ -55,18 +55,22 @@ final class AdminDrawController
         return JsonResponse::accepted(
             $this->recordWinnings->handle(new RecordDrawWinningsCommand(
                 Input::pathInt($params, 'drawId'),
-                Input::float($body, 'totalAmount'),
+                // Optional as of B-23, but only in the sense that the breakdown
+                // can carry it instead. Which of the two is missing is a domain
+                // rule and is answered by DrawWinnings, not here.
+                Input::optionalFloat($body, 'totalAmount'),
                 $this->winningClasses($body)
             ))->toArray()
         );
     }
 
     /**
-     * The optional breakdown per winning class.
+     * The breakdown per winning class - the second way of stating what the
+     * ticket won (B-23).
      *
-     * Omitting it is normal - the system then works the classes out from the
-     * row snapshots itself. What is not acceptable is a half-filled entry, so
-     * anything present has to carry both a class and an amount.
+     * Omitting it is normal, and then the ticket total has to be there instead.
+     * What is not acceptable is a half-filled entry, so anything present has to
+     * carry both a class and an amount.
      *
      * @param array<string, mixed> $body
      *

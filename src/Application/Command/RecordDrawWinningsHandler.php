@@ -9,6 +9,7 @@ use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Domain\Repository\DrawRepositoryInterface;
 use BettingGame\Domain\Repository\TicketRepositoryInterface;
 use BettingGame\Domain\Service\WinningsDistribution;
+use BettingGame\Domain\ValueObject\DrawWinnings;
 
 /**
  * The administrator reads one number off the statement - what the ticket won -
@@ -34,6 +35,12 @@ final class RecordDrawWinningsHandler
 
     public function handle(RecordDrawWinningsCommand $command): CommandResult
     {
+        // B-23: the sum and the breakdown are two ways of stating the same
+        // figure, and the value object settles which one applies before
+        // anything is loaded - a contradiction between them is not a fact about
+        // this draw, it is a bad request.
+        $winnings = DrawWinnings::of($command->totalAmount, $command->winningClasses);
+
         $draw = $this->draws->find($command->drawId);
 
         if ($draw === null) {
@@ -59,17 +66,17 @@ final class RecordDrawWinningsHandler
             $draw->superzahl(),
             $ticket->superzahl(),
             $this->tickets->snapshotRowsOf($ticket->id()),
-            $command->totalAmount,
-            $command->winningClasses
+            $winnings->total(),
+            $winnings->breakdown()
         );
 
-        $draw->recordWinnings($ticket->id(), $command->totalAmount, $this->classSummary($command));
+        $draw->recordWinnings($ticket->id(), $winnings->total(), $this->classSummary($winnings));
         $this->draws->save($draw);
         $this->draws->saveRowMatches($draw->id(), $matches);
 
         return CommandResult::accepted(
             $draw->id(),
-            sprintf('Winnings of %.2f recorded for ticket %d', $command->totalAmount, $ticket->id())
+            sprintf('Winnings of %.2f recorded for ticket %d', $winnings->total(), $ticket->id())
         );
     }
 
@@ -79,11 +86,11 @@ final class RecordDrawWinningsHandler
      *
      * @return list<array<string, mixed>>
      */
-    private function classSummary(RecordDrawWinningsCommand $command): array
+    private function classSummary(DrawWinnings $winnings): array
     {
         $summary = [];
 
-        foreach ($command->winningClasses as $class) {
+        foreach ($winnings->breakdown() as $class) {
             $summary[] = [
                 'winning_class' => $class['winningClass'],
                 'amount' => $class['amount'],
