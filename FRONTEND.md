@@ -24,10 +24,10 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 |--------|-------|
 | Views | 12 (1 login, 5 participant, 6 admin) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
-| Components | 9 shared + `App.vue` |
+| Components | 10 shared + `App.vue` |
 | Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
-| Other | 1 composable, 1 formatting module, 1 auth store, 1 stylesheet |
+| Other | 1 composable, 1 formatting module, 2 stores, 1 stylesheet |
 
 **Stack:** Vue 3.5 (composition API, `<script setup>`), Vue Router 5.2, Pinia 4.0,
 axios 1.19, keycloak-js 26, Vite 8.
@@ -292,6 +292,7 @@ frontend/src/
 │   ├── CommandFeedback.vue      a command's response including commandId
 │   ├── DrawRows.vue             B-24: the ticket's rows in a draw, winners marked
 │   ├── MoneyInput.vue           one amount, entered and shown as 1,20 €
+│   ├── NotificationHost.vue     the answers to writes, above the navigation
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
 │   ├── TippYearPicker.vue       the caller's own tipp years, chosen by name
 │   ├── WinningsEntry.vue        B-23: the winnings as a sum or per winning class
@@ -303,7 +304,9 @@ frontend/src/
 │   ├── api.js                 one method per route
 │   ├── errors.js              error message out of the API response
 │   └── keycloak.js            keycloak-js wrapper
-├── stores/auth.js             Pinia auth store
+├── stores/
+│   ├── auth.js                Pinia auth store
+│   └── notifications.js       what a command answered, until it is read
 ├── support/
 │   ├── format.js              money in and out, dates, lotto numbers, status labels
 │   └── betPeriods.js          period templates, tiling, B-14 rule checks
@@ -373,6 +376,28 @@ at an earlier period needs a participant-facing list of periods first — a stor
 layout decision. Two E2E tests cover the consequence: the seed takes the first free calendar
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
+
+### The answer to a write appears at the top
+
+A command's answer used to be rendered where the form was — which put it next to the button
+that sent it, halfway down a long page and below the fold as often as not, and left a green
+`Angenommen.` standing beside a form somebody had moved on from.
+
+[`NotificationHost`](frontend/src/components/NotificationHost.vue) sits in both layouts,
+fixed above the sticky bar (`z-index` 1000 against the bar's 100) and `pointer-events: none`
+so the navigation underneath stays clickable between messages. A success takes itself away
+after five seconds; **an error stays until it is dismissed** — one that vanishes before it
+has been read is why people stop trusting a banner, and it carries the rule that said no.
+Four at a time, oldest first out.
+
+`CommandFeedback` renders nothing any more: it watches one command and pushes its answer into
+the store. It stays in the form because *which* command is reported is a per-form decision —
+`useCommand` must not announce for every caller, since a few commands (the status dropdown in
+the tipp year table) are reported by hand.
+
+**Only commands go up there.** A failing query describes what is missing from the page and
+stays where that content would have been; a banner that floats away is the wrong place for
+"this list could not be loaded".
 
 ### An answer is not a breakdown
 
@@ -479,6 +504,8 @@ implementation:
 | `components/NumberGrid.spec.js` | B-06 through the grid the numbers are picked off: 49 numbers, ascending whatever the click order, a second click releases one again, and a full grid locks the rest — so a seventh number, a 50 or a duplicate is unreachable |
 | `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
+| `stores/notifications.spec.js` | A success takes itself away after five seconds, an error waits to be dismissed, five in a row drop the oldest, and one expiring does not take a later one with it |
+| `components/CommandFeedback.spec.js` | The headless reporter: nothing is announced before the command answers, an accepted one becomes a success, a rejected one carries the rule that said no, and the resource id appears only where the caller has to act on it |
 | `components/DrawRows.spec.js` | B-24: the winning row is highlighted and the losing one is still listed; within a row the numbers that were not drawn are the ones greyed back, and a draw without numbers marks none of them as hits |
 | `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the class sum added up in cents |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |

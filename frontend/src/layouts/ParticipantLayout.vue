@@ -1,5 +1,7 @@
 <template>
   <div class="shell">
+    <NotificationHost />
+
     <nav class="topbar">
       <div class="topbar-inner">
         <h1 class="logo">
@@ -55,6 +57,7 @@
 </template>
 
 <script setup>
+import NotificationHost from '@/components/NotificationHost.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 

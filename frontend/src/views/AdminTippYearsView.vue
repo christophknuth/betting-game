@@ -141,13 +141,6 @@
       </table>
     </div>
 
-    <div
-      v-if="statusError"
-      class="state error"
-    >
-      {{ statusError }}
-    </div>
-
     <p
       v-if="tippYears.length"
       class="state note"
@@ -343,6 +336,7 @@ import TippYearSetupWizard from '@/components/TippYearSetupWizard.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
 import { TIPP_YEAR_STATUSES, formatAmount, formatDate, statusLabel } from '@/support/format'
+import { useNotificationStore } from '@/stores/notifications'
 import { applicableProcessingFee } from '@/support/processingFee'
 
 const years = useQuery()
@@ -392,7 +386,7 @@ const loadPeriods = () => periods.load(() => api.admin.getBetPeriods(selectedId.
 // --- B-18: Statuswechsel ---
 
 const statusCommands = reactive({})
-const statusError = ref(null)
+const notifications = useNotificationStore()
 
 // One command state per year so the idempotency keys cannot get mixed up - a
 // key left over from one year must not answer the change of another.
@@ -400,7 +394,6 @@ const commandFor = (tippYearId) => (statusCommands[tippYearId] ??= useCommand())
 
 async function changeStatus(year, event) {
   const status = event.target.value
-  statusError.value = null
 
   const command = commandFor(year.tippYearId)
   const accepted = await command.run(
@@ -408,7 +401,9 @@ async function changeStatus(year, event) {
   )
 
   if (!accepted) {
-    statusError.value = command.error
+    // Reported by hand rather than through CommandFeedback: this command has
+    // no form of its own, it hangs off a dropdown in a table row.
+    notifications.error(command.error)
 
     // Put the dropdown back by hand. Vue will not do it: the model never
     // changed, so from its side there is nothing to patch - only the DOM is

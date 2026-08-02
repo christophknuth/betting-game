@@ -6,6 +6,33 @@ what was changed when, and why.
 
 ---
 
+## The answer to a write appears at the top (2026-08-02)
+
+A command's answer was rendered where the form was, which put it next to the button that
+sent it — halfway down a long page, below the fold as often as not, and a green
+`Angenommen.` left standing beside a form somebody had moved on from ten minutes ago.
+
+`NotificationHost` sits in both layouts, fixed above the sticky bar (`z-index` 1000 against
+the bar's 100) and `pointer-events: none`, so the navigation underneath stays clickable
+between messages. A success takes itself away after five seconds; **an error stays until it
+is dismissed** — one that vanishes before it has been read is why people stop trusting a
+banner, and this one carries the rule that said no. Four at a time, oldest first out.
+
+`CommandFeedback` renders nothing any more. It watches one command and pushes the answer
+into the store, and it stays in the form because *which* command is reported is a per-form
+decision: `useCommand` must not announce for every caller, since the status dropdown in the
+tipp year table reports by hand. It is a component rather than a composable because the
+draws view creates one command per draw as the list arrives — a watcher set up there would
+sit outside any component scope and never be cleaned up.
+
+**Only commands go up there.** A failing query describes what is missing from the page and
+stays where that content would have been; a banner that floats away is the wrong place for
+"this list could not be loaded".
+
+Verified: ESLint clean, Vitest 140/140 with ten new tests for the store and the reporter.
+
+---
+
 ## An answer is not a breakdown (2026-08-02)
 
 Two views rendered every failed request in the dashed "nothing here" box. For their main case
