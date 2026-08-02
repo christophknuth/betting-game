@@ -4,9 +4,15 @@
 
     <nav class="topbar">
       <div class="topbar-inner">
-        <h1 class="logo">
+        <!--
+          The brand, not a heading. It used to be the h1 of every page, which
+          left each view's own title as an h2 and gave the document no
+          top-level heading of its own - five pages all called
+          "Tippgemeinschaft" to anything reading the outline.
+        -->
+        <p class="logo">
           🎲 Tippgemeinschaft
-        </h1>
+        </p>
 
         <div class="nav-links">
           <router-link to="/bet-row">

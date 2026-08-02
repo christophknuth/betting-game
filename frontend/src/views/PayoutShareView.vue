@@ -2,7 +2,7 @@
   <ParticipantScope>
     <div class="page-header">
       <div>
-        <h2>Mein Gewinnanteil</h2>
+        <h1>Mein Gewinnanteil</h1>
         <p class="subtitle">
           Die Jahresgewinne werden am Jahresende gleichmäßig auf alle Teilnehmer verteilt.
         </p>

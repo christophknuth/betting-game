@@ -1,7 +1,7 @@
 <template>
   <div class="page-header">
     <div>
-      <h2>Ziehungen</h2>
+      <h1>Ziehungen</h1>
       <p class="subtitle">
         Ziehung eintragen (B-08) und den Gewinn des Tippscheins nachtragen (B-09).
       </p>

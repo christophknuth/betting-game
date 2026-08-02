@@ -2,7 +2,7 @@
   <ParticipantScope>
     <div class="page-header">
       <div>
-        <h2>Meine Gebühren</h2>
+        <h1>Meine Gebühren</h1>
         <p class="subtitle">
           Der eigene Anteil an jedem Tippschein, mit Zahlungsstatus.
         </p>

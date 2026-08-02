@@ -1,7 +1,7 @@
 <template>
   <div class="page-header">
     <div>
-      <h2>Gebühren</h2>
+      <h1>Gebühren</h1>
       <p class="subtitle">
         Alle Tippgebühren mit Zahlungsstatus — die Übersicht über die offenen Posten (B-07).
       </p>

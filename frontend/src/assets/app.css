@@ -21,6 +21,28 @@
   --gray-50: #f9fafb;
 }
 
+/*
+ * One focus ring for everything reachable by keyboard.
+ *
+ * Only text fields had one, so buttons, links, the navigation and the 49
+ * number balls were left with whatever the browser drew - which on a button
+ * with `border: none` is easy to miss and differs per engine. `:focus-visible`
+ * rather than `:focus`, so a mouse click does not leave a ring behind.
+ */
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* Inside the field's own border rather than around it, where the input sits
+   flush against a neighbour. */
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible {
+  outline-offset: -1px;
+  border-color: var(--blue);
+}
+
 /* --- Page ------------------------------------------------------------- */
 
 .page-header {
@@ -32,7 +54,7 @@
   margin-bottom: 1.5rem;
 }
 
-.page-header h2 {
+.page-header h1 {
   color: var(--gray-900);
   font-size: 1.5rem;
 }
@@ -289,13 +311,6 @@ table.data .numeric {
   background: white;
 }
 
-.field input:focus,
-.field select:focus,
-.field textarea:focus {
-  outline: 2px solid var(--blue);
-  outline-offset: -1px;
-  border-color: var(--blue);
-}
 
 .field-row {
   display: grid;

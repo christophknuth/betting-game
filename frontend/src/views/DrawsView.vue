@@ -1,7 +1,7 @@
 <template>
   <div class="page-header">
     <div>
-      <h2>Ziehungen</h2>
+      <h1>Ziehungen</h1>
       <p class="subtitle">
         Was der <em>gesamte</em> Tippschein gewonnen hat — nicht der eigene Anteil.
         Den gibt es erst mit der Jahresausschüttung.
