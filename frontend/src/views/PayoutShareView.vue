@@ -43,9 +43,6 @@
         <div class="page-header">
           <div>
             <h3>{{ query.data.tippYearName }}</h3>
-            <p class="subtitle">
-              Tippjahr #{{ query.data.tippYearId }}
-            </p>
           </div>
           <span
             class="badge"

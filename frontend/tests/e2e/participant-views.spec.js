@@ -44,10 +44,8 @@ test.describe('participant read views (testuser, participant 2)', () => {
     // participantFeeId, not the admin's: admin-fee-payment.spec books the
     // admin's own fee, and sharing one row would make these two specs depend
     // on the order they happen to run in.
-    const { participantFeeId: feeId } = readFixture()
+    const { participantFeeId: feeId, tippYearId } = readFixture()
     test.skip(feeId === null, 'no fee was seeded for participant 2')
-
-    const { tippYearId } = readFixture()
 
     await navigateTo(page, 'Gebühren', '/fees')
 
@@ -57,10 +55,11 @@ test.describe('participant read views (testuser, participant 2)', () => {
     // request - there is no "Filtern" button left to press.
     await page.locator('#tippYearId').selectOption(String(tippYearId))
 
-    // Matched on the first cell alone, not on the row's text: a row also
-    // carries a ticket id in the same `#N` shape, so a substring match over
-    // the whole row silently picks a different fee once the ids line up.
-    const row = page.locator(`tr:has(td:nth-child(1):text-is("#${feeId}"))`)
+    // The fee and ticket id columns are gone - a participant can act on
+    // neither. Narrowed to the seeded year there is exactly one ticket, so the
+    // one row in the table is the one this spec is about.
+    const row = page.locator('table.data tbody tr')
+    await expect(row).toHaveCount(1)
 
     // total_cost 2.4 (2 rows x 1 draw x 1.20/row) split evenly over 2 rows
     await expect(row).toContainText('1,20')

@@ -377,6 +377,14 @@ layout decision. Two E2E tests cover the consequence: the seed takes the first f
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
 
+### No internal ids in the participant views
+
+`#7` for a ticket, `#12` for a fee, `Tippjahr #3` under the year's own name: numbers a
+participant can neither act on nor look up. They are gone from the five participant views;
+what identifies a row there is the period it covers, which is also what the row next to it
+already said. The admin views keep theirs — an administrator does use them, in a query or in
+a question to somebody else.
+
 ### The participant area on a phone
 
 `AdminLayout` had a media query from the start; the participant bar had none, so on a narrow

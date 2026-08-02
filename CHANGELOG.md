@@ -6,6 +6,20 @@ what was changed when, and why.
 
 ---
 
+## No internal ids in the participant views (2026-08-02)
+
+`#7` for a ticket, `#12` for a fee, `Tippjahr #3` printed under the year's own name — numbers
+a participant can neither act on nor look up, in the five views that are meant to be readable
+without explanation. In the fee table they took the first two columns, ahead of the period
+that actually says which month the row is about.
+
+They are gone. The admin views keep theirs: an administrator does use them, in a query or in a
+question to somebody else. The E2E spec that found its fee row by `#id` now narrows to the
+seeded year and asserts on the single row that leaves — which is a stronger claim than it was
+making before.
+
+---
+
 ## The participant area on a phone (2026-08-02)
 
 `AdminLayout` came with a media query that turns the sidebar into a scrolling strip. The

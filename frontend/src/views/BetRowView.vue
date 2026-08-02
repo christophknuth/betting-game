@@ -52,7 +52,7 @@
 
       <dl class="facts">
         <dt>Tippperiode</dt>
-        <dd>{{ betRow.data.betPeriod?.name }} (#{{ betRow.data.betPeriod?.betPeriodId }})</dd>
+        <dd>{{ betRow.data.betPeriod?.name }}</dd>
 
         <dt>Zeitraum</dt>
         <dd>

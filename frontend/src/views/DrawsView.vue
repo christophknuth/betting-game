@@ -91,10 +91,8 @@
     >
       <div class="page-header">
         <div>
+          <!-- The date is what identifies a draw to the people playing it -->
           <h3>Ziehung vom {{ formatDate(draw.drawDate) }}</h3>
-          <p class="subtitle">
-            #{{ draw.drawId }}
-          </p>
         </div>
         <span
           class="badge"
@@ -127,7 +125,7 @@
       <template v-else>
         <dl class="facts section">
           <dt>Tippschein</dt>
-          <dd>#{{ draw.ticket.ticketId }} mit {{ draw.ticket.rowCount }} Reihen</dd>
+          <dd>{{ draw.ticket.rowCount }} Reihen</dd>
 
           <dt>Gewinn des Scheins</dt>
           <dd>{{ formatAmount(draw.ticket.totalAmount) }}</dd>
