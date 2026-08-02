@@ -374,6 +374,20 @@ layout decision. Two E2E tests cover the consequence: the seed takes the first f
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
 
+### One idiom for loading
+
+The same action was called **Anzeigen** in three views, **Filtern** in two and
+**Aktualisieren** in two more, and half of them loaded on change while the other half waited
+for the button. The rule now:
+
+- **A dropdown or a checkbox loads by itself.** Every filter here is one, so nothing fires
+  per keystroke, and a button next to a dropdown only ever asked for a second click on a
+  decision already made.
+- **A typed value keeps its button.** The audit trail in `AdminOperationsView` is looked up
+  by an id somebody types — a request per keystroke would be wrong there.
+- **`Aktualisieren` means the same query again**, after somebody else has written something.
+  It is the only button left beside a filter, and it no longer shares a name with filtering.
+
 ### Money is German on the way in as well
 
 Every amount is *shown* through `formatAmount` as `1,20 €`. Every amount used to be *asked

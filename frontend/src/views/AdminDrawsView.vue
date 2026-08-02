@@ -15,7 +15,6 @@
         <select
           id="tippYear"
           v-model="tippYearId"
-          @change="loadDraws"
         >
           <option value="">
             bitte wählen
@@ -227,6 +226,10 @@ function loadDraws() {
     draws.load(() => api.getDraws(tippYearId.value))
   }
 }
+
+// Choosing a year loads it; the button beside the dropdown is for fetching the
+// same year again, which is a different intention and keeps its own word.
+watch(tippYearId, loadDraws)
 
 async function recordDraw() {
   // Nothing to parse or check about the numbers here: the grid hands over six

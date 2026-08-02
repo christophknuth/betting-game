@@ -24,10 +24,11 @@ test.describe('admin books a fee payment (B-07)', () => {
     await enterAdmin(page)
     await navigateTo(page, 'Gebühren', '/admin/fees')
 
-    // Both filters are selects over the admin lists now, not typed ids
+    // Both filters are selects over the admin lists now, not typed ids, and
+    // choosing one loads - the button beside them says "Aktualisieren" and
+    // means fetching the same filter again.
     await page.locator('#tippYearId').selectOption(String(tippYearId))
     await page.locator('#participantId').selectOption('1')
-    await page.getByRole('button', { name: 'Filtern' }).click()
 
     // First cell only: the row also carries a ticket id in the same `#N`
     // shape, and matching the whole row's text picks the wrong fee as soon as

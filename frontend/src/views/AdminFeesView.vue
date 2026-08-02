@@ -67,11 +67,11 @@
         </select>
       </div>
       <button
-        class="btn-primary"
+        class="btn-secondary"
         :disabled="query.loading"
         @click="reload"
       >
-        Filtern
+        Aktualisieren
       </button>
     </div>
   </div>
@@ -248,7 +248,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
@@ -271,6 +271,10 @@ const tippYears = computed(() => years.data?.tippYears ?? [])
 const participants = computed(() => people.data?.participants ?? [])
 
 const reload = () => query.load(() => api.admin.getFees({ ...filters }))
+
+// A changed filter loads by itself; the button beside them is for fetching the
+// same filter again, after somebody else has booked something.
+watch(filters, reload)
 
 function open(fee) {
   selected.value = fee

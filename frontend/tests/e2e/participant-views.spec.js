@@ -53,9 +53,9 @@ test.describe('participant read views (testuser, participant 2)', () => {
 
     // Narrow to the seeded year: the stack keeps the fees of every previous
     // run, and this spec is only making a claim about its own. The years are
-    // a select over the caller's own memberships now, not a typed id.
+    // a select over the caller's own memberships now, and choosing one is the
+    // request - there is no "Filtern" button left to press.
     await page.locator('#tippYearId').selectOption(String(tippYearId))
-    await page.getByRole('button', { name: 'Filtern' }).click()
 
     // Matched on the first cell alone, not on the row's text: a row also
     // carries a ticket id in the same `#N` shape, so a substring match over
@@ -72,17 +72,14 @@ test.describe('participant read views (testuser, participant 2)', () => {
 
     await navigateTo(page, 'Ziehungen', '/draws')
 
-    // The field starts as an <input> and becomes a <select> once the
-    // participant's own memberships have loaded. Waiting for the select
-    // rather than branching on whatever is rendered at this instant: the
-    // seed makes testuser a member, so it is certain to arrive, and reading
-    // the tag name mid-flight raced the swap.
+    // The select fills once the participant's own memberships have loaded, so
+    // the option is waited for rather than selected blind - the seed makes
+    // testuser a member, so it is certain to arrive.
     const field = page.locator('select#tippYearId')
-    await expect(field).toBeVisible()
+    await expect(field.locator(`option[value="${tippYearId}"]`)).toBeAttached()
     await field.selectOption(String(tippYearId))
 
-    await page.getByRole('button', { name: 'Anzeigen' }).click()
-
+    // Choosing the year is the request; no button follows it any more.
     await expect(page.locator('.numbers .ball').first()).toBeVisible()
     await expect(page.getByText('Gewinn des Scheins')).toBeVisible()
   })

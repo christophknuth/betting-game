@@ -35,13 +35,6 @@
             </option>
           </select>
         </div>
-        <button
-          class="btn-primary"
-          :disabled="query.loading"
-          @click="reload"
-        >
-          Filtern
-        </button>
       </div>
     </div>
 
@@ -140,7 +133,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, watch } from 'vue'
 import ParticipantScope from '@/components/ParticipantScope.vue'
 import TippYearPicker from '@/components/TippYearPicker.vue'
 import api from '@/services/api'
@@ -154,6 +147,11 @@ const query = useQuery()
 const filters = reactive({ tippYearId: '', paymentStatus: '' })
 
 const reload = () => query.load(() => api.getFees(authStore.participantId, { ...filters }))
+
+// Changing a filter is the request. Both are selects, so this cannot fire per
+// keystroke, and a "Filtern" button next to a dropdown only ever asked people
+// to confirm a choice they had already made.
+watch(filters, reload)
 
 onMounted(() => {
   if (authStore.participantId) {
