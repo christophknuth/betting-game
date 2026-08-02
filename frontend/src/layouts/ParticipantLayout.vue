@@ -177,4 +177,52 @@ const logout = () => {
   margin: 2rem auto;
   padding: 0 20px;
 }
+
+/*
+ * On a phone the bar wrapped into three stacked rows, and the user menu's left
+ * border - meant to separate it from the links beside it - ran across the full
+ * width as a stray line. The admin area had this treatment from the start;
+ * this is the half people actually open on a phone.
+ */
+@media (width <= 820px) {
+  .topbar-inner {
+    gap: 0.5rem 1rem;
+    padding: 0.625rem 20px;
+  }
+
+  .logo {
+    font-size: 1.0625rem;
+  }
+
+  /* A scrolling strip rather than three lines of wrapping links */
+  .nav-links {
+    order: 3;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 1.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .nav-links a {
+    white-space: nowrap;
+  }
+
+  .user-menu {
+    margin-left: auto;
+    padding-left: 0;
+    border-left: none;
+    gap: 0.75rem;
+  }
+
+  /* Of the two names in that row, the one that can go is the one that
+     repeats: the display name is on every screen anyway. */
+  .username {
+    display: none;
+  }
+
+  .content {
+    margin: 1.5rem auto;
+  }
+}
 </style>

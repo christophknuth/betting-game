@@ -377,6 +377,13 @@ layout decision. Two E2E tests cover the consequence: the seed takes the first f
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
 
+### The participant area on a phone
+
+`AdminLayout` had a media query from the start; the participant bar had none, so on a narrow
+screen it wrapped into three stacked rows and the user menu's left border ran across the full
+width as a stray line. The links are a scrolling strip now, the border is gone, and the
+display name steps aside — it is on every screen anyway, and it is the part that repeats.
+
 ### Keyboard, headings, tab title
 
 Three things that only show up when the interface is not being used with a mouse:
