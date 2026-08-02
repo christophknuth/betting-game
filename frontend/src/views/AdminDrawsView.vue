@@ -151,11 +151,23 @@
       </div>
 
       <div
-        v-if="draw.ticket"
+        v-if="draw.ticket?.totalAmount !== null && draw.ticket?.totalAmount !== undefined"
         class="state success section"
       >
         Tippschein #{{ draw.ticket.ticketId }} ({{ draw.ticket.rowCount }} Reihen) hat
         {{ formatAmount(draw.ticket.totalAmount) }} gewonnen.
+      </div>
+
+      <!-- B-24 -->
+      <div
+        v-if="draw.ticket"
+        class="section"
+      >
+        <h4>Reihen des Scheins #{{ draw.ticket.ticketId }}</h4>
+        <DrawRows
+          :rows="draw.ticket.rows ?? []"
+          :numbers="draw.numbers ?? []"
+        />
       </div>
 
       <!-- B-09, B-23 -->
@@ -176,6 +188,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
+import DrawRows from '@/components/DrawRows.vue'
 import NumberGrid from '@/components/NumberGrid.vue'
 import WinningsEntry from '@/components/WinningsEntry.vue'
 import api from '@/services/api'

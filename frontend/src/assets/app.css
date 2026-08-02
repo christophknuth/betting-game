@@ -53,6 +53,13 @@
   margin-bottom: 0.75rem;
 }
 
+/* A section inside a card that already has an h3 of its own */
+.section > h4 {
+  color: var(--gray-600);
+  font-size: 0.9375rem;
+  margin-bottom: 0.5rem;
+}
+
 /* --- Cards ------------------------------------------------------------ */
 
 .card {

@@ -169,6 +169,15 @@
           </template>
         </dl>
 
+        <!-- B-24 -->
+        <div class="section">
+          <h4>Reihen des Scheins</h4>
+          <DrawRows
+            :rows="draw.ticket.rows ?? []"
+            :numbers="draw.numbers ?? []"
+          />
+        </div>
+
         <div
           v-if="draw.ticket.winningClasses?.length"
           class="table-wrap"
@@ -208,6 +217,7 @@
 
 <script setup>
 import { onMounted, reactive, ref, watch } from 'vue'
+import DrawRows from '@/components/DrawRows.vue'
 import api from '@/services/api'
 import { useQuery } from '@/composables/useCommand'
 import { useAuthStore } from '@/stores/auth'

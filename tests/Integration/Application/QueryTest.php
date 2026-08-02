@@ -267,13 +267,50 @@ final class QueryTest extends ApplicationTestCase
         self::assertTrue($evaluated['ticket']['bestMatch']['superzahlMatched']);
     }
 
-    public function testADrawWithoutWinningsHasNoTicketResult(): void
+    public function testADrawWithoutWinningsShowsItsRowsButNoAmount(): void
     {
         $data = $this->getDraws()->handle(new GetDrawsQuery($this->tippYearId))->toArray();
 
         $unevaluated = $data['draws'][0];
         self::assertSame('2026-01-10', $unevaluated['drawDate']);
-        self::assertNull($unevaluated['ticket']);
+
+        // B-24: the ticket took part whether or not anyone has recorded what it
+        // won - but null is not zero, and the amount is still unknown.
+        self::assertNotNull($unevaluated['ticket']);
+        self::assertNull($unevaluated['ticket']['totalAmount']);
+        self::assertNotSame([], $unevaluated['ticket']['rows']);
+    }
+
+    public function testTheRowsOfTheTicketAreShownWithWhatTheyAchieved(): void
+    {
+        $data = $this->getDraws()->handle(new GetDrawsQuery($this->tippYearId))->toArray();
+
+        // Drawn on 2026-01-07: 3, 12, 19, 27, 40, 41 with Superzahl 7. The
+        // January ticket carries only Anna's row - Ben joined in February.
+        $rows = $data['draws'][1]['ticket']['rows'];
+        self::assertCount(1, $rows);
+
+        $anna = $rows[0];
+        self::assertSame('Anna', $anna['displayName']);
+        self::assertSame([3, 12, 19, 27, 33, 45], $anna['numbers'], 'the snapshot, not the current row');
+        self::assertSame(4, $anna['matchedNumbers']);
+        self::assertTrue($anna['superzahlMatched']);
+        self::assertSame(5, $anna['winningClass']);
+        self::assertSame(123.45, $anna['amount'], 'the only winning row takes the whole attribution');
+    }
+
+    public function testARowThatWonNothingIsListedAllTheSame(): void
+    {
+        $data = $this->getDraws()->handle(new GetDrawsQuery($this->tippYearId))->toArray();
+
+        // 2026-01-10 drew 1, 2, 3, 4, 5, 6 with Superzahl 0: Anna's row shares
+        // exactly the 3 with it, and the ticket's Superzahl is 7.
+        $row = $data['draws'][0]['ticket']['rows'][0];
+
+        self::assertSame(1, $row['matchedNumbers']);
+        self::assertFalse($row['superzahlMatched']);
+        self::assertNull($row['winningClass'], 'one hit is no class - but the row was evaluated');
+        self::assertSame(0.0, $row['amount']);
     }
 
     public function testFilteringToWinningDrawsKeepsTheYearTotal(): void
