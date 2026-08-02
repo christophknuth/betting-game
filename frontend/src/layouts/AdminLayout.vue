@@ -1,5 +1,7 @@
 <template>
   <div class="shell">
+    <NotificationHost />
+
     <!--
       A dark bar and a sidebar rather than the participant area's light top
       navigation. The difference is the point: whoever is in here is writing
@@ -70,6 +72,7 @@
 </template>
 
 <script setup>
+import NotificationHost from '@/components/NotificationHost.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 
