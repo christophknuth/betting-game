@@ -4,32 +4,16 @@
       <div>
         <h2>Meine Tippreihe</h2>
         <p class="subtitle">
-          Sechs Zahlen je Tippperiode. Ohne Angabe die heute laufende Periode.
+          Die sechs Zahlen der heute laufenden Tippperiode.
         </p>
       </div>
-    </div>
-
-    <div class="card section">
-      <div class="field-inline">
-        <div class="field">
-          <label for="betPeriodId">Tippperiode</label>
-          <input
-            id="betPeriodId"
-            v-model="betPeriodId"
-            type="number"
-            min="1"
-            placeholder="laufende Periode"
-          >
-          <span class="hint">ID der Periode, leer = heute laufend</span>
-        </div>
-        <button
-          class="btn-primary"
-          :disabled="betRow.loading"
-          @click="reload"
-        >
-          Anzeigen
-        </button>
-      </div>
+      <button
+        class="btn-secondary"
+        :disabled="betRow.loading"
+        @click="reload"
+      >
+        Aktualisieren
+      </button>
     </div>
 
     <div
@@ -96,7 +80,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import ParticipantScope from '@/components/ParticipantScope.vue'
 import api from '@/services/api'
 import { useQuery } from '@/composables/useCommand'
@@ -106,10 +90,16 @@ import { formatDate, formatDateTime } from '@/support/format'
 const authStore = useAuthStore()
 const betRow = useQuery()
 
-const betPeriodId = ref('')
-
-const reload = () =>
-  betRow.load(() => api.getBetRow(authStore.participantId, betPeriodId.value || null))
+/**
+ * Always the running period.
+ *
+ * There used to be a field for a bet period id here, so that an earlier period
+ * could be looked at. Nothing could fill it: no participant-facing endpoint
+ * lists bet periods, so the only way to a number was guessing. Showing the
+ * running row - which is what B-01 asks for - and leaving period history to a
+ * story that comes with a list is the honest half of that.
+ */
+const reload = () => betRow.load(() => api.getBetRow(authStore.participantId))
 
 onMounted(() => {
   if (authStore.participantId) {

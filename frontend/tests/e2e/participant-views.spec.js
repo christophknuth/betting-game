@@ -12,20 +12,32 @@ test.describe('participant read views (testuser, participant 2)', () => {
     await loginAs(page, 'testuser', 'test123')
   })
 
+  /**
+   * The view shows the row of the period running *today*, and nothing else:
+   * no participant-facing endpoint lists bet periods, so there is nothing to
+   * pick from and the field that used to ask for a period id was a lookup
+   * nobody could perform. The seed takes the first free calendar year (tipp
+   * years may not overlap), so which of the two tests below runs depends on
+   * whether that landed in this year - exactly one of them always does.
+   */
+  const seededYearIsRunning = () => readFixture().calendarYear === new Date().getFullYear()
+
   test('B-01: sees the assigned bet row with its six numbers', async ({ page }) => {
-    const { betPeriodId } = readFixture()
+    test.skip(!seededYearIsRunning(), 'the seeded tipp year is not the running one')
 
-    // Login lands on /bet-row, but the view then asks for the period running
-    // *today*. The seeded tipp year sits in whichever calendar year was still
-    // free (tipp years may not overlap), which is usually not this one - so
-    // the period is named explicitly instead of relying on the date.
-    await page.locator('#betPeriodId').fill(String(betPeriodId))
-    await page.getByRole('button', { name: 'Anzeigen' }).click()
-
+    // Login lands on /bet-row already
     const numbers = page.locator('.numbers .ball')
 
     await expect(numbers).toHaveCount(6)
     await expect(numbers).toHaveText(['7', '8', '9', '10', '11', '12'])
+  })
+
+  test('B-01: says so when no period is running today', async ({ page }) => {
+    test.skip(seededYearIsRunning(), 'the seeded tipp year is the running one')
+
+    // A 404 is an answer here, not a fault - and it has to read as one.
+    await expect(page.locator('.state.empty')).toBeVisible()
+    await expect(page.locator('.numbers .ball')).toHaveCount(0)
   })
 
   test('B-03: sees the fee the ticket submission created, still open', async ({ page }) => {
@@ -40,8 +52,9 @@ test.describe('participant read views (testuser, participant 2)', () => {
     await navigateTo(page, 'Gebühren', '/fees')
 
     // Narrow to the seeded year: the stack keeps the fees of every previous
-    // run, and this spec is only making a claim about its own.
-    await page.locator('#tippYearId').fill(String(tippYearId))
+    // run, and this spec is only making a claim about its own. The years are
+    // a select over the caller's own memberships now, not a typed id.
+    await page.locator('#tippYearId').selectOption(String(tippYearId))
     await page.getByRole('button', { name: 'Filtern' }).click()
 
     // Matched on the first cell alone, not on the row's text: a row also

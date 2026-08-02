@@ -182,6 +182,9 @@ async function seedTippYear(api, calendarYear) {
   await api('PUT', `/admin/tipp-years/${tippYearId}/status`, { status: 'closed' })
 
   return {
+    // The specs need it: the participant views show the period running today,
+    // and only a seed that landed in this calendar year has one.
+    calendarYear,
     tippYearId,
     betPeriodId,
     ticketId: ticket.resourceId,

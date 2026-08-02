@@ -24,7 +24,7 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 |--------|-------|
 | Views | 12 (1 login, 5 participant, 6 admin) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
-| Components | 8 shared + `App.vue` |
+| Components | 9 shared + `App.vue` |
 | Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 1 auth store, 1 stylesheet |
@@ -293,6 +293,7 @@ frontend/src/
 │   ├── DrawRows.vue             B-24: the ticket's rows in a draw, winners marked
 │   ├── MoneyInput.vue           one amount, entered and shown as 1,20 €
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
+│   ├── TippYearPicker.vue       the caller's own tipp years, chosen by name
 │   ├── WinningsEntry.vue        B-23: the winnings as a sum or per winning class
 │   ├── ParticipantScope.vue     note shown when the token lacks participant_id
 │   ├── TippYearSetupWizard.vue  B-10 → B-14 → B-11 → B-18 in four steps
@@ -352,6 +353,26 @@ before it is picked), `.badge` with status classes,
 
 **Responsive:** mobile first, grid with `repeat(auto-fill, minmax(320px, 1fr))`, tables in
 `.table-wrap` with horizontal scroll.
+
+### Nobody types a primary key
+
+Six fields across five views used to ask for a database id in a field labelled
+`Tippjahr`, `Tippperiode` or `Teilnehmer`. Nobody knows that their tipp year is the 3, and
+nothing on the screen said so — the fields were lookups that could not be performed.
+
+[`TippYearPicker`](frontend/src/components/TippYearPicker.vue) answers it for the
+participant views from the caller's own memberships: the honest list, because one cannot ask
+about a year one did not play, and the only one available — no participant-facing endpoint
+lists tipp years. The admin views choose from `GET /admin/tipp-years` and
+`GET /admin/participants`, which they were already loading elsewhere.
+
+**`BetRowView` lost its period field instead of gaining a list.** There is no endpoint that
+lists a participant's bet periods, so the field could only ever be filled by guessing, and
+the view now shows what B-01 actually asks for: the row of the period running today. Looking
+at an earlier period needs a participant-facing list of periods first — a story, not a
+layout decision. Two E2E tests cover the consequence: the seed takes the first free calendar
+year, so exactly one of "sees the six numbers" and "says that no period is running" applies
+on any given run.
 
 ### Money is German on the way in as well
 

@@ -12,23 +12,39 @@
     <div class="field-inline">
       <div class="field">
         <label for="tippYearId">Tippjahr</label>
-        <input
+        <select
           id="tippYearId"
           v-model="filters.tippYearId"
-          type="number"
-          min="1"
-          placeholder="alle"
         >
+          <option value="">
+            alle
+          </option>
+          <option
+            v-for="year in tippYears"
+            :key="year.tippYearId"
+            :value="year.tippYearId"
+          >
+            {{ year.name }} (#{{ year.tippYearId }})
+          </option>
+        </select>
       </div>
       <div class="field">
         <label for="participantId">Teilnehmer</label>
-        <input
+        <select
           id="participantId"
           v-model="filters.participantId"
-          type="number"
-          min="1"
-          placeholder="alle"
         >
+          <option value="">
+            alle
+          </option>
+          <option
+            v-for="participant in participants"
+            :key="participant.participantId"
+            :value="participant.participantId"
+          >
+            {{ participant.displayName }} (#{{ participant.participantId }})
+          </option>
+        </select>
       </div>
       <div class="field">
         <label for="paymentStatus">Status</label>
@@ -239,6 +255,8 @@ import { useCommand, useQuery } from '@/composables/useCommand'
 import { formatAmount, formatDate, statusLabel } from '@/support/format'
 
 const query = useQuery()
+const years = useQuery()
+const people = useQuery()
 const command = useCommand()
 
 const filters = reactive({ tippYearId: '', participantId: '', paymentStatus: '' })
@@ -246,6 +264,11 @@ const selected = ref(null)
 const booking = reactive({ paymentStatus: 'paid', paidAt: '', paymentMethod: '', note: '' })
 
 const fees = computed(() => query.data?.fees ?? [])
+
+// The two filters used to be numeric ids typed from memory. Both lists exist as
+// admin endpoints and are what the other admin views already choose from.
+const tippYears = computed(() => years.data?.tippYears ?? [])
+const participants = computed(() => people.data?.participants ?? [])
 
 const reload = () => query.load(() => api.admin.getFees({ ...filters }))
 
@@ -276,5 +299,9 @@ async function record() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  reload()
+  years.load(() => api.admin.getTippYears())
+  people.load(() => api.admin.getParticipants())
+})
 </script>
