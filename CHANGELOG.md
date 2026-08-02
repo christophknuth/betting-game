@@ -6,6 +6,41 @@ what was changed when, and why.
 
 ---
 
+## Money is German on the way in too (2026-08-02)
+
+Every amount in the interface is *shown* as `1,20 €` and always was — `formatAmount` runs
+through `Intl` with `de-DE` and is used everywhere without exception. Every amount was *asked
+for* as `1.20`: five fields, all plain `<input type="number">`, all with dot-written defaults
+like `1.20` and `0.60`.
+
+That is not only inconsistent, it drops input. The value of a `number` input is defined to
+use a dot whatever the locale, so a browser that takes the definition literally answers a
+typed `1,20` with an empty string — the field simply clears, says nothing, and the form goes
+off with no price on it.
+
+**`MoneyInput` is the one way in now.** A text field with `inputmode="decimal"`, so phones
+still offer the numeric keypad; the `€` beside the entry rather than inside it, where it
+would be read back in on the next keystroke; and on blur the entry rounded to cents and
+rewritten as `1,20`. The rounded figure is the one emitted, so what the field shows and what
+the API is sent cannot drift apart.
+
+`parseAmount` decides what counts: comma **and** dot are taken as the decimal separator,
+because the comma is what the label implies and the dot is what years of forms have trained
+into people's fingers. Where both appear the last one wins and the other is dropped as
+grouping — that is what pasting a formatted `1.234,56 €` back into a field looks like. A lone
+dot is therefore always a decimal point; `formatDecimal` leaves grouping out entirely, so
+nothing has to be guessed on the way back.
+
+Writing the tests found a real fault in the first version: `onBlur` read the amount off the
+model, which is only as current as the parent's last echo of it, so a field whose parent had
+not echoed reverted to the old figure on blur. It reads the text it is showing instead — the
+field is what was typed.
+
+Verified: ESLint clean, Vitest 127/127 (twenty-two new for the field and the parser), and
+`npm run build`.
+
+---
+
 ## A draw shows the rows it was played against (2026-08-02)
 
 **B-24.** A draw showed six balls, a total and — after B-09 — a table of winning classes.

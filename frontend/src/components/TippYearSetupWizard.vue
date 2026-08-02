@@ -47,14 +47,11 @@
         </div>
         <div class="field">
           <label for="wz-cost">Preis je Reihe und Ziehung</label>
-          <input
+          <MoneyInput
             id="wz-cost"
             v-model="draft.ticketCostPerRow"
-            type="number"
-            step="0.01"
-            min="0"
             required
-          >
+          />
         </div>
       </div>
 
@@ -64,23 +61,17 @@
       <div class="field-row">
         <div class="field">
           <label for="wz-fee-single">Einwöchiger Spielauftrag</label>
-          <input
+          <MoneyInput
             id="wz-fee-single"
             v-model="draft.processingFeeSingleWeek"
-            type="number"
-            step="0.01"
-            min="0"
-          >
+          />
         </div>
         <div class="field">
           <label for="wz-fee-multi">Mehrwöchiger Spielauftrag</label>
-          <input
+          <MoneyInput
             id="wz-fee-multi"
             v-model="draft.processingFeeMultiWeek"
-            type="number"
-            step="0.01"
-            min="0"
-          >
+          />
           <span class="hint">gilt für den üblichen Monatsschein</span>
         </div>
       </div>
@@ -106,7 +97,7 @@
         </button>
         <button
           class="btn-primary"
-          :disabled="yearCmd.pending"
+          :disabled="yearCmd.pending || draft.ticketCostPerRow === null"
           type="submit"
         >
           {{ yearCmd.pending ? 'Wird angelegt …' : 'Weiter →' }}
@@ -329,6 +320,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
+import MoneyInput from '@/components/MoneyInput.vue'
 import api from '@/services/api'
 import { useBatch, useCommand } from '@/composables/useCommand'
 import { PERIOD_TEMPLATES, generateBetPeriods } from '@/support/betPeriods'
@@ -350,9 +342,9 @@ const draft = reactive({
   name: '',
   startDate: '',
   endDate: '',
-  ticketCostPerRow: '1.20',
-  processingFeeSingleWeek: '0.60',
-  processingFeeMultiWeek: '1.00'
+  ticketCostPerRow: 1.2,
+  processingFeeSingleWeek: 0.6,
+  processingFeeMultiWeek: 1.0
 })
 const chosenTemplate = ref('month')
 const chosenParticipants = ref([])
@@ -403,9 +395,11 @@ async function createYear() {
     name: draft.name,
     startDate: draft.startDate,
     endDate: draft.endDate,
-    ticketCostPerRow: Number(draft.ticketCostPerRow),
-    processingFeeSingleWeek: Number(draft.processingFeeSingleWeek),
-    processingFeeMultiWeek: Number(draft.processingFeeMultiWeek)
+    ticketCostPerRow: draft.ticketCostPerRow,
+    // Left empty means "we pay none", which is what the old empty string
+    // converted to as well - only now it is said rather than implied.
+    processingFeeSingleWeek: draft.processingFeeSingleWeek ?? 0,
+    processingFeeMultiWeek: draft.processingFeeMultiWeek ?? 0
   }, key))
 
   if (!accepted) {
