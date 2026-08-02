@@ -6,6 +6,19 @@ what was changed when, and why.
 
 ---
 
+## The participant area on a phone (2026-08-02)
+
+`AdminLayout` came with a media query that turns the sidebar into a scrolling strip. The
+participant bar had none — so on a narrow screen it wrapped into three stacked rows, and the
+user menu's left border, meant to separate it from the links beside it, ran across the full
+width as a stray line. That is the half of the application people actually open on a phone.
+
+The five links are a scrolling strip now, the border is gone, and the display name steps
+aside: it is on every screen anyway, and of the two names in that row it is the one that
+repeats.
+
+---
+
 ## Keyboard, headings and the tab title (2026-08-02)
 
 Three things that only show up when the interface is not being used with a mouse.
