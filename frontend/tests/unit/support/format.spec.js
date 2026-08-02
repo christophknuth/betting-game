@@ -3,7 +3,9 @@ import {
   formatAmount,
   formatDate,
   formatDateTime,
+  formatDecimal,
   formatNumbers,
+  parseAmount,
   statusLabel,
   winningClassLabel
 } from '@/support/format'
@@ -25,6 +27,75 @@ describe('formatAmount', () => {
     const expected = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(1234.5)
 
     expect(formatAmount(1234.5)).toBe(expected)
+  })
+})
+
+describe('formatDecimal', () => {
+  it('writes the amount German, with two decimals and no currency symbol', () => {
+    expect(formatDecimal(1.2)).toBe('1,20')
+    expect(formatDecimal(0)).toBe('0,00')
+  })
+
+  it('renders nothing at all for a missing amount', () => {
+    // An input field showing "–" would have that read back in as its value
+    expect(formatDecimal(null)).toBe('')
+    expect(formatDecimal(undefined)).toBe('')
+  })
+
+  it('leaves out the thousands separator the parser would have to guess at', () => {
+    expect(formatDecimal(1234.5)).toBe('1234,50')
+  })
+})
+
+/**
+ * The way in for every amount the interface asks for. German entry means the
+ * comma decides, but the dot is what years of forms have trained into people -
+ * so both work, and pasting a formatted figure back in works too.
+ */
+describe('parseAmount', () => {
+  it('reads the German comma', () => {
+    expect(parseAmount('1,20')).toBe(1.2)
+  })
+
+  it('reads the dot as a decimal point as well', () => {
+    expect(parseAmount('1.20')).toBe(1.2)
+  })
+
+  it('lets the last separator decide when both appear', () => {
+    expect(parseAmount('1.234,56')).toBe(1234.56)
+    expect(parseAmount('1,234.56')).toBe(1234.56)
+  })
+
+  it('ignores the spaces and the € of a pasted amount', () => {
+    expect(parseAmount('1.234,56 €')).toBe(1234.56)
+    expect(parseAmount(formatAmount(12.5))).toBe(12.5)
+  })
+
+  it('reads a lone dot as a decimal point, not as a thousands separator', () => {
+    // Stated as a rule rather than guessed from the digit count: 1.234 is
+    // 1,234 here, and rounding to cents is the field's job.
+    expect(parseAmount('1.234')).toBe(1.234)
+  })
+
+  it('answers null for a field that holds no number', () => {
+    expect(parseAmount('')).toBeNull()
+    expect(parseAmount('   ')).toBeNull()
+    expect(parseAmount('viel')).toBeNull()
+    expect(parseAmount(null)).toBeNull()
+    expect(parseAmount(',')).toBeNull()
+  })
+
+  it('does not let exponent notation through as an amount', () => {
+    expect(parseAmount('1e3')).toBeNull()
+  })
+
+  it('passes a number through untouched', () => {
+    expect(parseAmount(1.2)).toBe(1.2)
+    expect(parseAmount(Number.NaN)).toBeNull()
+  })
+
+  it('keeps a negative sign, so the caller can refuse it knowingly', () => {
+    expect(parseAmount('-5')).toBe(-5)
   })
 })
 

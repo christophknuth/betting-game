@@ -24,7 +24,7 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 |--------|-------|
 | Views | 12 (1 login, 5 participant, 6 admin) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
-| Components | 7 shared + `App.vue` |
+| Components | 8 shared + `App.vue` |
 | Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 1 auth store, 1 stylesheet |
@@ -291,6 +291,7 @@ frontend/src/
 ├── components/
 │   ├── CommandFeedback.vue      a command's response including commandId
 │   ├── DrawRows.vue             B-24: the ticket's rows in a draw, winners marked
+│   ├── MoneyInput.vue           one amount, entered and shown as 1,20 €
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
 │   ├── WinningsEntry.vue        B-23: the winnings as a sum or per winning class
 │   ├── ParticipantScope.vue     note shown when the token lacks participant_id
@@ -303,7 +304,7 @@ frontend/src/
 │   └── keycloak.js            keycloak-js wrapper
 ├── stores/auth.js             Pinia auth store
 ├── support/
-│   ├── format.js              money, dates, lotto numbers, status labels
+│   ├── format.js              money in and out, dates, lotto numbers, status labels
 │   └── betPeriods.js          period templates, tiling, B-14 rule checks
 ├── assets/app.css             shared design system
 ├── router/index.js
@@ -351,6 +352,24 @@ before it is picked), `.badge` with status classes,
 
 **Responsive:** mobile first, grid with `repeat(auto-fill, minmax(320px, 1fr))`, tables in
 `.table-wrap` with horizontal scroll.
+
+### Money is German on the way in as well
+
+Every amount is *shown* through `formatAmount` as `1,20 €`. Every amount used to be *asked
+for* through a bare `<input type="number">`, whose value is defined to use a dot whatever the
+locale — so the comma the label implies left the field empty in browsers that take that
+definition literally, and said nothing about it.
+
+[`MoneyInput`](frontend/src/components/MoneyInput.vue) is the one way in now: a text field
+with `inputmode="decimal"` (the numeric keypad on a phone), the `€` beside the entry rather
+than inside it, and on blur the entry rounded to cents and rewritten as `1,20`. What the
+field shows and what the API is sent cannot drift apart, because the rounded figure is the
+one emitted.
+
+`parseAmount` in `support/format.js` decides what counts as an amount: comma **and** dot are
+accepted as the decimal separator, and where both appear the last one wins and the other is
+dropped — which is what a pasted `1.234,56 €` looks like. Grouping is deliberately not
+produced on the way out (`formatDecimal`), so nothing has to be guessed on the way back in.
 
 ## Development
 
@@ -412,7 +431,8 @@ implementation:
 |---|---|
 | `composables/useCommand.spec.js` | OPS-02: the idempotency key is retained on a response-less request (a retry repeats the same command) and dropped on any response — success as well as error; `useQuery` falls back to the initial value on errors (B-01: a 404 is an empty state) |
 | `services/errors.spec.js` | `apiMessage` for 401 (the iss-claim hint), 503 (repeatable), the passed-through API message, an unreachable API |
-| `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: the share is `null` until the distribution is recorded) |
+| `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: the share is `null` until the distribution is recorded); `parseAmount` against both separators, a pasted `1.234,56 €` and everything that is not an amount |
+| `components/MoneyInput.spec.js` | The comma works, the dot still works, blur rounds to cents and rewrites the field German — and what the field shows is the figure that was emitted |
 | `components/NumberGrid.spec.js` | B-06 through the grid the numbers are picked off: 49 numbers, ascending whatever the click order, a second click releases one again, and a full grid locks the rest — so a seventh number, a 50 or a duplicate is unreachable |
 | `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |

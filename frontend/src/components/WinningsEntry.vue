@@ -24,14 +24,11 @@
       class="field"
     >
       <label :for="`amount-${drawId}`">Gewinn des gesamten Scheins</label>
-      <input
+      <MoneyInput
         :id="`amount-${drawId}`"
         v-model="total"
-        type="number"
-        step="0.01"
-        min="0"
         required
-      >
+      />
       <span class="hint">
         Ohne Aufschlüsselung rechnet das System die Treffer je Reihe selbst aus den
         Reihen-Snapshots des Scheins.
@@ -50,14 +47,10 @@
           class="class-row"
         >
           <label :for="`class-${drawId}-${winningClass}`">{{ label }}</label>
-          <input
+          <MoneyInput
             :id="`class-${drawId}-${winningClass}`"
             v-model="perClass[winningClass]"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0,00"
-          >
+          />
         </div>
       </div>
       <span class="hint">
@@ -86,6 +79,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
+import MoneyInput from '@/components/MoneyInput.vue'
 import { WINNING_CLASSES, formatAmount } from '@/support/format'
 
 /**
@@ -110,21 +104,24 @@ defineProps({
 const emit = defineEmits(['submit'])
 
 const mode = ref('total')
-const total = ref('')
+
+// Amounts, not strings: MoneyInput hands over a number or null, so nothing here
+// has to know how the person typed it.
+const total = ref(null)
 
 // One entry per class, so v-model has something to bind to from the start -
 // adding keys to a reactive object while the inputs render loses reactivity.
 const perClass = reactive(
-  Object.fromEntries(Object.keys(WINNING_CLASSES).map(winningClass => [winningClass, '']))
+  Object.fromEntries(Object.keys(WINNING_CLASSES).map(winningClass => [winningClass, null]))
 )
 
 /** The classes that were actually filled in, as the API takes them. */
 const entered = computed(() =>
   Object.entries(perClass)
-    .filter(([, amount]) => amount !== '' && amount !== null)
+    .filter(([, amount]) => amount !== null)
     .map(([winningClass, amount]) => ({
       winningClass: Number(winningClass),
-      amount: Number(amount)
+      amount
     }))
 )
 
@@ -134,7 +131,7 @@ const sum = computed(() =>
   entered.value.reduce((cents, entry) => cents + Math.round(entry.amount * 100), 0) / 100
 )
 
-const filled = computed(() => (mode.value === 'total' ? total.value !== '' : entered.value.length > 0))
+const filled = computed(() => (mode.value === 'total' ? total.value !== null : entered.value.length > 0))
 
 function submit() {
   if (!filled.value) {
@@ -144,7 +141,7 @@ function submit() {
   emit(
     'submit',
     mode.value === 'total'
-      ? { totalAmount: Number(total.value) }
+      ? { totalAmount: total.value }
       : { winningClasses: entered.value }
   )
 }
@@ -179,13 +176,10 @@ function submit() {
   color: var(--gray-600);
 }
 
-.class-row input {
-  width: 7rem;
+/* The child component's root element - it brings its own border and € */
+.class-row :deep(.money) {
+  width: 8rem;
   padding: 0.375rem 0.5rem;
-  border: 1px solid var(--gray-300);
-  border-radius: 6px;
-  font: inherit;
-  text-align: right;
 }
 
 .sum {

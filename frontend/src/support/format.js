@@ -1,4 +1,9 @@
 const euro = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' })
+const decimal = new Intl.NumberFormat('de-DE', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: false
+})
 const day = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 const moment = new Intl.DateTimeFormat('de-DE', {
   day: '2-digit',
@@ -17,6 +22,68 @@ const moment = new Intl.DateTimeFormat('de-DE', {
  */
 export function formatAmount(value) {
   return value === null || value === undefined ? '–' : euro.format(value)
+}
+
+/**
+ * The same amount without the currency symbol, for inside an input field.
+ *
+ * `1,20` rather than `1,20 €`: the field carries its own € next to it, and a
+ * symbol inside the value would be parsed back in on the next keystroke. No
+ * thousands separator either - see parseAmount for why the input side does not
+ * want to meet one.
+ */
+export function formatDecimal(value) {
+  return value === null || value === undefined || Number.isNaN(value) ? '' : decimal.format(value)
+}
+
+/**
+ * An amount as somebody types it, back into a number.
+ *
+ * German entry means the comma is the decimal separator, but the dot is what
+ * years of forms have trained into people's fingers - so both are accepted.
+ * Where both appear, the *last* one decides and the other is dropped as a
+ * thousands separator: that is what pasting a formatted `1.234,56` looks like.
+ *
+ * A lone dot is therefore always a decimal point, and `1.234` reads as 1,23
+ * after rounding rather than as one thousand. The alternative would be to guess
+ * from the digit count, and guessing wrong on money is worse than a rule that
+ * can be stated in one sentence.
+ *
+ * @returns {number|null} null when the field holds nothing that is a number
+ */
+export function parseAmount(input) {
+  if (typeof input === 'number') {
+    return Number.isFinite(input) ? input : null
+  }
+
+  const cleaned = String(input ?? '')
+    // \s covers the non-breaking space Intl puts before the €, which is how a
+    // copied "1,20 €" finds its way back into a field
+    .replace(/[\s€]/g, '')
+
+  if (cleaned === '') {
+    return null
+  }
+
+  const lastComma = cleaned.lastIndexOf(',')
+  const lastDot = cleaned.lastIndexOf('.')
+  const separator = lastComma > lastDot ? ',' : '.'
+
+  const normalised = cleaned
+    .split('')
+    .filter(character => character !== (separator === ',' ? '.' : ','))
+    .join('')
+    .replace(',', '.')
+
+  // Number('') is 0 and Number('1e3') is 1000; neither is an amount somebody
+  // typed, so the shape is checked before the conversion.
+  if (!/^-?\d*\.?\d*$/.test(normalised) || !/\d/.test(normalised)) {
+    return null
+  }
+
+  const value = Number(normalised)
+
+  return Number.isFinite(value) ? value : null
 }
 
 export function formatDate(value) {

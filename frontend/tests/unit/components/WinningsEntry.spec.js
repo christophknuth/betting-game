@@ -22,10 +22,13 @@ describe('WinningsEntry', () => {
     await entry.findAll('input[type="radio"]')[1].setValue()
   }
 
-  it('sends the ticket total on its own', async () => {
+  /** The amount fields, which MoneyInput renders as text with a decimal keypad. */
+  const amountFields = entry => entry.findAll('input[inputmode="decimal"]')
+
+  it('sends the ticket total on its own, typed the German way', async () => {
     const entry = mountEntry()
 
-    await entry.find('input[type="number"]').setValue('123.45')
+    await amountFields(entry)[0].setValue('123,45')
     await entry.find('form').trigger('submit')
 
     expect(submitted(entry)).toEqual({ totalAmount: 123.45 })
@@ -35,16 +38,16 @@ describe('WinningsEntry', () => {
     const entry = mountEntry()
     await chooseClasses(entry)
 
-    expect(entry.findAll('input[type="number"]')).toHaveLength(9)
+    expect(amountFields(entry)).toHaveLength(9)
   })
 
   it('sends only the classes that were filled in, and no total with them', async () => {
     const entry = mountEntry()
     await chooseClasses(entry)
 
-    const fields = entry.findAll('input[type="number"]')
+    const fields = amountFields(entry)
     await fields[4].setValue('300')
-    await fields[7].setValue('12.50')
+    await fields[7].setValue('12,50')
     await entry.find('form').trigger('submit')
 
     // WINNING_CLASSES is keyed 1..9, so the fifth field is class 5
@@ -60,9 +63,9 @@ describe('WinningsEntry', () => {
     const entry = mountEntry()
     await chooseClasses(entry)
 
-    const fields = entry.findAll('input[type="number"]')
-    await fields[0].setValue('0.10')
-    await fields[1].setValue('0.20')
+    const fields = amountFields(entry)
+    await fields[0].setValue('0,10')
+    await fields[1].setValue('0,20')
 
     expect(entry.text()).toContain('0,30')
   })
@@ -75,7 +78,7 @@ describe('WinningsEntry', () => {
     await chooseClasses(entry)
     expect(entry.find('button').attributes('disabled')).toBeDefined()
 
-    await entry.findAll('input[type="number"]')[0].setValue('5')
+    await amountFields(entry)[0].setValue('5')
     expect(entry.find('button').attributes('disabled')).toBeUndefined()
   })
 
@@ -83,7 +86,7 @@ describe('WinningsEntry', () => {
     const entry = mountEntry()
     await entry.setProps({ pending: true })
 
-    await entry.find('input[type="number"]').setValue('10')
+    await amountFields(entry)[0].setValue('10')
 
     expect(entry.find('button').attributes('disabled')).toBeDefined()
     expect(entry.text()).toContain('Wird gesendet')
