@@ -24,8 +24,9 @@ test.describe('admin books a fee payment (B-07)', () => {
     await enterAdmin(page)
     await navigateTo(page, 'Gebühren', '/admin/fees')
 
-    await page.locator('#tippYearId').fill(String(tippYearId))
-    await page.locator('#participantId').fill('1')
+    // Both filters are selects over the admin lists now, not typed ids
+    await page.locator('#tippYearId').selectOption(String(tippYearId))
+    await page.locator('#participantId').selectOption('1')
     await page.getByRole('button', { name: 'Filtern' }).click()
 
     // First cell only: the row also carries a ticket id in the same `#N`

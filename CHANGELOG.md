@@ -6,6 +6,36 @@ what was changed when, and why.
 
 ---
 
+## Nobody types a primary key any more (2026-08-02)
+
+Six fields across five views asked for a database id. `Tippjahr` was a number input, and the
+number wanted was the tipp year's primary key — which a participant has no way of knowing and
+which nothing on the screen offered. The same for `Teilnehmer` in the fee ledger and
+`Tippperiode` in the bet row view. They were lookups that could not be performed.
+
+`TippYearPicker` answers it for the participant views from the caller's own memberships:
+the honest list, because one cannot ask about a year one did not play, and the only one
+available — no participant-facing endpoint lists tipp years. `DrawsView` had already built
+this inline; it now uses the shared component and is shorter for it. The admin fee ledger
+chooses from `GET /admin/tipp-years` and `GET /admin/participants`, which the neighbouring
+admin views were already loading.
+
+**`BetRowView` lost its period field rather than gaining a list.** Nothing lists a
+participant's bet periods, so that field could only be filled by guessing; the view now shows
+what B-01 actually asks for, the row of the period running today. Looking at an earlier
+period needs a participant-facing list of periods first, and that is a story rather than a
+layout decision — noted, not invented.
+
+The E2E suite follows the consequence rather than papering over it. The seed takes the first
+free calendar year, so the running period usually belongs to a year that is not this one:
+"sees the six numbers" and "says that no period is running" are now two tests, and exactly
+one of them applies on any given run.
+
+Verified: ESLint clean, Vitest 127/127, `npm run build`. Playwright not run — it needs the
+whole stack up.
+
+---
+
 ## Money is German on the way in too (2026-08-02)
 
 Every amount in the interface is *shown* as `1,20 €` and always was — `formatAmount` runs

@@ -11,16 +11,10 @@
 
     <div class="card section">
       <div class="field-inline">
-        <div class="field">
-          <label for="tippYearId">Tippjahr</label>
-          <input
-            id="tippYearId"
-            v-model="filters.tippYearId"
-            type="number"
-            min="1"
-            placeholder="alle"
-          >
-        </div>
+        <TippYearPicker
+          v-model="filters.tippYearId"
+          empty-label="alle"
+        />
         <div class="field">
           <label for="paymentStatus">Zahlungsstatus</label>
           <select
@@ -148,6 +142,7 @@
 <script setup>
 import { onMounted, reactive } from 'vue'
 import ParticipantScope from '@/components/ParticipantScope.vue'
+import TippYearPicker from '@/components/TippYearPicker.vue'
 import api from '@/services/api'
 import { useQuery } from '@/composables/useCommand'
 import { useAuthStore } from '@/stores/auth'

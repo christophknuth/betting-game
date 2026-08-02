@@ -11,16 +11,10 @@
 
     <div class="card section">
       <div class="field-inline">
-        <div class="field">
-          <label for="tippYearId">Tippjahr</label>
-          <input
-            id="tippYearId"
-            v-model="tippYearId"
-            type="number"
-            min="1"
-            placeholder="laufendes Jahr"
-          >
-        </div>
+        <TippYearPicker
+          v-model="tippYearId"
+          empty-label="laufendes Jahr"
+        />
         <button
           class="btn-primary"
           :disabled="query.loading"
@@ -109,6 +103,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import ParticipantScope from '@/components/ParticipantScope.vue'
+import TippYearPicker from '@/components/TippYearPicker.vue'
 import api from '@/services/api'
 import { useQuery } from '@/composables/useCommand'
 import { useAuthStore } from '@/stores/auth'

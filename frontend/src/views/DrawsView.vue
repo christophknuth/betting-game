@@ -11,30 +11,7 @@
 
   <div class="card section">
     <div class="field-inline">
-      <div class="field">
-        <label for="tippYearId">Tippjahr</label>
-        <select
-          v-if="tippYears.length"
-          id="tippYearId"
-          v-model="tippYearId"
-        >
-          <option
-            v-for="year in tippYears"
-            :key="year.tippYearId"
-            :value="year.tippYearId"
-          >
-            {{ year.tippYearName }} (#{{ year.tippYearId }})
-          </option>
-        </select>
-        <input
-          v-else
-          id="tippYearId"
-          v-model="tippYearId"
-          type="number"
-          min="1"
-          placeholder="ID des Tippjahres"
-        >
-      </div>
+      <TippYearPicker v-model="tippYearId" />
 
       <div class="field">
         <label for="status">Status</label>
@@ -79,8 +56,8 @@
     v-if="!tippYearId"
     class="state empty"
   >
-    Kein Tippjahr gewählt. Die Auswahl stammt aus den eigenen Teilnahmen; ohne Teilnahme
-    lässt sich die ID direkt eintragen.
+    Kein Tippjahr gewählt. Die Auswahl stammt aus den eigenen Teilnahmen — ohne Teilnahme
+    gibt es hier nichts zu zeigen.
   </div>
 
   <div
@@ -216,18 +193,16 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import DrawRows from '@/components/DrawRows.vue'
+import TippYearPicker from '@/components/TippYearPicker.vue'
 import api from '@/services/api'
 import { useQuery } from '@/composables/useCommand'
-import { useAuthStore } from '@/stores/auth'
 import { formatAmount, formatDate, statusLabel, winningClassLabel } from '@/support/format'
 
-const authStore = useAuthStore()
 const query = useQuery()
 
 const tippYearId = ref('')
-const tippYears = ref([])
 const filters = reactive({ status: '', withWinningsOnly: false })
 
 const reload = () => {
@@ -246,26 +221,9 @@ const reload = () => {
 const bestMatchLabel = (bestMatch) =>
   `${bestMatch.matchedNumbers} Richtige${bestMatch.superzahlMatched ? ' + Superzahl' : ''}`
 
-// Loading is left to the watcher, including for the initial selection below -
-// calling it here as well would fire the same request twice.
+// Nothing is loaded on mount: TippYearPicker preselects the newest year once
+// the memberships are in, and this watcher turns that into the first request.
 watch(tippYearId, reload)
-
-// The tipp years to choose from come from the caller's own memberships. There
-// is no participant-facing endpoint that lists tipp years - only the admin has
-// one - and asking a member which years they played is the same question.
-onMounted(async () => {
-  if (!authStore.participantId) {
-    return
-  }
-
-  try {
-    const { data: own } = await api.getMemberships(authStore.participantId)
-    tippYears.value = own.memberships ?? []
-    tippYearId.value = tippYears.value[tippYears.value.length - 1]?.tippYearId ?? ''
-  } catch {
-    tippYears.value = []
-  }
-})
 </script>
 
 <style scoped>
