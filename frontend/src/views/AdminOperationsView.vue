@@ -51,19 +51,34 @@
       <table class="data">
         <thead>
           <tr>
-            <th>Projektion</th>
-            <th>Status</th>
-            <th class="numeric">
+            <th scope="col">
+              Projektion
+            </th>
+            <th scope="col">
+              Status
+            </th>
+            <th
+              scope="col"
+              class="numeric"
+            >
               Verarbeitet
             </th>
-            <th class="numeric">
+            <th
+              scope="col"
+              class="numeric"
+            >
               Head
             </th>
-            <th class="numeric">
+            <th
+              scope="col"
+              class="numeric"
+            >
               Rückstand
             </th>
-            <th>Aktualisiert</th>
-            <th />
+            <th scope="col">
+              Aktualisiert
+            </th>
+            <th scope="col" />
           </tr>
         </thead>
         <tbody>

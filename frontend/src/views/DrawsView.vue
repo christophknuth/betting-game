@@ -152,11 +152,19 @@
           <table class="data">
             <thead>
               <tr>
-                <th>Gewinnklasse</th>
-                <th class="numeric">
+                <th scope="col">
+                  Gewinnklasse
+                </th>
+                <th
+                  scope="col"
+                  class="numeric"
+                >
                   Reihen
                 </th>
-                <th class="numeric">
+                <th
+                  scope="col"
+                  class="numeric"
+                >
                   Betrag
                 </th>
               </tr>

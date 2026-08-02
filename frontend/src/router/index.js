@@ -118,10 +118,22 @@ const router = createRouter({
     },
 
     // Anything else is a dead link - not least every URL of the old sports
-    // betting SPA, which this application no longer has an endpoint for.
+    // betting SPA, which this application no longer has an endpoint for. It
+    // used to redirect home without a word, which moved people to a page they
+    // had not asked for and hid that the address was wrong.
     {
       path: '/:pathMatch(.*)*',
-      redirect: HOME
+      name: 'NotFound',
+      component: () => import('@/layouts/ParticipantLayout.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'NotFoundPage',
+          meta: { title: 'Seite nicht gefunden' },
+          component: () => import('@/views/NotFoundView.vue')
+        }
+      ]
     }
   ]
 })

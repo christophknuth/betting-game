@@ -80,10 +80,18 @@
     <table class="data">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Anzeigename</th>
-          <th>Status</th>
-          <th>Angelegt</th>
+          <th scope="col">
+            ID
+          </th>
+          <th scope="col">
+            Anzeigename
+          </th>
+          <th scope="col">
+            Status
+          </th>
+          <th scope="col">
+            Angelegt
+          </th>
         </tr>
       </thead>
       <tbody>

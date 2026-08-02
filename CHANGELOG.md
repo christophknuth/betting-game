@@ -6,6 +6,27 @@ what was changed when, and why.
 
 ---
 
+## Three smaller things (2026-08-02)
+
+**The Superzahl is picked, not typed.** It sat beside the 7x7 grid as a number field with
+`min` and `max`, which made one slip of the ticket two different kinds of entry. It is ten
+balls in the grid's own shape now — yellow, because that is the colour the Superzahl already
+has wherever a drawn ticket is displayed — and exactly one at a time, with a second click on
+the chosen digit letting go of it. Note that 0 is a Superzahl like any other: `null` means
+"none chosen", which is why the model is nullable rather than falsy-checked.
+
+**An unknown URL says so.** The catch-all route redirected to `/bet-row` without a word,
+which moved people to a page they had not asked for and hid that the address was wrong — and
+every URL of the old sports-betting SPA lands there. The URL stays what was typed, the page
+explains what happened, and the way on is a link rather than an automatic jump.
+
+**Every `th` carries `scope="col"`**, so a screen reader knows which header belongs to the
+cell it is reading.
+
+Verified: ESLint clean, Vitest 149/149 (five new for the Superzahl picker), `npm run build`.
+
+---
+
 ## One tab stop for forty-nine numbers (2026-08-02)
 
 The number grid was forty-nine focusable buttons, so a keyboard reached the submit button

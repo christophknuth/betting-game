@@ -94,14 +94,27 @@
             <tr>
               <!-- No fee id and no ticket id: a participant cannot act on
                    either, and the period says which month a row is about. -->
-              <th>Zeitraum</th>
-              <th class="numeric">
+              <th scope="col">
+                Zeitraum
+              </th>
+              <th
+                scope="col"
+                class="numeric"
+              >
                 Betrag
               </th>
-              <th>Fällig</th>
-              <th>Status</th>
-              <th>Bezahlt am</th>
-              <th>Weg</th>
+              <th scope="col">
+                Fällig
+              </th>
+              <th scope="col">
+                Status
+              </th>
+              <th scope="col">
+                Bezahlt am
+              </th>
+              <th scope="col">
+                Weg
+              </th>
             </tr>
           </thead>
           <tbody>
