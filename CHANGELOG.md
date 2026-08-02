@@ -6,6 +6,35 @@ what was changed when, and why.
 
 ---
 
+## The six numbers are picked, not typed (2026-08-02)
+
+**A Lottoschein is a grid, so the form is one too.** Both places that took the six numbers —
+B-06 assigning a row, B-08 recording a draw — had a text field that accepted `3 12 19 27 33
+45`, or a seventh number, or a 50, or the same number twice. `NumberGrid` puts the 49
+numbers on a 7×7 grid instead: a click picks one, a second click releases it, and once six
+are picked the rest lock. The picked ones stay clickable, because that is the only way back
+out of a full grid.
+
+The selection is held ascending whatever order the clicks came in — the order the domain
+keeps it in, so no view has to sort on the way out.
+
+**What the grid enforces, nobody has to check any more.** `parseNumbers` read six numbers
+out of a text field and rejected everything that was not six distinct numbers from 1 to 49;
+that guard is gone along with the field it guarded, and both views dropped their error state
+with it. What is left is the one rule a grid cannot meet by construction — "not yet six" —
+and that one the submit button carries, next to a counter that says how many are still
+missing. The domain still checks all of it in `LottoNumbers`; it always was the authority,
+and the client was only ever saving it a round trip.
+
+B-06's acceptance criterion moved test file with its guard: from
+`support/format.spec.js` to `components/NumberGrid.spec.js`, where it is now checked against
+the thing that meets it.
+
+Verified: ESLint clean, `npm run build`, Vitest 92/92 including the seven new grid tests. Not
+looked at in a running stack — no container was up, and the change is confined to the SPA.
+
+---
+
 ## The interface says less, the log says more (2026-08-01)
 
 **The interface explained itself to people who had not asked.** Every write printed its

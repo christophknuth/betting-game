@@ -290,6 +290,7 @@ frontend/src/
 ├── views/                 11 pages, one per view in the table above
 ├── components/
 │   ├── CommandFeedback.vue      a command's response including commandId
+│   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
 │   ├── ParticipantScope.vue     note shown when the token lacks participant_id
 │   ├── TippYearSetupWizard.vue  B-10 → B-14 → B-11 → B-18 in four steps
 │   └── TippYearChecklist.vue    what is still missing on an existing year
@@ -341,7 +342,8 @@ times.
 ```
 
 **Building blocks:** `.card` / `.card-grid`, `.facts` (definition list), `table.data`,
-`.numbers .ball` (lotto balls, bonus number in yellow), `.badge` with status classes,
+`.numbers .ball` (lotto balls, bonus number in yellow), `.number-grid .pick` (the same ball
+before it is picked), `.badge` with status classes,
 `.field` / `.field-row` / `.field-inline`, `.btn-primary|secondary|danger|link`, `.state`
 (`loading`, `empty`, `error`, `success`, `note`).
 
@@ -408,7 +410,8 @@ implementation:
 |---|---|
 | `composables/useCommand.spec.js` | OPS-02: the idempotency key is retained on a response-less request (a retry repeats the same command) and dropped on any response — success as well as error; `useQuery` falls back to the initial value on errors (B-01: a 404 is an empty state) |
 | `services/errors.spec.js` | `apiMessage` for 401 (the iss-claim hint), 503 (repeatable), the passed-through API message, an unreachable API |
-| `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: the share is `null` until the distribution is recorded); `parseNumbers` against B-06 (exactly six distinct numbers 1–49, ascending) |
+| `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: the share is `null` until the distribution is recorded) |
+| `components/NumberGrid.spec.js` | B-06 through the grid the numbers are picked off: 49 numbers, ascending whatever the click order, a second click releases one again, and a full grid locks the rest — so a seventh number, a 50 or a duplicate is unreachable |
 | `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
