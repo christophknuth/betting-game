@@ -377,6 +377,20 @@ layout decision. Two E2E tests cover the consequence: the seed takes the first f
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
 
+### Keyboard, headings, tab title
+
+Three things that only show up when the interface is not being used with a mouse:
+
+- **One focus ring for everything.** `:focus-visible` in `app.css` covers buttons, links, the
+  navigation and the 49 number balls; before, only text fields had a style of their own and
+  everything else took whatever the browser drew on a `border: none` button.
+- **The page's own title is its `h1`.** The brand in the participant bar used to be one, which
+  left every view's title as an `h2` and gave five different pages the same top-level
+  heading; the admin area had no `h1` at all and started at `h2`. The brand is a `<p>` now.
+- **The tab says which page it is.** `router.afterEach` sets `document.title` from
+  `meta.title` — after the navigation, so a route the guard redirects away from cannot leave
+  its title on the page one actually lands on.
+
 ### The answer to a write appears at the top
 
 A command's answer used to be rendered where the form was — which put it next to the button

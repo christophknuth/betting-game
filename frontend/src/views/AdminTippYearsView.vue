@@ -1,7 +1,7 @@
 <template>
   <div class="page-header">
     <div>
-      <h2>Tippjahre</h2>
+      <h1>Tippjahre</h1>
       <p class="subtitle">
         Einrichten, betreiben und am Jahresende ausschütten.
       </p>

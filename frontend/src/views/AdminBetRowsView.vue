@@ -1,7 +1,7 @@
 <template>
   <div class="page-header">
     <div>
-      <h2>Tippreihe zuordnen</h2>
+      <h1>Tippreihe zuordnen</h1>
       <p class="subtitle">
         Pro Teilnehmer und Periode genau eine Reihe. In der Basisversion ist das der einzige
         Schreibzugriff auf einen Teilnehmer — Selbstverwaltung ist E1.

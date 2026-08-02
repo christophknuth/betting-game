@@ -2,7 +2,7 @@
   <ParticipantScope>
     <div class="page-header">
       <div>
-        <h2>Meine Teilnahmen</h2>
+        <h1>Meine Teilnahmen</h1>
         <p class="subtitle">
           Je Tippjahr alle Tippscheine — und ob die eigene Reihe darauf stand.
         </p>

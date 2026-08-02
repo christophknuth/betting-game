@@ -2,7 +2,7 @@
   <ParticipantScope>
     <div class="page-header">
       <div>
-        <h2>Meine Tippreihe</h2>
+        <h1>Meine Tippreihe</h1>
         <p class="subtitle">
           Die sechs Zahlen der heute laufenden Tippperiode.
         </p>

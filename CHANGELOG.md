@@ -6,6 +6,30 @@ what was changed when, and why.
 
 ---
 
+## Keyboard, headings and the tab title (2026-08-02)
+
+Three things that only show up when the interface is not being used with a mouse.
+
+**One focus ring for everything.** `app.css` styled `:focus` for text fields and nothing
+else, so buttons, links, the navigation and the 49 number balls were left with whatever the
+browser draws on a `border: none` button — which differs per engine and is easy to miss. A
+single `:focus-visible` rule covers them all, and `:focus-visible` rather than `:focus` means
+a mouse click leaves no ring behind.
+
+**The page's own title is its `h1`.** The brand in the participant bar was one, which left
+every view's title as an `h2` and gave five different pages the same top-level heading; the
+admin area had no `h1` at all and started at `h2`. The brand is a paragraph now, and each of
+the eleven views owns the `h1` it always deserved.
+
+**The tab says which page it is.** It read "Tippgemeinschaft – Lotto 6 aus 49" everywhere,
+which with several tabs open told nobody which one was the fee ledger. `router.afterEach`
+sets it from `meta.title` — after the navigation, so a route the guard redirects away from
+cannot leave its title on the page one actually lands on.
+
+Verified: ESLint clean, Vitest 140/140.
+
+---
+
 ## The answer to a write appears at the top (2026-08-02)
 
 A command's answer was rendered where the form was, which put it next to the button that

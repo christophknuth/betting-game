@@ -1,7 +1,7 @@
 <template>
   <div class="page-header">
     <div>
-      <h2>Betrieb</h2>
+      <h1>Betrieb</h1>
       <p class="subtitle">
         Verarbeitungsstand der Commands (OPS-01), Event-Historie (OPS-03) und die
         Projektionen (OPS-04).

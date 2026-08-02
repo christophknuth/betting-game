@@ -1,7 +1,7 @@
 <template>
   <div class="page-header">
     <div>
-      <h2>Teilnehmer</h2>
+      <h1>Teilnehmer</h1>
       <p class="subtitle">
         Wer mitspielen kann. Ein Teilnehmer wird hier angelegt und danach einem Tippjahr
         zugeordnet — beides macht der Administrator, Selbstregistrierung ist E1.
