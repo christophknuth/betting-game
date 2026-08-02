@@ -378,6 +378,29 @@ layout decision. Two E2E tests cover the consequence: the seed takes the first f
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
 
+### A write does not lose the reader's place
+
+Changing a tipp year's status from the dropdown in its row said nothing and then reloaded the
+list — and the reload replaced the table with the loading box, which takes the page's height
+with it and leaves the browser nowhere to keep the scroll position. Twenty rows down, every
+change ended at the top of the page with no word about what had happened.
+
+Three parts, and the first is the one that matters most:
+
+- **The loading box appears only when there is nothing to show.** A refresh dims the table
+  (`.refreshing`) and leaves it standing, so nothing moves. The same applied to the fee
+  ledger, which had the identical defect.
+- **The row is scrolled back into view** (`scrollIntoView({ block: 'nearest' })`, smooth
+  unless the reader asked for reduced motion) and carries `data-year` for the lookup.
+- **It is marked for two and a half seconds** — a green fade that takes itself away. The
+  notification at the top says *what* happened; the mark says *where*, and has no business
+  staying once it has been seen. Under `prefers-reduced-motion` the mark stays but does not
+  animate.
+
+The answer itself names both halves — `Tippjahr 2027 ist jetzt laufend.` rather than
+`Angenommen.` With a dropdown per row, *which* year was written to is the part that is easy
+to get wrong.
+
 ### Three smaller things
 
 - **The Superzahl is picked, not typed.** It sat beside the 7x7 grid as a number field with

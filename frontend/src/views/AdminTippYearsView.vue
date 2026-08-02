@@ -33,8 +33,14 @@
     @cancel="wizardOpen = false"
   />
 
+  <!--
+    Only while there is nothing to show. A reload with the list already on
+    screen used to replace it with this box: the page lost its height, the
+    browser had nowhere to keep the scroll position, and every status change
+    dropped the reader back at the top. A refresh dims the table instead.
+  -->
   <div
-    v-if="years.loading"
+    v-if="years.loading && !tippYears.length"
     class="state loading"
   >
     Wird geladen …
@@ -57,7 +63,9 @@
 
     <div
       v-else-if="tippYears.length"
+      ref="yearTable"
       class="section card table-wrap"
+      :class="{ refreshing: years.loading }"
     >
       <table class="data">
         <thead>
@@ -111,7 +119,11 @@
           <tr
             v-for="year in tippYears"
             :key="year.tippYearId"
-            :class="{ selected: selectedId === year.tippYearId }"
+            :data-year="year.tippYearId"
+            :class="{
+              selected: selectedId === year.tippYearId,
+              'just-changed': changedId === year.tippYearId
+            }"
           >
             <td>#{{ year.tippYearId }}</td>
             <td>{{ year.name }}</td>
@@ -364,7 +376,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, useTemplateRef } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
 import TippYearChecklist from '@/components/TippYearChecklist.vue'
 import TippYearSetupWizard from '@/components/TippYearSetupWizard.vue'
@@ -427,6 +439,43 @@ const notifications = useNotificationStore()
 // key left over from one year must not answer the change of another.
 const commandFor = (tippYearId) => (statusCommands[tippYearId] ??= useCommand())
 
+/**
+ * The row that was just written to, so the list can be found again.
+ *
+ * Reloading after a status change dropped the reader at the top of the page:
+ * the table is replaced while the request is in flight, the page loses its
+ * height, and the browser has nowhere to keep the scroll position. Keeping the
+ * old table up during a refresh (see the loading state above) fixes the jump;
+ * this brings the row back into view for the case where it was off-screen
+ * anyway, and marks it so it can be found among twenty others.
+ */
+const yearTable = useTemplateRef('yearTable')
+const changedId = ref(null)
+
+const HIGHLIGHT_MS = 2500
+let highlightTimer = null
+
+function markChanged(tippYearId) {
+  changedId.value = tippYearId
+
+  clearTimeout(highlightTimer)
+  highlightTimer = setTimeout(() => {
+    changedId.value = null
+  }, HIGHLIGHT_MS)
+
+  // After the reloaded rows have rendered, or the row is not there to scroll to
+  nextTick(() => {
+    yearTable.value?.querySelector(`[data-year="${tippYearId}"]`)?.scrollIntoView({
+      block: 'nearest',
+      behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth'
+    })
+  })
+}
+
+onUnmounted(() => clearTimeout(highlightTimer))
+
 async function changeStatus(year, event) {
   const status = event.target.value
 
@@ -448,7 +497,13 @@ async function changeStatus(year, event) {
     return
   }
 
+  // Names both halves rather than saying "Angenommen.": with a dropdown per
+  // row, "which year" is the part that is easy to get wrong, and this is the
+  // only place the answer confirms what was actually written.
+  notifications.success(`${year.name} ist jetzt ${statusLabel(status)}.`)
+
   await loadYears()
+  markChanged(year.tippYearId)
 }
 
 function select(tippYearId) {
@@ -519,6 +574,34 @@ onMounted(() => {
 
 tr.selected {
   background: var(--gray-50);
+}
+
+/*
+ * Where the change landed. It fades out on its own: with twenty rows on screen
+ * the answer at the top of the page says *what* happened, and this says
+ * *where* - it has no business staying once it has been seen.
+ */
+tr.just-changed td {
+  animation: settle 2.5s ease-out;
+}
+
+@keyframes settle {
+  0%,
+  40% {
+    background: #d1fae5;
+  }
+
+  100% {
+    background: transparent;
+  }
+}
+
+/* Still marked, just not animated - the mark is the point, the fade is not. */
+@media (prefers-reduced-motion: reduce) {
+  tr.just-changed td {
+    animation: none;
+    background: #d1fae5;
+  }
 }
 
 /* Looks like the badge that used to sit here - but is operable. */
