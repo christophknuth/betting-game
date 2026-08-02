@@ -98,6 +98,7 @@ The period length is therefore a **configuration, not an assumption in code**. T
 | **B-08** | As an **administrator** I want to record a draw with its numbers and bonus number. | `POST /admin/draws` | **Draw** | 🟢 |
 | **B-09** | As an **administrator** I want to record the winnings of a draw, so that they feed into the yearly total. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 🟢 |
 | **B-22** | As an **administrator** I want the winning classes of every row of the active ticket to be worked out and stored as soon as I record a draw, so that I can see what the syndicate hit without waiting for the statement. | `POST /admin/draws` | **TicketRowMatch** | 🟢 |
+| **B-23** | As an **administrator** I want to record a ticket's winnings either as one sum or as the individual amounts per winning class, so that I can enter what the statement actually says. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult** | 🟢 |
 
 **Acceptance criteria:**
 
@@ -109,6 +110,9 @@ The period length is therefore a **configuration, not an assumption in code**. T
 - B-22: the draw stays `drawn`. `evaluated` says the money is booked, and that is what B-13 sums the year from
 - B-22: a draw with no covering ticket is recorded all the same — nothing to evaluate against is not an error, and B-09 catches the evaluation up when the winnings arrive
 - B-22: the evaluation runs on the `TicketRow` snapshots, like B-09, and through the same `WinningsDistribution` — the projection recomputes it on a rebuild, so two implementations would drift apart into different money
+- B-23: `totalAmount` **or** `winningClasses`, at least one of them — `400` when both are missing. Without a total, the class amounts are added up into one (in whole cents, not as floats)
+- B-23: a class listed twice is `400`. Which of the two amounts counts is not for the system to guess, and taking the last one would book half the statement
+- B-23: sending both stays allowed and keeps its older meaning — the total is what the ticket won, the breakdown says how much of it is attributable to named classes, and the remainder counts towards the year without any row being able to claim it. Only a breakdown adding up to **more** than the total is `400`
 
 ## Implicitly required
 
@@ -329,7 +333,7 @@ model.
 
 | Area | Effect |
 |---|---|
-| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 413 test methods (223 unit, 190 integration) |
+| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 428 test methods (235 unit, 193 integration) |
 | `demo/` | The read-only demo for Prediction/Result disappeared with the change of course and has not been replaced |
 | [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.3.0, 21 paths, 24 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
 | PHPStan level 10, PSR-12 | Unchanged and still met |
@@ -363,6 +367,7 @@ mainly the infrastructure that is usable for the base version, not the domain lo
 | B-08 | `POST /admin/draws` | `RecordDrawHandler` | — |
 | B-22 | `POST /admin/draws` | `RecordDrawHandler` | — |
 | B-09 | `PUT /admin/draws/{id}/winnings` | `RecordDrawWinningsHandler` | — |
+| B-23 | `PUT /admin/draws/{id}/winnings` | `RecordDrawWinningsHandler` | — |
 | B-10 | `POST`/`GET /admin/tipp-years` | `CreateTippYearHandler` | `GetTippYearsHandler` |
 | B-11 | `POST /admin/tipp-years/{id}/members` | `AddMemberHandler` | — |
 | B-12 | `POST /admin/tipp-years/{id}/tickets` | `SubmitTicketHandler` | — |
@@ -475,7 +480,7 @@ the unique key would leave a `bet_row.assigned` event in the store that describe
 
 ## Tests
 
-413 test methods (223 unit across 20 files, 190 integration across 17 files). The integration
+428 test methods (235 unit across 21 files, 193 integration across 17 files). The integration
 tests need a database and skip themselves when none is reachable — so `make test` stays green
 without one too.
 

@@ -183,6 +183,17 @@ api PUT /admin/draws/2/winnings \
   '{"totalAmount":500.00,"winningClasses":[{"winningClass":5,"amount":300.00}]}'
 ```
 
+**B-23 — or the other way round.** Whoever reads the statement class by class leaves the
+total out, and the classes are added up into it:
+
+```bash
+api PUT /admin/draws/2/winnings \
+  '{"winningClasses":[{"winningClass":5,"amount":300.00},{"winningClass":8,"amount":12.50}]}'
+```
+
+One of the two has to be there — neither is `400`, as is a class listed twice or a
+breakdown adding up to more than the stated total.
+
 **B-07 — record a payment.** `GET /admin/fees` returns the fee IDs.
 
 ```bash
