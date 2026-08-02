@@ -36,9 +36,6 @@
       <div class="page-header">
         <div>
           <h3>{{ membership.tippYearName }}</h3>
-          <p class="subtitle">
-            Tippjahr #{{ membership.tippYearId }}
-          </p>
         </div>
         <span
           class="badge"
@@ -70,7 +67,6 @@
         <table class="data">
           <thead>
             <tr>
-              <th>Tippschein</th>
               <th>Zeitraum</th>
               <th>Ziehungen</th>
               <th>Status</th>
@@ -82,7 +78,8 @@
               v-for="ticket in membership.tickets"
               :key="ticket.ticketId"
             >
-              <td>#{{ ticket.ticketId }}</td>
+              <!-- The period identifies the ticket; its id is a number nobody
+                   here can do anything with. -->
               <td>{{ formatDate(ticket.periodStart) }} – {{ formatDate(ticket.periodEnd) }}</td>
               <td class="numeric">
                 {{ ticket.drawCount }}

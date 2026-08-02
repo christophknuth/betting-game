@@ -92,8 +92,8 @@
         <table class="data">
           <thead>
             <tr>
-              <th>Gebühr</th>
-              <th>Tippschein</th>
+              <!-- No fee id and no ticket id: a participant cannot act on
+                   either, and the period says which month a row is about. -->
               <th>Zeitraum</th>
               <th class="numeric">
                 Betrag
@@ -109,8 +109,6 @@
               v-for="fee in query.data.fees"
               :key="fee.feeId"
             >
-              <td>#{{ fee.feeId }}</td>
-              <td>#{{ fee.ticketId }}</td>
               <td>{{ formatDate(fee.periodStart) }} – {{ formatDate(fee.periodEnd) }}</td>
               <td class="numeric">
                 {{ formatAmount(fee.amount) }}
