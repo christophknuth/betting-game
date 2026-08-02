@@ -24,7 +24,7 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 |--------|-------|
 | Views | 12 (1 login, 5 participant, 6 admin) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
-| Components | 4 shared + `App.vue` |
+| Components | 7 shared + `App.vue` |
 | Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 1 auth store, 1 stylesheet |
@@ -47,11 +47,11 @@ Self-service is E1 and not implemented.
 | MembershipsView | `/memberships` | `GET /participants/{id}/memberships` | B-02 |
 | FeesView | `/fees` | `GET /participants/{id}/fees` | B-03 |
 | PayoutShareView | `/payout-share` | `GET /participants/{id}/payout-share` | B-04 |
-| DrawsView | `/draws` | `GET /tipp-years/{id}/draws` | B-05 |
+| DrawsView | `/draws` | `GET /tipp-years/{id}/draws` | B-05, B-24 |
 | AdminParticipantsView | `/admin/participants` | `GET`/`POST /admin/participants` | B-21 |
 | AdminBetRowsView | `/admin/bet-rows` | `PUT /admin/participants/{id}/bet-row` | B-06 |
 | AdminFeesView | `/admin/fees` | `GET /admin/fees`, `PUT /admin/fees/{id}/payment` | B-07 |
-| AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09 |
+| AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09, B-22, B-23, B-24 |
 | AdminTippYearsView | `/admin/tipp-years` | tipp years, status, periods, members, tickets, distribution | B-10 – B-14, B-18 |
 | AdminOperationsView | `/admin/operations` | `GET /commands/{id}`, `GET /admin/audit/…`, `GET/POST /admin/projections…` | OPS-01, OPS-03, OPS-04 |
 
@@ -290,6 +290,7 @@ frontend/src/
 ├── views/                 11 pages, one per view in the table above
 ├── components/
 │   ├── CommandFeedback.vue      a command's response including commandId
+│   ├── DrawRows.vue             B-24: the ticket's rows in a draw, winners marked
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
 │   ├── WinningsEntry.vue        B-23: the winnings as a sum or per winning class
 │   ├── ParticipantScope.vue     note shown when the token lacks participant_id
@@ -415,6 +416,7 @@ implementation:
 | `components/NumberGrid.spec.js` | B-06 through the grid the numbers are picked off: 49 numbers, ascending whatever the click order, a second click releases one again, and a full grid locks the rest — so a seventh number, a 50 or a duplicate is unreachable |
 | `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
+| `components/DrawRows.spec.js` | B-24: the winning row is highlighted and the losing one is still listed; within a row the numbers that were not drawn are the ones greyed back, and a draw without numbers marks none of them as hits |
 | `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the class sum added up in cents |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
 | `layouts/ParticipantLayout.spec.js` | B-17 at the door: the `Verwaltung` link is offered to an admin and withheld from a participant, and no `/admin/*` link ever appears in the participant navigation |

@@ -53,4 +53,17 @@ interface DrawRepositoryInterface
      * @return list<array{winningClass: int, rowCount: int, amount: float}>
      */
     public function winningClassesOf(int $drawId): array;
+
+    /**
+     * B-24: every row the ticket carried into this draw, with what it achieved.
+     *
+     * Driven from the ticket's rows rather than from the matches, so a row that
+     * hit nothing is in the list too - and so is one the evaluation has not
+     * reached yet, with its result left null.
+     *
+     * @return list<array{ticketRowId: int, participantId: int, displayName: string,
+     *     numbers: list<int>, matchedNumbers: int|null, superzahlMatched: bool,
+     *     winningClass: int|null, amount: float}>
+     */
+    public function rowResultsOf(int $drawId, int $ticketId): array;
 }

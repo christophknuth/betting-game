@@ -185,7 +185,7 @@ abstract class ApplicationTestCase extends IntegrationTestCase
 
     protected function getDraws(): GetDrawsHandler
     {
-        return new GetDrawsHandler($this->draws, $this->tippYears, $this->tickets);
+        return new GetDrawsHandler($this->draws, $this->tippYears);
     }
 
     protected function getTippYears(): GetTippYearsHandler

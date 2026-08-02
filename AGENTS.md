@@ -339,9 +339,9 @@ class belongs to. No comments that restate the signature.
 | Suite | Scope | Prerequisite |
 |---|---|---|
 | `tests/Unit` | 21 files, 235 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
-| `tests/Integration` | 17 files, 193 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
+| `tests/Integration` | 17 files, 195 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
 
-428 test methods in total.
+430 test methods in total.
 
 - Integration tests **skip themselves** when no database is reachable
   (`IntegrationTestCase::setUpBeforeClass()`). The suite therefore stays green without a DB —

@@ -1358,7 +1358,10 @@ components:
         ticket:
           type: object
           nullable: true
-          description: The ticket that took part in this draw
+          description: |
+            The ticket that took part in this draw - the one whose period contains the draw
+            date. Present from the moment the ticket exists, which is generally before
+            anyone knows what it won; `null` only when no ticket covers the date at all.
           properties:
             ticketId:
               type: integer
@@ -1367,7 +1370,11 @@ components:
             totalAmount:
               type: number
               format: decimal
-              description: Winnings of the whole ticket on this draw
+              nullable: true
+              description: |
+                Winnings of the whole ticket on this draw, `null` for as long as none have
+                been recorded. That is not the same as `0.00`, which says the ticket won
+                nothing on a draw somebody has looked at.
             winningClasses:
               type: array
               items:
@@ -1390,6 +1397,38 @@ components:
                   type: integer
                 superzahlMatched:
                   type: boolean
+            rows:
+              type: array
+              description: |
+                B-24: every row the ticket carried into this draw, winning or not, with the
+                numbers as they were printed on it. Ordered by participant.
+              items:
+                type: object
+                properties:
+                  ticketRowId:
+                    type: integer
+                  participantId:
+                    type: integer
+                  displayName:
+                    type: string
+                  numbers:
+                    $ref: '#/components/schemas/LottoNumbers'
+                  matchedNumbers:
+                    type: integer
+                    nullable: true
+                    description: '`null` while the row has not been evaluated'
+                  superzahlMatched:
+                    type: boolean
+                  winningClass:
+                    type: integer
+                    nullable: true
+                    minimum: 1
+                    maximum: 9
+                    description: '`null` when the row won nothing'
+                  amount:
+                    type: number
+                    format: decimal
+                    description: The part of the ticket's winnings attributable to this row
 
     TippYearReadModel:
       type: object

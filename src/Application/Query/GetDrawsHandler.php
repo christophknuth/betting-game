@@ -6,7 +6,6 @@ namespace BettingGame\Application\Query;
 
 use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Domain\Repository\DrawRepositoryInterface;
-use BettingGame\Domain\Repository\TicketRepositoryInterface;
 use BettingGame\Domain\Repository\TippYearRepositoryInterface;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Support\Row;
@@ -17,13 +16,17 @@ use BettingGame\Support\Row;
  * That is deliberate and worth stating: a participant's share only comes into
  * existence with the annual distribution, so during the year there is nothing
  * personal to show - only what the syndicate won together.
+ *
+ * B-24 adds the rows the ticket carried into the draw, and with them the reason
+ * the ticket is now joined by its period rather than through the result row:
+ * the rows took part in the draw whether or not anyone has recorded what they
+ * won, and until that happens `totalAmount` is null rather than zero.
  */
 final class GetDrawsHandler
 {
     public function __construct(
         private DrawRepositoryInterface $draws,
-        private TippYearRepositoryInterface $tippYears,
-        private TicketRepositoryInterface $tickets
+        private TippYearRepositoryInterface $tippYears
     ) {
     }
 
@@ -61,10 +64,15 @@ final class GetDrawsHandler
                 'status' => $status,
                 'ticket' => $ticketId === null ? null : [
                     'ticketId' => $ticketId,
-                    'rowCount' => $this->tickets->find($ticketId)?->rowCount() ?? 0,
-                    'totalAmount' => $totalAmount ?? 0.0,
+                    'rowCount' => Row::nullableInt($row, 'row_count') ?? 0,
+                    // Null, not 0.00, for as long as no winnings are recorded:
+                    // zero is a statement about a draw somebody has looked at.
+                    'totalAmount' => $totalAmount,
                     'winningClasses' => $this->draws->winningClassesOf($drawId),
                     'bestMatch' => $this->draws->bestMatchOf($drawId),
+                    // B-24: the rows themselves, so that a draw can be read
+                    // against what the syndicate actually played
+                    'rows' => $this->draws->rowResultsOf($drawId, $ticketId),
                 ],
             ];
         }

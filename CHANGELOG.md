@@ -6,6 +6,44 @@ what was changed when, and why.
 
 ---
 
+## A draw shows the rows it was played against (2026-08-02)
+
+**B-24.** A draw showed six balls, a total and — after B-09 — a table of winning classes.
+What it never showed was the thing the numbers are actually compared against: the rows the
+syndicate had on the ticket. Whether anyone came close was not answerable from the screen.
+
+Every row of the covering ticket is now listed with the draw, with the name of whoever plays
+it, the numbers as they were printed on the ticket, the hits and the winning class. Losing
+rows included — "no class" is a result, and a list of only the winners would look like a
+ticket that never carried the others.
+
+**The marking is doubled**, and both halves earn their place. A row that reached a class is
+highlighted as a whole and says which one; inside every row the numbers that were *not* drawn
+step back into grey, so the hits keep the syndicate's colour and a near miss can be read
+rather than counted.
+
+**The ticket had to stop hanging off the winnings.** `draw.ticket` came from
+`ticket_draw_result`, which does not exist until B-09 has been recorded — so before that the
+draw claimed no ticket had taken part, although one had. It is joined by its period now, the
+same rule `findCovering` and the projector use. The consequence is deliberate and worth
+knowing when reading the API: `totalAmount` is `null` while no winnings are recorded, where
+it used to be `0.00`. Zero is a statement about a draw somebody has looked at.
+
+That also made `GetDrawsHandler`'s ticket repository redundant — `rowCount` comes from the
+same join now — so the handler is down to two dependencies.
+
+**Both draw views show it**, the participant's and the administrator's, through one
+`DrawRows` component. Which means every participant sees every row of the ticket, with names:
+a deliberate widening, noted as such in B-24's acceptance criteria. The rows of one ticket
+are the syndicate's shared business — it is handed in as one slip and everyone pays a share
+of it — but that is a decision, not a technicality, and it is written down where it can be
+revisited.
+
+Verified: PHPStan level 10 clean, phpcs clean, PHPUnit 430 with `--fail-on-skipped`, ESLint
+clean, Vitest 105/105 including seven new for the row list.
+
+---
+
 ## The winnings are entered the way the statement reads them (2026-08-02)
 
 **B-23.** The lottery statement comes in two shapes. Sometimes it is one figure for the

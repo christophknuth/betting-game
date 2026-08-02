@@ -81,6 +81,7 @@ The period length is therefore a **configuration, not an assumption in code**. T
 | **B-03** | As a **participant** I want to see my payments, so that I know which fees are outstanding. | `GET /participants/{id}/fees` | **Fee** ⋈ **Ticket** | 🟢 ♻️ |
 | **B-04** | As a **participant** I want to see my proportional winnings for the tipp year, so that I know what will be distributed. | `GET /participants/{id}/payout-share` | **PayoutShare** ⋈ **Payout** ⋈ **TippYear** | 🟢 |
 | **B-05** | As a **participant** I want to see the ticket's winnings per draw, so that I can follow the course of the tipp year. | `GET /tipp-years/{id}/draws` | **Draw** ⋈ **TicketDrawResult** | 🟢 |
+| **B-24** | As a **participant** I want to see all rows of the active ticket for a draw, with the winning ones highlighted, so that I can tell at a glance what the syndicate achieved. | `GET /tipp-years/{id}/draws` | **TicketRow** ⋈ **TicketRowMatch** ⋈ **Participant** | 🟢 |
 
 **Acceptance criteria:**
 
@@ -88,6 +89,10 @@ The period length is therefore a **configuration, not an assumption in code**. T
 - B-02: contains, per ticket, whether one's own row appeared on it — after joining mid-year it is missing from earlier tickets
 - B-04: `200` with `amount: null` for as long as the yearly distribution has not been recorded — the story only carries substance after B-13
 - B-05: shows the winnings of the **whole** ticket, not one's own share. The share only comes into being with the distribution
+- B-24: **every** row of the covering ticket, not only the winning ones — a row that hit nothing is a result too, and a list of only the winners would look like a ticket that never carried the others
+- B-24: the numbers are the `TicketRow` snapshot, so a bet row corrected afterwards does not rewrite what took part in the draw
+- B-24: `draw.ticket` is the ticket whose period contains the draw date and appears as soon as that ticket exists — before B-24 it appeared only with the winnings. `totalAmount` is therefore `null` until they are recorded, which is not the same as `0.00`
+- B-24: every participant sees every row of the ticket, with the name of whoever plays it. That is a **deliberate widening** of what a participant sees: B-16 guards the per-participant endpoints, where the path carries a `participantId`, and this one carries none. The rows of one ticket are the syndicate's shared business — it is handed in as one slip and everyone pays a share of it — but if that is not wanted, this is the place to say so
 
 ## Administrator
 
@@ -333,7 +338,7 @@ model.
 
 | Area | Effect |
 |---|---|
-| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 428 test methods (235 unit, 193 integration) |
+| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 430 test methods (235 unit, 195 integration) |
 | `demo/` | The read-only demo for Prediction/Result disappeared with the change of course and has not been replaced |
 | [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.3.0, 21 paths, 24 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
 | PHPStan level 10, PSR-12 | Unchanged and still met |
@@ -362,6 +367,7 @@ mainly the infrastructure that is usable for the base version, not the domain lo
 | B-03 | `GET /participants/{id}/fees` | — | `GetParticipantFeesHandler` |
 | B-04 | `GET /participants/{id}/payout-share` | — | `GetPayoutShareHandler` |
 | B-05 | `GET /tipp-years/{id}/draws` | — | `GetDrawsHandler` |
+| B-24 | `GET /tipp-years/{id}/draws` | — | `GetDrawsHandler` |
 | B-06 | `PUT /admin/participants/{id}/bet-row` | `AssignBetRowHandler` | — |
 | B-07 | `PUT /admin/fees/{id}/payment`, `GET /admin/fees` | `RecordFeePaymentHandler` | `GetFeesHandler` |
 | B-08 | `POST /admin/draws` | `RecordDrawHandler` | — |
@@ -480,7 +486,7 @@ the unique key would leave a `bet_row.assigned` event in the store that describe
 
 ## Tests
 
-428 test methods (235 unit across 21 files, 193 integration across 17 files). The integration
+430 test methods (235 unit across 21 files, 195 integration across 17 files). The integration
 tests need a database and skip themselves when none is reachable — so `make test` stays green
 without one too.
 

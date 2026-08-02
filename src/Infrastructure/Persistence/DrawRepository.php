@@ -132,6 +132,11 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
      * B-05: what the whole ticket won per draw - not the caller's own share.
      * A share only comes into existence with the annual distribution.
      *
+     * The ticket is joined by its period, not through the result row: since
+     * B-24 a draw shows the rows that took part in it, and those exist long
+     * before anyone knows what they won. `total_amount` stays null until then,
+     * which is not the same as zero.
+     *
      * @return list<array<string, mixed>>
      */
     public function findWithWinnings(int $tippYearId): array
@@ -140,8 +145,16 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
             '
             SELECT
                 d.draw_id, d.draw_date, d.numbers, d.superzahl, d.status,
-                r.ticket_id, r.total_amount, r.winning_classes, r.recorded_at
+                t.ticket_id, t.row_count,
+                r.total_amount, r.winning_classes, r.recorded_at
             FROM draw d
+            LEFT JOIN ticket t ON t.ticket_id = (
+                SELECT ticket_id FROM ticket
+                WHERE tipp_year_id = d.tipp_year_id
+                  AND d.draw_date BETWEEN period_start AND period_end
+                ORDER BY period_start DESC
+                LIMIT 1
+            )
             LEFT JOIN ticket_draw_result r ON r.draw_id = d.draw_id
             WHERE d.tipp_year_id = ?
             ORDER BY d.draw_date DESC
@@ -238,6 +251,47 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
                 'winningClass' => Row::int($row, 'winning_class'),
                 'rowCount' => Row::int($row, 'row_count'),
                 'amount' => Row::float($row, 'amount'),
+            ],
+            $rows
+        );
+    }
+
+    /**
+     * @return list<array{ticketRowId: int, participantId: int, displayName: string,
+     *     numbers: list<int>, matchedNumbers: int|null, superzahlMatched: bool,
+     *     winningClass: int|null, amount: float}>
+     */
+    public function rowResultsOf(int $drawId, int $ticketId): array
+    {
+        $rows = $this->db->fetchAll(
+            '
+            SELECT
+                tr.ticket_row_id, tr.numbers, br.participant_id, p.display_name,
+                m.matched_numbers, m.superzahl_matched, m.winning_class, m.amount
+            FROM ticket_row tr
+            JOIN bet_row br ON br.bet_row_id = tr.bet_row_id
+            JOIN participant p ON p.participant_id = br.participant_id
+            LEFT JOIN ticket_row_match m ON m.ticket_row_id = tr.ticket_row_id AND m.draw_id = ?
+            WHERE tr.ticket_id = ?
+            ORDER BY p.display_name, tr.ticket_row_id
+            ',
+            [$drawId, $ticketId]
+        );
+
+        return array_map(
+            static fn (array $row): array => [
+                'ticketRowId' => Row::int($row, 'ticket_row_id'),
+                'participantId' => Row::int($row, 'participant_id'),
+                'displayName' => Row::string($row, 'display_name'),
+                // The snapshot, not the current bet row: this is what took part
+                'numbers' => LottoNumbers::fromMixed(Row::json($row, 'numbers'))->toArray(),
+                'matchedNumbers' => Row::nullableInt($row, 'matched_numbers'),
+                // Null where the LEFT JOIN found no evaluation, and Row::bool
+                // would rather throw than call that false
+                'superzahlMatched' => ($row['superzahl_matched'] ?? null) !== null
+                    && Row::bool($row, 'superzahl_matched'),
+                'winningClass' => Row::nullableInt($row, 'winning_class'),
+                'amount' => Row::nullableFloat($row, 'amount') ?? 0.0,
             ],
             $rows
         );
