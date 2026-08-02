@@ -138,9 +138,15 @@
         <table class="data">
           <thead>
             <tr>
-              <th>Folge</th>
-              <th>Name</th>
-              <th>Zeitraum</th>
+              <th scope="col">
+                Folge
+              </th>
+              <th scope="col">
+                Name
+              </th>
+              <th scope="col">
+                Zeitraum
+              </th>
             </tr>
           </thead>
           <tbody>

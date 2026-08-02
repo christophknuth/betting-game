@@ -67,10 +67,18 @@
         <table class="data">
           <thead>
             <tr>
-              <th>Zeitraum</th>
-              <th>Ziehungen</th>
-              <th>Status</th>
-              <th>Eigene Reihe</th>
+              <th scope="col">
+                Zeitraum
+              </th>
+              <th scope="col">
+                Ziehungen
+              </th>
+              <th scope="col">
+                Status
+              </th>
+              <th scope="col">
+                Eigene Reihe
+              </th>
             </tr>
           </thead>
           <tbody>

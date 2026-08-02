@@ -62,26 +62,49 @@
       <table class="data">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Zeitraum</th>
-            <th>Status</th>
-            <th class="numeric">
+            <th scope="col">
+              ID
+            </th>
+            <th scope="col">
+              Name
+            </th>
+            <th scope="col">
+              Zeitraum
+            </th>
+            <th scope="col">
+              Status
+            </th>
+            <th
+              scope="col"
+              class="numeric"
+            >
               Reihenpreis
             </th>
-            <th class="numeric">
+            <th
+              scope="col"
+              class="numeric"
+            >
               Mitglieder
             </th>
-            <th class="numeric">
+            <th
+              scope="col"
+              class="numeric"
+            >
               Scheine
             </th>
-            <th class="numeric">
+            <th
+              scope="col"
+              class="numeric"
+            >
               Ziehungen
             </th>
-            <th class="numeric">
+            <th
+              scope="col"
+              class="numeric"
+            >
               Gewinne
             </th>
-            <th />
+            <th scope="col" />
           </tr>
         </thead>
         <tbody>
@@ -170,13 +193,25 @@
       <table class="data">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Zeitraum</th>
-            <th class="numeric">
+            <th scope="col">
+              ID
+            </th>
+            <th scope="col">
+              Name
+            </th>
+            <th scope="col">
+              Zeitraum
+            </th>
+            <th
+              scope="col"
+              class="numeric"
+            >
               Folge
             </th>
-            <th class="numeric">
+            <th
+              scope="col"
+              class="numeric"
+            >
               Reihen
             </th>
           </tr>

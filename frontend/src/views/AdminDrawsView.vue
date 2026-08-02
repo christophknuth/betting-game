@@ -48,32 +48,24 @@
   <div class="card section">
     <h3>Ziehung eintragen</h3>
     <form @submit.prevent="recordDraw">
-      <div class="field-row">
-        <div class="field">
-          <label for="drawDate">Ziehungsdatum</label>
-          <input
-            id="drawDate"
-            v-model="newDraw.drawDate"
-            type="date"
-            required
-          >
-        </div>
-        <div class="field">
-          <label for="superzahl">Superzahl</label>
-          <input
-            id="superzahl"
-            v-model="newDraw.superzahl"
-            type="number"
-            min="0"
-            max="9"
-            required
-          >
-        </div>
+      <div class="field">
+        <label for="drawDate">Ziehungsdatum</label>
+        <input
+          id="drawDate"
+          v-model="newDraw.drawDate"
+          type="date"
+          required
+        >
       </div>
 
       <div class="field">
         <span class="label">Gewinnzahlen</span>
         <NumberGrid v-model="newDraw.numbers" />
+      </div>
+
+      <div class="field">
+        <span class="label">Superzahl</span>
+        <SuperzahlPicker v-model="newDraw.superzahl" />
       </div>
 
       <!--
@@ -84,7 +76,7 @@
 
       <button
         class="btn-primary"
-        :disabled="recordCmd.pending || !tippYearId || newDraw.numbers.length !== 6"
+        :disabled="recordCmd.pending || !tippYearId || newDraw.numbers.length !== 6 || newDraw.superzahl === null"
         type="submit"
       >
         {{ recordCmd.pending ? 'Wird gesendet …' : 'Ziehung eintragen' }}
@@ -189,6 +181,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
 import DrawRows from '@/components/DrawRows.vue'
 import NumberGrid from '@/components/NumberGrid.vue'
+import SuperzahlPicker from '@/components/SuperzahlPicker.vue'
 import WinningsEntry from '@/components/WinningsEntry.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
@@ -204,7 +197,7 @@ const winningsCmds = reactive({})
 const tippYears = computed(() => years.data?.tippYears ?? [])
 const drawList = computed(() => draws.data?.draws ?? [])
 
-const newDraw = reactive({ drawDate: '', numbers: [], superzahl: '' })
+const newDraw = reactive({ drawDate: '', numbers: [], superzahl: null })
 
 /**
  * One command state per draw, not one for the page.
@@ -239,13 +232,13 @@ async function recordDraw() {
     tippYearId: Number(tippYearId.value),
     drawDate: newDraw.drawDate,
     numbers: [...newDraw.numbers],
-    superzahl: Number(newDraw.superzahl)
+    superzahl: newDraw.superzahl
   }, key))
 
   if (accepted) {
     newDraw.drawDate = ''
     newDraw.numbers = []
-    newDraw.superzahl = ''
+    newDraw.superzahl = null
     loadDraws()
   }
 }

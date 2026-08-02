@@ -22,9 +22,9 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 
 | Metric | Value |
 |--------|-------|
-| Views | 12 (1 login, 5 participant, 6 admin) |
+| Views | 13 (1 login, 5 participant, 6 admin, 1 not-found) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
-| Components | 10 shared + `App.vue` |
+| Components | 12 shared + `App.vue` |
 | Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 2 stores, 1 stylesheet |
@@ -294,6 +294,7 @@ frontend/src/
 │   ├── MoneyInput.vue           one amount, entered and shown as 1,20 €
 │   ├── NotificationHost.vue     the answers to writes, above the navigation
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
+│   ├── SuperzahlPicker.vue      the same gesture for the one digit 0-9
 │   ├── TippYearPicker.vue       the caller's own tipp years, chosen by name
 │   ├── WinningsEntry.vue        B-23: the winnings as a sum or per winning class
 │   ├── ParticipantScope.vue     note shown when the token lacks participant_id
@@ -376,6 +377,18 @@ at an earlier period needs a participant-facing list of periods first — a stor
 layout decision. Two E2E tests cover the consequence: the seed takes the first free calendar
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
+
+### Three smaller things
+
+- **The Superzahl is picked, not typed.** It sat beside the 7x7 grid as a number field with
+  `min`/`max`, which made one slip of the ticket two kinds of entry. Ten balls in the grid's
+  own shape, yellow because that is the colour the Superzahl already has on a drawn ticket,
+  and exactly one at a time.
+- **An unknown URL says so.** It used to redirect to `/bet-row` without a word, which moved
+  people to a page they had not asked for and hid that the address was wrong. The URL stays,
+  the page explains, and the way on is a link.
+- **Every `th` carries `scope="col"`**, so a screen reader knows which header belongs to a
+  cell it is reading.
 
 ### One tab stop for forty-nine numbers
 
@@ -548,6 +561,7 @@ implementation:
 | `stores/notifications.spec.js` | A success takes itself away after five seconds, an error waits to be dismissed, five in a row drop the oldest, and one expiring does not take a later one with it |
 | `components/CommandFeedback.spec.js` | The headless reporter: nothing is announced before the command answers, an accepted one becomes a success, a rejected one carries the rule that said no, and the resource id appears only where the caller has to act on it |
 | `components/NumberGrid.spec.js` (keyboard) | One number in the tab order rather than forty-nine, the arrows and Home/End move it, the edges stop instead of wrapping, and a locked number stays focusable |
+| `components/SuperzahlPicker.spec.js` | Ten digits, one at a time, a second click on the chosen one lets go — and 0 is a Superzahl like any other, which is where a truthiness check would drop it |
 | `components/DrawRows.spec.js` | B-24: the winning row is highlighted and the losing one is still listed; within a row the numbers that were not drawn are the ones greyed back, and a draw without numbers marks none of them as hits |
 | `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the class sum added up in cents |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |

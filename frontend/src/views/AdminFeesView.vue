@@ -102,17 +102,34 @@
     <table class="data">
       <thead>
         <tr>
-          <th>Gebühr</th>
-          <th>Teilnehmer</th>
-          <th>Schein</th>
-          <th>Zeitraum</th>
-          <th class="numeric">
+          <th scope="col">
+            Gebühr
+          </th>
+          <th scope="col">
+            Teilnehmer
+          </th>
+          <th scope="col">
+            Schein
+          </th>
+          <th scope="col">
+            Zeitraum
+          </th>
+          <th
+            scope="col"
+            class="numeric"
+          >
             Betrag
           </th>
-          <th>Fällig</th>
-          <th>Status</th>
-          <th>Gebucht von</th>
-          <th />
+          <th scope="col">
+            Fällig
+          </th>
+          <th scope="col">
+            Status
+          </th>
+          <th scope="col">
+            Gebucht von
+          </th>
+          <th scope="col" />
         </tr>
       </thead>
       <tbody>
