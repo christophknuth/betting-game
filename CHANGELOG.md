@@ -6,6 +6,25 @@ what was changed when, and why.
 
 ---
 
+## One tab stop for forty-nine numbers (2026-08-02)
+
+The number grid was forty-nine focusable buttons, so a keyboard reached the submit button
+below it after forty-nine presses of Tab. That was a deliberate simplification when the grid
+was built; this takes it back.
+
+It carries a roving tabindex now — one number in the tab order, the arrow keys moving it,
+`Home` and `End` to the ends. The edges stop rather than wrap: seven to the right of 49 is
+off the board, and landing back on 1 would read as the grid having been reset.
+
+The locked numbers had to give up `disabled` for `aria-disabled`. A disabled button cannot be
+focused, and a keyboard walking a full grid has to pass over the locked ones to reach the
+picked numbers beyond them — which is also the only way back out of a full grid. What the
+browser used to prevent, `toggle` refuses itself.
+
+Verified: ESLint clean, Vitest 144/144 (four new for the keyboard).
+
+---
+
 ## No internal ids in the participant views (2026-08-02)
 
 `#7` for a ticket, `#12` for a fee, `Tippjahr #3` printed under the year's own name — numbers

@@ -377,6 +377,18 @@ layout decision. Two E2E tests cover the consequence: the seed takes the first f
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
 
+### One tab stop for forty-nine numbers
+
+The grid was forty-nine focusable buttons, so reaching the submit button below it took
+forty-nine presses of Tab. It carries a roving tabindex now: one number is in the tab order,
+the arrow keys move it, `Home` and `End` jump to the ends, and the edges stop rather than
+wrap — seven to the right of 49 is off the board, and landing back on 1 would read as a
+reset.
+
+The locked numbers had to give up `disabled` for `aria-disabled`: a disabled button cannot be
+focused, and a keyboard walking the grid has to be able to pass over them to reach the picked
+numbers beyond. What the browser used to prevent, `toggle` now refuses itself.
+
 ### No internal ids in the participant views
 
 `#7` for a ticket, `#12` for a fee, `Tippjahr #3` under the year's own name: numbers a
@@ -535,6 +547,7 @@ implementation:
 | `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
 | `stores/notifications.spec.js` | A success takes itself away after five seconds, an error waits to be dismissed, five in a row drop the oldest, and one expiring does not take a later one with it |
 | `components/CommandFeedback.spec.js` | The headless reporter: nothing is announced before the command answers, an accepted one becomes a success, a rejected one carries the rule that said no, and the resource id appears only where the caller has to act on it |
+| `components/NumberGrid.spec.js` (keyboard) | One number in the tab order rather than forty-nine, the arrows and Home/End move it, the edges stop instead of wrapping, and a locked number stays focusable |
 | `components/DrawRows.spec.js` | B-24: the winning row is highlighted and the losing one is still listed; within a row the numbers that were not drawn are the ones greyed back, and a draw without numbers marks none of them as hits |
 | `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the class sum added up in cents |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |

@@ -215,7 +215,7 @@ table.data .numeric {
   transition: background 0.2s;
 }
 
-.number-grid .pick:hover:not(:disabled) {
+.number-grid .pick:hover:not(.locked) {
   border-color: var(--blue);
   background: var(--gray-100);
 }
@@ -226,8 +226,13 @@ table.data .numeric {
   color: white;
 }
 
-/* Locked, not broken: the six are full, and letting go of one opens it again. */
-.number-grid .pick:disabled {
+/*
+ * Locked, not broken: the six are full, and letting go of one opens it again.
+ * `aria-disabled` rather than `disabled`, so the keyboard can still walk past
+ * these to reach the picked numbers beyond them - which is also why the state
+ * is a class here and not the `:disabled` selector.
+ */
+.number-grid .pick.locked {
   color: var(--gray-400);
   cursor: not-allowed;
 }
