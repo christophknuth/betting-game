@@ -6,6 +6,42 @@ what was changed when, and why.
 
 ---
 
+## Errors in the language they are read in (2026-08-02)
+
+Assigning a bet row to somebody who already has one for the period answered in English —
+`This participant already has a row for this bet period. Supply replaceReason to correct it
+within the running period.` Every rule in this codebase says its piece in English, which is
+right for the log and wrong for the browser.
+
+`Translator` puts the message into the caller's language **at the very edge of the request**
+and nowhere else: the exception, the command log and the container log keep the English
+wording, so a log line never depends on which browser sent the request. Wrapping the whole
+dispatch rather than the ErrorMapper alone also catches what never reaches it — a rejected
+token, an unknown route, a method that is not allowed.
+
+**The catalogue is keyed by the English message**, because that is the identifier this
+codebase has. Giving ninety-nine throw sites a message key would be a refactor of the domain
+to solve a problem at the edge; `%s` and `%d` in the catalogue entries match what `sprintf`
+put there, so `Tipp year %d does not exist` recognises the message and the number survives
+into the German. What is not in the catalogue comes back in English — the documented
+fallback, not a gap. `Accept-Language` is read as the weighted list it is, the region is
+ignored, and a browser sends it by itself.
+
+**The values are deliberately not translated.** They are names, dates, numbers and, in a few
+places, a status as the API spells it. Telling a term of this domain from somebody's name is
+a guess, and getting it wrong renames a person.
+
+Along the way: a **unique key rejecting a write returned the driver's own message**. Most
+rules check before they write, but not all — a duplicate draw date is left to `uk_draw_date`,
+and what came back was `SQLSTATE[23000] … Duplicate entry '2026-01-07' for key
+'uk_draw_date'`. Unreadable, untranslatable, and it hands out the schema. `ConstraintMessages`
+now answers with the rule in words for each of the sixteen keys, and with a plain "this entry
+already exists" for a key nobody has written a sentence for yet.
+
+Verified: PHPStan level 10 clean, phpcs clean, PHPUnit 456 with `--fail-on-skipped` (26 new).
+
+---
+
 ## A write does not lose the reader's place (2026-08-02)
 
 Changing a tipp year's status from the dropdown in its row said nothing and then reloaded the

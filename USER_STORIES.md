@@ -338,7 +338,7 @@ model.
 
 | Area | Effect |
 |---|---|
-| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 430 test methods (235 unit, 195 integration) |
+| Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 456 test methods (258 unit, 198 integration) |
 | `demo/` | The read-only demo for Prediction/Result disappeared with the change of course and has not been replaced |
 | [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.3.0, 21 paths, 24 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
 | PHPStan level 10, PSR-12 | Unchanged and still met |
@@ -486,7 +486,7 @@ the unique key would leave a `bet_row.assigned` event in the store that describe
 
 ## Tests
 
-430 test methods (235 unit across 21 files, 195 integration across 17 files). The integration
+456 test methods (258 unit across 22 files, 198 integration across 17 files). The integration
 tests need a database and skip themselves when none is reachable — so `make test` stays green
 without one too.
 

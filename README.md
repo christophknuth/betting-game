@@ -312,8 +312,8 @@ the full stack.
 
 | Suite | Scope | Prerequisite |
 |---|---|---|
-| `tests/Unit` | 21 files, 235 test methods — domain logic, value objects, JWT, HTTP helpers | none |
-| `tests/Integration` | 17 files, 195 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
+| `tests/Unit` | 22 files, 258 test methods — domain logic, value objects, JWT, HTTP helpers | none |
+| `tests/Integration` | 17 files, 198 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
 
 The integration tests **skip themselves** when no database is reachable. A green suite
 without a running database therefore says nothing about persistence.

@@ -1846,11 +1846,25 @@ components:
 
     ErrorResponse:
       type: object
+      description: |
+        **`message` is localised to `Accept-Language` where a translation exists.**
+        The header is read as the weighted list it is (`de-DE,de;q=0.9,en;q=0.8`), the region
+        is ignored (`de-AT` is served by the German catalogue), and anything without a
+        catalogue falls back to English. German and English are available.
+
+        The values a message fills in - names, dates, numbers, and in a few places a status
+        as this API spells it - are **not** translated: telling a term of the domain from
+        somebody's name is a guess, and getting it wrong renames a person.
+
+        `error` is not localised. It names the status, is the same in every language, and is
+        what a client should branch on.
       properties:
         error:
           type: string
+          description: The status in words, always English - meant for the client, not the reader
         message:
           type: string
+          description: What went wrong, in the caller's language where that is known
         details:
           type: object
           nullable: true

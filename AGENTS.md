@@ -327,6 +327,13 @@ class belongs to. No comments that restate the signature.
   administrator would actually type (`"Tippjahr 2026"` in tests and examples) and for the
   German product name *Lotto 6 aus 49*. A test asserting on a visible label therefore
   contains German — that is the assertion, not prose.
+- **Error messages are written in English and translated on the way out.** A rule throws its
+  sentence in English, and that English is what the exception, the command log and the
+  container log keep. `Presentation\Http\Translator` puts it into the caller's language at
+  the very edge of the request, from the catalogue in `GermanMessages`; anything not in the
+  catalogue goes out in English. So a **new error message needs a German entry** —
+  `TranslatorTest` checks the mechanism, but nothing can check that a sentence somebody just
+  wrote was added to the catalogue.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`type(scope): subject`, imperative, one line): `feat: verify the token signature`,
   `fix(auth): wire the base version up over HTTP`. The usual types here: `feat`, `fix`,
@@ -338,10 +345,10 @@ class belongs to. No comments that restate the signature.
 
 | Suite | Scope | Prerequisite |
 |---|---|---|
-| `tests/Unit` | 21 files, 235 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
-| `tests/Integration` | 17 files, 195 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
+| `tests/Unit` | 22 files, 258 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
+| `tests/Integration` | 17 files, 198 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
 
-430 test methods in total.
+456 test methods in total.
 
 - Integration tests **skip themselves** when no database is reachable
   (`IntegrationTestCase::setUpBeforeClass()`). The suite therefore stays green without a DB —
