@@ -32,36 +32,12 @@ export function formatNumbers(numbers) {
   return Array.isArray(numbers) ? numbers.join(' · ') : '–'
 }
 
-/**
- * Parses the six numbers out of a text field.
- *
- * Deliberately permissive about separators and deliberately strict about the
- * result: comma, space or semicolon all work, but anything that is not six
- * distinct numbers from 1 to 49 is rejected here rather than sent off to earn a
- * 400. The domain enforces the same rule in `LottoNumbers`; this only spares
- * the round trip.
+/*
+ * The counterpart, parseNumbers, is gone. It read six numbers out of a text
+ * field and rejected anything that was not six distinct numbers from 1 to 49 -
+ * a rule that no longer has an input to guard: the numbers are picked off
+ * NumberGrid, which cannot produce a seventh number, a 50 or a duplicate.
  */
-export function parseNumbers(input) {
-  const parts = String(input)
-    .split(/[\s,;]+/)
-    .filter(part => part !== '')
-
-  if (parts.length !== 6) {
-    return { numbers: null, error: 'Genau sechs Zahlen angeben.' }
-  }
-
-  const numbers = parts.map(Number)
-
-  if (numbers.some(n => !Number.isInteger(n) || n < 1 || n > 49)) {
-    return { numbers: null, error: 'Nur ganze Zahlen von 1 bis 49.' }
-  }
-
-  if (new Set(numbers).size !== 6) {
-    return { numbers: null, error: 'Die sechs Zahlen müssen verschieden sein.' }
-  }
-
-  return { numbers: [...numbers].sort((a, b) => a - b), error: null }
-}
 
 /**
  * The tipp year lifecycle, in its intended order.

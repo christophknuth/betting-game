@@ -4,7 +4,6 @@ import {
   formatDate,
   formatDateTime,
   formatNumbers,
-  parseNumbers,
   statusLabel,
   winningClassLabel
 } from '@/support/format'
@@ -51,52 +50,9 @@ describe('formatNumbers', () => {
   })
 })
 
-/**
- * B-06: "genau sechs verschiedene Zahlen aus 1-49, aufsteigend gespeichert".
- * parseNumbers mirrors that rule on the client so a bad entry never earns a
- * round trip to the API just to learn it was invalid.
- */
-describe('parseNumbers', () => {
-  it('accepts six comma-separated numbers and sorts them ascending', () => {
-    expect(parseNumbers('6,5,4,3,2,1')).toEqual({ numbers: [1, 2, 3, 4, 5, 6], error: null })
-  })
-
-  it('accepts space separators', () => {
-    expect(parseNumbers('1 2 3 4 5 6')).toEqual({ numbers: [1, 2, 3, 4, 5, 6], error: null })
-  })
-
-  it('accepts semicolon separators', () => {
-    expect(parseNumbers('1;2;3;4;5;6')).toEqual({ numbers: [1, 2, 3, 4, 5, 6], error: null })
-  })
-
-  it('accepts mixed separators', () => {
-    expect(parseNumbers('1, 2;3 4,5;6')).toEqual({ numbers: [1, 2, 3, 4, 5, 6], error: null })
-  })
-
-  it('rejects fewer than six numbers', () => {
-    expect(parseNumbers('1,2,3,4,5')).toEqual({ numbers: null, error: 'Genau sechs Zahlen angeben.' })
-  })
-
-  it('rejects more than six numbers', () => {
-    expect(parseNumbers('1,2,3,4,5,6,7')).toEqual({ numbers: null, error: 'Genau sechs Zahlen angeben.' })
-  })
-
-  it('rejects a number outside 1-49', () => {
-    expect(parseNumbers('0,2,3,4,5,6')).toEqual({ numbers: null, error: 'Nur ganze Zahlen von 1 bis 49.' })
-    expect(parseNumbers('1,2,3,4,5,50')).toEqual({ numbers: null, error: 'Nur ganze Zahlen von 1 bis 49.' })
-  })
-
-  it('rejects a non-integer number', () => {
-    expect(parseNumbers('1.5,2,3,4,5,6')).toEqual({ numbers: null, error: 'Nur ganze Zahlen von 1 bis 49.' })
-  })
-
-  it('rejects duplicate numbers', () => {
-    expect(parseNumbers('1,1,2,3,4,5')).toEqual({
-      numbers: null,
-      error: 'Die sechs Zahlen müssen verschieden sein.'
-    })
-  })
-})
+// B-06 used to be checked here as well, against parseNumbers. The rule has not
+// moved, but the guard has: NumberGrid enforces it by construction, and
+// components/NumberGrid.spec.js is where it is pinned down now.
 
 describe('statusLabel', () => {
   it('translates a known status', () => {

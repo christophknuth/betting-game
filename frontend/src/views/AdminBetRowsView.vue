@@ -79,36 +79,29 @@
     <h3>Reihe eintragen</h3>
 
     <form @submit.prevent="assign">
-      <div class="field-row">
-        <div class="field">
-          <label for="participantId">Teilnehmer</label>
-          <select
-            id="participantId"
-            v-model="form.participantId"
-            required
+      <div class="field">
+        <label for="participantId">Teilnehmer</label>
+        <select
+          id="participantId"
+          v-model="form.participantId"
+          required
+        >
+          <option value="">
+            bitte wählen
+          </option>
+          <option
+            v-for="participant in participants"
+            :key="participant.participantId"
+            :value="participant.participantId"
           >
-            <option value="">
-              bitte wählen
-            </option>
-            <option
-              v-for="participant in participants"
-              :key="participant.participantId"
-              :value="participant.participantId"
-            >
-              {{ participant.displayName }} (#{{ participant.participantId }})
-            </option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="numbers">Sechs Zahlen</label>
-          <input
-            id="numbers"
-            v-model="form.numbers"
-            placeholder="3 12 19 27 33 45"
-            required
-          >
-          <span class="hint">Trennzeichen egal: Leerzeichen, Komma oder Semikolon</span>
-        </div>
+            {{ participant.displayName }} (#{{ participant.participantId }})
+          </option>
+        </select>
+      </div>
+
+      <div class="field">
+        <span class="label">Sechs Zahlen</span>
+        <NumberGrid v-model="form.numbers" />
       </div>
 
       <div class="field">
@@ -125,16 +118,9 @@
         </span>
       </div>
 
-      <div
-        v-if="numbersError"
-        class="state error"
-      >
-        {{ numbersError }}
-      </div>
-
       <button
         class="btn-primary"
-        :disabled="command.pending || !form.betPeriodId"
+        :disabled="command.pending || !form.betPeriodId || form.numbers.length !== 6"
         type="submit"
       >
         {{ command.pending ? 'Wird gesendet …' : 'Reihe zuordnen' }}
@@ -148,9 +134,10 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
+import NumberGrid from '@/components/NumberGrid.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
-import { formatDate, parseNumbers } from '@/support/format'
+import { formatDate } from '@/support/format'
 
 const years = useQuery()
 const periods = useQuery()
@@ -158,12 +145,11 @@ const people = useQuery()
 const command = useCommand()
 
 const tippYearId = ref('')
-const numbersError = ref(null)
 
 const form = reactive({
   participantId: '',
   betPeriodId: '',
-  numbers: '',
+  numbers: [],
   replaceReason: ''
 })
 
@@ -180,22 +166,17 @@ function loadPeriods() {
 }
 
 async function assign() {
-  // The six numbers are validated here only to save the round trip; the domain
-  // enforces the same rule in LottoNumbers and would answer 400.
-  const { numbers, error } = parseNumbers(form.numbers)
-  numbersError.value = error
-
-  if (error) {
-    return
-  }
-
+  // No parsing and no check of the six numbers left to do here: the grid hands
+  // over six distinct numbers from 1 to 49, ascending, or the submit button is
+  // not enabled at all.
   const accepted = await command.run(key => api.admin.assignBetRow(form.participantId, {
     betPeriodId: Number(form.betPeriodId),
-    numbers,
+    numbers: [...form.numbers],
     ...(form.replaceReason === '' ? {} : { replaceReason: form.replaceReason })
   }, key))
 
   if (accepted) {
+    form.numbers = []
     form.replaceReason = ''
     // The row count per period changes with the assignment, so the list the
     // administrator is looking at is stale the moment this succeeds.

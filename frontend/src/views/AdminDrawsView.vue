@@ -60,15 +60,6 @@
           >
         </div>
         <div class="field">
-          <label for="drawNumbers">Gewinnzahlen</label>
-          <input
-            id="drawNumbers"
-            v-model="newDraw.numbers"
-            placeholder="3 12 19 27 33 45"
-            required
-          >
-        </div>
-        <div class="field">
           <label for="superzahl">Superzahl</label>
           <input
             id="superzahl"
@@ -81,21 +72,20 @@
         </div>
       </div>
 
+      <div class="field">
+        <span class="label">Gewinnzahlen</span>
+        <NumberGrid v-model="newDraw.numbers" />
+      </div>
+
       <!--
         The note that used to stand here explained that a duplicate draw date is
         rejected. If it happens, the error message says so - announcing it in
         advance is a rule nobody can act on while filling the form.
       -->
-      <div
-        v-if="numbersError"
-        class="state error"
-      >
-        {{ numbersError }}
-      </div>
 
       <button
         class="btn-primary"
-        :disabled="recordCmd.pending || !tippYearId"
+        :disabled="recordCmd.pending || !tippYearId || newDraw.numbers.length !== 6"
         type="submit"
       >
         {{ recordCmd.pending ? 'Wird gesendet …' : 'Ziehung eintragen' }}
@@ -206,23 +196,23 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
+import NumberGrid from '@/components/NumberGrid.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
-import { formatAmount, formatDate, parseNumbers, statusLabel } from '@/support/format'
+import { formatAmount, formatDate, statusLabel } from '@/support/format'
 
 const years = useQuery()
 const draws = useQuery()
 const recordCmd = useCommand()
 
 const tippYearId = ref('')
-const numbersError = ref(null)
 const amounts = reactive({})
 const winningsCmds = reactive({})
 
 const tippYears = computed(() => years.data?.tippYears ?? [])
 const drawList = computed(() => draws.data?.draws ?? [])
 
-const newDraw = reactive({ drawDate: '', numbers: '', superzahl: '' })
+const newDraw = reactive({ drawDate: '', numbers: [], superzahl: '' })
 
 /**
  * One command state per draw, not one for the page.
@@ -246,25 +236,19 @@ function loadDraws() {
 }
 
 async function recordDraw() {
-  // Checked here only to save the round trip; LottoNumbers enforces the same
-  // rule in the domain and would answer 400.
-  const { numbers, error } = parseNumbers(newDraw.numbers)
-  numbersError.value = error
-
-  if (error) {
-    return
-  }
-
+  // Nothing to parse or check about the numbers here: the grid hands over six
+  // distinct numbers from 1 to 49, ascending, or the submit button is not
+  // enabled at all.
   const accepted = await recordCmd.run(key => api.admin.recordDraw({
     tippYearId: Number(tippYearId.value),
     drawDate: newDraw.drawDate,
-    numbers,
+    numbers: [...newDraw.numbers],
     superzahl: Number(newDraw.superzahl)
   }, key))
 
   if (accepted) {
     newDraw.drawDate = ''
-    newDraw.numbers = ''
+    newDraw.numbers = []
     newDraw.superzahl = ''
     loadDraws()
   }

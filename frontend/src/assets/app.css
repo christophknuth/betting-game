@@ -163,6 +163,46 @@ table.data .numeric {
   font-size: 0.8125rem;
 }
 
+/*
+ * The 7x7 grid the six numbers are picked from - a ball that has not been
+ * picked yet, which is why it lives next to .ball and takes the same blue.
+ */
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.375rem;
+  max-width: 21rem;
+}
+
+.number-grid .pick {
+  aspect-ratio: 1;
+  border: 1px solid var(--gray-300);
+  border-radius: 50%;
+  background: white;
+  color: var(--gray-900);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.number-grid .pick:hover:not(:disabled) {
+  border-color: var(--blue);
+  background: var(--gray-100);
+}
+
+.number-grid .pick.picked {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: white;
+}
+
+/* Locked, not broken: the six are full, and letting go of one opens it again. */
+.number-grid .pick:disabled {
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
 /* --- Badges ----------------------------------------------------------- */
 
 .badge {
@@ -218,7 +258,9 @@ table.data .numeric {
   margin-bottom: 1rem;
 }
 
-.field label {
+/* .label is the caption of a control that is not one element - the number grid. */
+.field label,
+.field .label {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--gray-600);
