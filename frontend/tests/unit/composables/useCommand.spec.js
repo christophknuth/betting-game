@@ -132,4 +132,40 @@ describe('useQuery', () => {
     expect(query.data).toEqual([])
     expect(query.error).toBe('No bet row for this period')
   })
+
+  /**
+   * The message alone cannot tell the two apart, and rendering every failure
+   * as an empty state made a broken server look like an empty tipp year.
+   */
+  it('calls a 404 empty, and everything else a fault', async () => {
+    const query = useQuery(null)
+
+    await query.load(vi.fn().mockRejectedValue({ response: { status: 404, data: {} } }))
+    expect(query.status).toBe(404)
+    expect(query.isEmpty()).toBe(true)
+
+    await query.load(vi.fn().mockRejectedValue({ response: { status: 500, data: {} } }))
+    expect(query.status).toBe(500)
+    expect(query.isEmpty()).toBe(false)
+  })
+
+  it('calls an unreachable API a fault, not an empty answer', async () => {
+    const query = useQuery(null)
+
+    // No response at all: the request never got a status
+    await query.load(vi.fn().mockRejectedValue(new Error('network down')))
+
+    expect(query.status).toBeNull()
+    expect(query.isEmpty()).toBe(false)
+  })
+
+  it('clears the status of a failed load once one succeeds', async () => {
+    const query = useQuery(null)
+
+    await query.load(vi.fn().mockRejectedValue({ response: { status: 404, data: {} } }))
+    await query.load(vi.fn().mockResolvedValue({ data: { ok: true } }))
+
+    expect(query.status).toBeNull()
+    expect(query.isEmpty()).toBe(false)
+  })
 })

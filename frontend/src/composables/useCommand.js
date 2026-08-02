@@ -1,5 +1,5 @@
 import { reactive, ref } from 'vue'
-import { apiMessage, hasResponse } from '@/services/errors'
+import { apiMessage, hasResponse, statusOf } from '@/services/errors'
 
 /**
  * One command form: pending state, error message, and the idempotency key.
@@ -144,10 +144,12 @@ export function useQuery(initial = null) {
   const data = ref(initial)
   const loading = ref(false)
   const error = ref(null)
+  const status = ref(null)
 
   async function load(send) {
     loading.value = true
     error.value = null
+    status.value = null
 
     try {
       const response = await send()
@@ -156,10 +158,13 @@ export function useQuery(initial = null) {
       return response.data
     } catch (e) {
       // A 404 is an answer, not a breakdown: "you have no bet row for this
-      // period" is exactly what the view needs to say, so the API's message is
-      // handed on and the caller decides how loudly to show it.
+      // period" is exactly what the view needs to say. The status comes along
+      // so the view can tell the two apart - the message alone cannot, and
+      // rendering every failure as an empty state made a broken server look
+      // like an empty year.
       data.value = initial
       error.value = apiMessage(e)
+      status.value = statusOf(e)
 
       return null
     } finally {
@@ -167,5 +172,8 @@ export function useQuery(initial = null) {
     }
   }
 
-  return reactive({ data, loading, error, load })
+  /** True where the API answered "there is none", rather than failing. */
+  const isEmpty = () => status.value === 404
+
+  return reactive({ data, loading, error, status, isEmpty, load })
 }
