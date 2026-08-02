@@ -24,9 +24,16 @@
     >
       Wird geladen …
     </div>
+    <!-- No payout share for this year is an answer; a failing API is not. -->
+    <div
+      v-else-if="query.isEmpty()"
+      class="state empty"
+    >
+      {{ query.error }}
+    </div>
     <div
       v-else-if="query.error"
-      class="state empty"
+      class="state error"
     >
       {{ query.error }}
     </div>

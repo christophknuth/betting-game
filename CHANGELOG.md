@@ -6,6 +6,21 @@ what was changed when, and why.
 
 ---
 
+## An answer is not a breakdown (2026-08-02)
+
+Two views rendered every failed request in the dashed "nothing here" box. For their main case
+that is exactly right — no bet row for the running period, no payout share for a year that has
+not been distributed — and it was commented as deliberate. It also meant a `500`, or an API
+that could not be reached at all, read as an empty tipp year.
+
+`useQuery` keeps the status of the failed response now, and `isEmpty()` answers whether it was
+a `404`. A request that never got a status is a fault too, not an empty answer — that is the
+case the status alone would have got wrong, and it has its own test.
+
+Verified: ESLint clean, Vitest 130/130 (three new for the composable).
+
+---
+
 ## One word for loading, one idiom for it (2026-08-02)
 
 The same action was called **Anzeigen** in three views, **Filtern** in two and

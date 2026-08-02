@@ -24,10 +24,16 @@
     </div>
 
     <!-- A 404 here is an answer, not a fault: it means no row is assigned for
-         that period. So the API's message goes into the empty state. -->
+         the running period. Anything else went wrong and has to look like it. -->
+    <div
+      v-else-if="betRow.isEmpty()"
+      class="state empty"
+    >
+      {{ betRow.error }}
+    </div>
     <div
       v-else-if="betRow.error"
-      class="state empty"
+      class="state error"
     >
       {{ betRow.error }}
     </div>

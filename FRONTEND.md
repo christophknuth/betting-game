@@ -374,6 +374,14 @@ layout decision. Two E2E tests cover the consequence: the seed takes the first f
 year, so exactly one of "sees the six numbers" and "says that no period is running" applies
 on any given run.
 
+### An answer is not a breakdown
+
+`useQuery` keeps the status of a failed request, and `isEmpty()` says whether it was a `404`.
+Two views used to render *every* failure in the dashed "nothing here" box, because for their
+main case — no bet row for the running period, no payout share for this year — that is
+exactly right. It also meant a 500 or an unreachable API read as an empty year. A request
+that never got a status is a fault too, not an empty answer.
+
 ### One idiom for loading
 
 The same action was called **Anzeigen** in three views, **Filtern** in two and
@@ -464,7 +472,7 @@ implementation:
 
 | File | Checks |
 |---|---|
-| `composables/useCommand.spec.js` | OPS-02: the idempotency key is retained on a response-less request (a retry repeats the same command) and dropped on any response — success as well as error; `useQuery` falls back to the initial value on errors (B-01: a 404 is an empty state) |
+| `composables/useCommand.spec.js` | OPS-02: the idempotency key is retained on a response-less request (a retry repeats the same command) and dropped on any response — success as well as error; `useQuery` falls back to the initial value on errors and tells a `404` (an empty state, B-01) from a `500` or an unreachable API (a fault) |
 | `services/errors.spec.js` | `apiMessage` for 401 (the iss-claim hint), 503 (repeatable), the passed-through API message, an unreachable API |
 | `support/format.spec.js` | `formatAmount(null)` ≠ `formatAmount(0)` (B-04: the share is `null` until the distribution is recorded); `parseAmount` against both separators, a pasted `1.234,56 €` and everything that is not an amount |
 | `components/MoneyInput.spec.js` | The comma works, the dot still works, blur rounds to cents and rewrites the field German — and what the field shows is the figure that was emitted |

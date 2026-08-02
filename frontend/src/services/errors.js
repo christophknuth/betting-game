@@ -10,6 +10,17 @@ export function hasResponse(error) {
 }
 
 /**
+ * The status the API answered with, or null when it never answered.
+ *
+ * Views need it to tell an answer from a breakdown: a `404` on "my bet row" is
+ * the API saying there is none for this period, which is an empty state, while
+ * a `500` on the same call is a fault and has to look like one.
+ */
+export function statusOf(error) {
+  return hasResponse(error) ? error.response.status : null
+}
+
+/**
  * The message to put in front of the user.
  *
  * Every error the API produces carries `{error, message}`, and `message` is the
