@@ -85,6 +85,15 @@ const router = createRouter({
           component: () => import('@/views/AdminTippYearsView.vue')
         },
         {
+          // The year itself, not a panel under the list. Constrained to digits
+          // so a mistyped path is the not-found page rather than a view asking
+          // the API for tipp year NaN.
+          path: 'tipp-years/:tippYearId(\\d+)',
+          name: 'AdminTippYear',
+          meta: { title: 'Tippjahr' },
+          component: () => import('@/views/AdminTippYearView.vue')
+        },
+        {
           path: 'participants',
           name: 'AdminParticipants',
           meta: { title: 'Teilnehmer' },
