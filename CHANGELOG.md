@@ -6,6 +6,32 @@ what was changed when, and why.
 
 ---
 
+## No page between the visitor and the login (2026-08-03, B-15)
+
+The login screen told the syndicate about PKCE, about where the token is kept, listed three
+demo accounts with their passwords and linked into the Keycloak admin console. None of that
+is a member's business, and the passwords were an invitation.
+
+Underneath it sat a second question: why a page at all? It carried one button and nothing
+else to decide. **Embedding Keycloak's form to save the click is not available** — Keycloak
+sends `X-Frame-Options: SAMEORIGIN` and `frame-ancestors 'self'` with the login page, so
+the browser refuses the frame, and that refusal is what stops another page from laying an
+invisible overlay over the password field. Widening it would also hand the session cookie
+to third-party cookie blocking, which is how SSO dies quietly.
+
+So the detour is made invisible rather than shortened: an anonymous visitor is handed to
+Keycloak by the navigation guard itself, with the requested route as the redirect URI — the
+same mechanism that keeps a deep link alive across the login. The guard **aborts** its
+navigation instead of routing somewhere; the browser is leaving the document, and entering
+the route first would flash a view the visitor is not allowed to see.
+
+`/login` stays, as the place a logout lands, and `logout()` now names it explicitly. Without
+that it returned to the page one was standing on — which every other route answers by
+sending the browser back to Keycloak, making **Abmelden** look like it had done nothing.
+What is left on the page is a heading, a sentence and one button.
+
+---
+
 ## A draw can be corrected (2026-08-03, B-28)
 
 Six numbers, typed by hand, and no way back. A transposed digit stayed in the books

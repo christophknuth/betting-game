@@ -120,7 +120,7 @@ $roles         = $request->attribute('roles');
 |------|-----|
 | `frontend/src/services/keycloak.js` | keycloak-js wrapper (init, login, logout, token) |
 | `frontend/src/stores/auth.js` | Pinia store with user state and roles |
-| `frontend/src/views/LoginView.vue` | Login page |
+| `frontend/src/views/LoginView.vue` | Where a logout lands — the login form itself is Keycloak's own page |
 | `frontend/public/silent-check-sso.html` | Silent SSO check |
 | `frontend/.env` | Keycloak and API URLs |
 

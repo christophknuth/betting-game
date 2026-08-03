@@ -24,14 +24,30 @@ export const initKeycloak = () => {
   return initPromise
 }
 
-// Login
-export const login = () => {
-  return keycloak.login()
+/**
+ * Hands the browser over to Keycloak's own login form.
+ *
+ * It has to be Keycloak's page, not one of ours embedded in an iframe:
+ * Keycloak sends `X-Frame-Options: SAMEORIGIN` and `frame-ancestors 'self'`
+ * with it, so the browser refuses the frame - and those headers are what stops
+ * another page from laying an invisible overlay over the password field.
+ *
+ * `options.redirectUri` is what makes the detour invisible anyway: Keycloak
+ * returns to the route that was asked for instead of to a landing page.
+ */
+export const login = (options) => {
+  return keycloak.login(options)
 }
 
-// Logout
+/**
+ * Back to /login, not to the page one was standing on.
+ *
+ * Every other route now sends an anonymous visitor straight to Keycloak, so
+ * logging out on /bet-row would hand the browser right back to the login form
+ * - which looks like the logout did nothing at all.
+ */
 export const logout = () => {
-  return keycloak.logout()
+  return keycloak.logout({ redirectUri: window.location.origin + '/login' })
 }
 
 // Check if user is authenticated

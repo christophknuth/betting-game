@@ -59,7 +59,7 @@ frontend/
 │   │   ├── ParticipantLayout.vue      # light top bar, the read-only views
 │   │   └── AdminLayout.vue            # dark bar + sidebar, everything /admin
 │   ├── views/
-│   │   ├── LoginView.vue              # Keycloak login
+│   │   ├── LoginView.vue              # where a logout lands; the form is Keycloak's
 │   │   ├── BetRowView.vue             # B-01 own bet row
 │   │   ├── MembershipsView.vue        # B-02 own memberships
 │   │   ├── FeesView.vue               # B-03 own fees
