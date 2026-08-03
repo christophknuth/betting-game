@@ -26,9 +26,11 @@ final class ProcessingFees
      * A Spielauftrag counts as single-week while it covers at most this many
      * days, both ends included.
      *
-     * Seven, because that is what a week is - not "two draws". The number of
-     * draws is a property of the ticket that can vary with holidays, while the
-     * price list talks about weeks.
+     * Seven, because that is what a week is - not "two draws". The price list
+     * talks about weeks, and a ticket that plays one draw a week costs the same
+     * to process as one that plays two. Since a Laufzeit is always a whole
+     * number of weeks (see DrawSchedule), this boundary is only ever met
+     * exactly.
      */
     private const SINGLE_WEEK_DAYS = 7;
 

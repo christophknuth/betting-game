@@ -14,6 +14,7 @@ use BettingGame\Application\Command\RecordDrawWinningsCommand;
 use BettingGame\Application\Command\RecordFeePaymentCommand;
 use BettingGame\Application\Command\SubmitTicketCommand;
 use BettingGame\Domain\Model\Fee;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 use BettingGame\Support\Row;
 
 /**
@@ -58,9 +59,10 @@ final class CommandFlowTest extends ApplicationTestCase
 
         $this->startTippYear($tippYearId);
 
-        // B-12: the January ticket - 2 rows x 9 draws x 1.20
+        // B-12: the January ticket - four weeks on both draw days, so 2 rows
+        // x 8 draws x 1.20
         $ticket = $this->submitTicket()->handle(
-            new SubmitTicketCommand($tippYearId, '2026-01-01', '2026-01-31', 9, 7, 'LOT-2026-01')
+            new SubmitTicketCommand($tippYearId, '2026-01-01', 4, DrawSchedule::BOTH, 7, 'LOT-2026-01')
         );
         $ticketId = $ticket->resourceId;
         self::assertNotNull($ticketId);
@@ -68,14 +70,16 @@ final class CommandFlowTest extends ApplicationTestCase
         $submitted = $this->tickets->find($ticketId);
         self::assertNotNull($submitted);
         self::assertSame(2, $submitted->rowCount());
-        self::assertSame(21.60, $submitted->totalCost());
+        self::assertSame(8, $submitted->drawCount(), 'four weeks on Wednesday and Saturday');
+        self::assertSame('2026-01-28', $submitted->periodEnd()->format('Y-m-d'));
+        self::assertSame(19.20, $submitted->totalCost());
 
         // Each member owes half of it
         $fees = $this->fees->findByTicket($ticketId);
         self::assertCount(2, $fees);
-        self::assertSame(10.80, $fees[0]->amount());
-        self::assertSame(10.80, $fees[1]->amount());
-        self::assertSame(21.60, $this->fees->openTotalOf(7) + $this->fees->openTotalOf(8));
+        self::assertSame(9.60, $fees[0]->amount());
+        self::assertSame(9.60, $fees[1]->amount());
+        self::assertSame(19.20, $this->fees->openTotalOf(7) + $this->fees->openTotalOf(8));
 
         // B-08: a draw Anna gets four numbers and the Superzahl right
         $draw = $this->recordDraw()->handle(
@@ -125,7 +129,7 @@ final class CommandFlowTest extends ApplicationTestCase
         );
 
         self::assertSame(0.0, $this->fees->openTotalOf(7));
-        self::assertSame(10.80, $this->fees->openTotalOf(8));
+        self::assertSame(9.60, $this->fees->openTotalOf(8));
 
         // B-13: the annual distribution
         $this->closeTippYear($tippYearId);

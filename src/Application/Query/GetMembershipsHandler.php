@@ -59,6 +59,10 @@ final class GetMembershipsHandler
                 'periodStart' => Row::string($ticket, 'period_start'),
                 'periodEnd' => Row::string($ticket, 'period_end'),
                 'status' => Row::string($ticket, 'status'),
+                // Null on the tickets from before the Laufzeit was recorded -
+                // the draw count is what they were billed on either way.
+                'durationWeeks' => Row::nullableInt($ticket, 'duration_weeks'),
+                'drawDays' => Row::nullableString($ticket, 'draw_days'),
                 'drawCount' => Row::int($ticket, 'draw_count'),
                 'ownRowIncluded' => Row::bool($ticket, 'participated'),
             ];

@@ -11,6 +11,7 @@ use BettingGame\Application\Command\CreateTippYearCommand;
 use BettingGame\Application\Command\SubmitTicketCommand;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\ValueObject\DisplayName;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 use BettingGame\Support\Row;
 
 /**
@@ -31,8 +32,8 @@ final class ProcessingFeeTest extends ApplicationTestCase
         $this->submitTicket()->handle(new SubmitTicketCommand(
             $tippYearId,
             '2026-01-01',
-            '2026-01-31',
-            9,
+            4,
+            DrawSchedule::BOTH,
             null,
             'LOT-2026-01'
         ));
@@ -40,9 +41,9 @@ final class ProcessingFeeTest extends ApplicationTestCase
         $ticket = $this->db->fetchOne('SELECT * FROM ticket WHERE tipp_year_id = ?', [$tippYearId]);
         self::assertNotNull($ticket);
 
-        // 3 rows x 9 draws x 1.20 = 32.40, plus the multi-week fee of 1.00
+        // 3 rows x 8 draws x 1.20 = 28.80, plus the multi-week fee of 1.00
         self::assertSame(1.00, Row::float($ticket, 'processing_fee'));
-        self::assertSame(33.40, Row::float($ticket, 'total_cost'));
+        self::assertSame(29.80, Row::float($ticket, 'total_cost'));
     }
 
     public function testAWeekLongTicketIsChargedTheCheaperRate(): void
@@ -52,14 +53,18 @@ final class ProcessingFeeTest extends ApplicationTestCase
         $this->submitTicket()->handle(new SubmitTicketCommand(
             $tippYearId,
             '2026-01-05',
-            '2026-01-11',
-            2,
+            1,
+            DrawSchedule::BOTH,
             null,
             'LOT-2026-W2'
         ));
 
         $ticket = $this->db->fetchOne('SELECT * FROM ticket WHERE tipp_year_id = ?', [$tippYearId]);
         self::assertNotNull($ticket);
+
+        // A Laufzeit of one week is seven days including the day of submission,
+        // which is what the cheaper rate is for.
+        self::assertSame('2026-01-11', Row::string($ticket, 'period_end'));
 
         // 3 rows x 2 draws x 1.20 = 7.20, plus the single-week fee of 0.60
         self::assertSame(0.60, Row::float($ticket, 'processing_fee'));
@@ -77,8 +82,8 @@ final class ProcessingFeeTest extends ApplicationTestCase
         $this->submitTicket()->handle(new SubmitTicketCommand(
             $tippYearId,
             '2026-01-01',
-            '2026-01-31',
-            9,
+            4,
+            DrawSchedule::BOTH,
             null,
             null
         ));
@@ -93,8 +98,8 @@ final class ProcessingFeeTest extends ApplicationTestCase
 
         $sum = array_sum(array_map(static fn (array $row): float => Row::float($row, 'amount'), $charged));
 
-        self::assertSame(33.40, round($sum, 2), 'the fees have to add back up to the ticket');
-        self::assertSame([11.14, 11.13, 11.13], array_map(
+        self::assertSame(29.80, round($sum, 2), 'the fees have to add back up to the ticket');
+        self::assertSame([9.94, 9.93, 9.93], array_map(
             static fn (array $row): float => Row::float($row, 'amount'),
             $charged
         ));
@@ -111,8 +116,8 @@ final class ProcessingFeeTest extends ApplicationTestCase
         $this->submitTicket()->handle(new SubmitTicketCommand(
             $tippYearId,
             '2026-01-01',
-            '2026-01-31',
-            9,
+            4,
+            DrawSchedule::BOTH,
             null,
             null
         ));

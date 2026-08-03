@@ -57,16 +57,21 @@ final class TicketProjector implements Projector
         $this->db->execute(
             '
             INSERT INTO ticket (
-                ticket_id, tipp_year_id, period_start, period_end, lottery_reference,
-                superzahl, row_count, draw_count, processing_fee, total_cost,
+                ticket_id, tipp_year_id, period_start, period_end, duration_weeks, draw_days,
+                lottery_reference, superzahl, row_count, draw_count, processing_fee, total_cost,
                 status, submitted_at, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ',
             [
                 $ticketId,
                 Row::int($data, 'tipp_year_id'),
                 Row::string($data, 'period_start'),
                 Row::string($data, 'period_end'),
+                // Nullable for the same reason as the fee below: a ticket
+                // handed in before the Laufzeit was recorded has none, and its
+                // period and draw count are the truth all the same.
+                Row::nullableInt($data, 'duration_weeks'),
+                Row::nullableString($data, 'draw_days'),
                 Row::nullableString($data, 'lottery_reference'),
                 Row::nullableInt($data, 'superzahl'),
                 count($rows),

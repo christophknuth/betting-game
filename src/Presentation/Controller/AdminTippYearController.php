@@ -152,8 +152,8 @@ final class AdminTippYearController
             $this->submitTicket->handle(new SubmitTicketCommand(
                 Input::pathInt($params, 'tippYearId'),
                 Input::string($body, 'periodStart'),
-                Input::string($body, 'periodEnd'),
-                Input::int($body, 'drawCount'),
+                Input::int($body, 'durationWeeks'),
+                Input::string($body, 'drawDays'),
                 Input::optionalInt($body, 'superzahl'),
                 Input::optionalString($body, 'lotteryReference')
             ))->toArray()

@@ -380,6 +380,11 @@ final class PdoEventStore implements EventStoreInterface
                 Row::int($eventData, 'tipp_year_id'),
                 Row::string($eventData, 'period_start'),
                 Row::string($eventData, 'period_end'),
+                // Absent from every ticket written before the Laufzeit was
+                // asked for. The event log is immutable, so reading them as
+                // required would break a rebuild on all of them.
+                Row::nullableInt($eventData, 'duration_weeks'),
+                Row::nullableString($eventData, 'draw_days'),
                 Row::int($eventData, 'draw_count'),
                 Row::float($eventData, 'total_cost'),
                 self::objectList($eventData, 'rows'),

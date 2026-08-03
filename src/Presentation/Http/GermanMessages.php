@@ -72,8 +72,10 @@ final class GermanMessages
         'The tipp year %s overlaps the existing tipp year %s'
             => 'Das Tippjahr %s überschneidet sich mit dem bestehenden Tippjahr %s',
         'A ticket needs at least one bet row' => 'Ein Tippschein braucht mindestens eine Tippreihe',
-        'A ticket must cover at least one draw'
-            => 'Ein Tippschein muss mindestens eine Ziehung abdecken',
+        'A ticket runs for at least one week' => 'Ein Tippschein läuft mindestens eine Woche',
+        'A ticket runs for at most %d weeks' => 'Ein Tippschein läuft höchstens %d Wochen',
+        'Draw days must be one of %s, got %s'
+            => 'Die Ziehungstage müssen %s sein, angegeben wurde %s',
         'A ticket can only be submitted while the tipp year runs, it is %s'
             => 'Ein Tippschein lässt sich nur bei laufendem Tippjahr erfassen; dieses steht auf „%s"',
         'Cannot add members to a distributed tipp year'

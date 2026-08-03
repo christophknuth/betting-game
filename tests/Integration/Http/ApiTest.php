@@ -233,8 +233,8 @@ final class ApiTest extends HttpTestCase
 
         self::assertSame(202, $this->send('POST', "/admin/tipp-years/$tippYearId/tickets", $admin, [
             'periodStart' => '2026-01-01',
-            'periodEnd' => '2026-01-31',
-            'drawCount' => 9,
+            'durationWeeks' => 4,
+            'drawDays' => 'both',
             'superzahl' => 7,
         ])->statusCode());
 
@@ -280,11 +280,15 @@ final class ApiTest extends HttpTestCase
 
         $fees = $this->send('GET', '/participants/7/fees', $participant);
         self::assertSame(200, $fees->statusCode());
-        self::assertSame(10.80, $fees->data()['summary']['totalOpen']);
+        self::assertSame(9.60, $fees->data()['summary']['totalOpen'], '1 row x 8 draws x 1.20');
 
         $draws = $this->send('GET', "/tipp-years/$tippYearId/draws", $participant);
         self::assertSame(200, $draws->statusCode());
-        self::assertSame(138.95, $draws->data()['totalWinnings'], '123.45 plus the 15.50 of the breakdown');
+        self::assertSame(
+            138.95,
+            $draws->data()['totalWinnings'],
+            '123.45 plus one row of class 3 at 15.50'
+        );
     }
 
     // --- Exceptions become the documented status codes ---
