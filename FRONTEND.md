@@ -55,7 +55,7 @@ approves it in the roster. The rest of E1 is not implemented.
 | AdminParticipantsView | `/admin/participants` | `GET`/`POST /admin/participants`, `PUT /admin/participants/{id}`, `…/status` | B-21, B-25 |
 | AdminBetRowsView | `/admin/bet-rows` | `PUT /admin/participants/{id}/bet-row` | B-06 |
 | AdminFeesView | `/admin/fees` | `GET /admin/fees`, `PUT /admin/fees/{id}/payment` | B-07 |
-| AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09, B-22 – B-24, B-26 |
+| AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09, B-22 – B-24, B-26, B-27 |
 | AdminTippYearsView | `/admin/tipp-years` | `GET /admin/tipp-years`, `PUT /admin/tipp-years/{id}/status` | B-10, B-18 |
 | AdminTippYearView | `/admin/tipp-years/{id}` | periods, members, tickets, distribution of one year | B-11 – B-14, B-18 |
 | AdminOperationsView | `/admin/operations` | `GET /commands/{id}`, `GET /admin/audit/…`, `GET/POST /admin/projections…` | OPS-01, OPS-03, OPS-04 |
@@ -352,7 +352,7 @@ frontend/src/
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
 │   ├── SuperzahlPicker.vue      the same gesture for the one digit 0-9
 │   ├── TippYearPicker.vue       the caller's own tipp years, chosen by name
-│   ├── WinningsEntry.vue        B-23: the winnings as a sum or per row of a winning class
+│   ├── WinningsEntry.vue        B-23/B-27: the winnings, or the button that closes a draw
 │   ├── ParticipantScope.vue     note + registration link where the account is nobody yet
 │   ├── TippYearSetupWizard.vue  B-10 → B-14 → B-11 → B-18 in four steps
 │   ├── TippYearChecklist.vue    what is still missing on an existing year
@@ -643,7 +643,7 @@ implementation:
 | `components/NumberGrid.spec.js` (keyboard) | One number in the tab order rather than forty-nine, the arrows and Home/End move it, the edges stop instead of wrapping, and a locked number stays focusable |
 | `components/SuperzahlPicker.spec.js` | Ten digits, one at a time, a second click on the chosen one lets go — and 0 is a Superzahl like any other, which is where a truthiness check would drop it |
 | `components/DrawRows.spec.js` | B-24: the winning row is highlighted and the losing one is still listed; within a row the numbers that were not drawn are the ones greyed back, and a draw without numbers marks none of them as hits |
-| `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the running total, `amountPerRow` times the rows of the class, multiplied in cents |
+| `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the running total, `amountPerRow` times the rows of the class, multiplied in cents. B-27: where no row reached a class there are no fields at all, only the button that closes the draw with a total of zero |
 | `components/ParticipantScope.spec.js` | Who the token is: the slot renders for a claim and for an account E1-01 resolved without one; without a participant the note offers the registration, or reports that one is pending — and the realm diagnosis stays in the console |
 | `components/TippYearStatusSelect.spec.js` | B-18: the chosen status is sent and the year that changed is named — and a refused change puts the dropdown back, which Vue will not do by itself |
 | `layouts/ParticipantLayout.spec.js` | B-17 at the door: the `Verwaltung` link is offered to an admin and withheld from a participant, and no `/admin/*` link ever appears in the participant navigation |

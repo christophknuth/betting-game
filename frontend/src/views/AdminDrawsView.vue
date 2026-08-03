@@ -196,10 +196,24 @@
         />
       </div>
 
-      <!-- B-09, B-23 -->
+      <!--
+        Ohne teilnehmenden Schein gibt es weder etwas einzutragen noch etwas
+        abzuschließen — der Gewinn gehört dem Schein, nicht der Ziehung.
+      -->
+      <div
+        v-if="!draw.ticket"
+        class="state empty section"
+      >
+        An dieser Ziehung hat kein Tippschein teilgenommen. Sobald einer erfasst ist, der
+        den {{ formatDate(draw.drawDate) }} abdeckt, lässt sich der Gewinn nachtragen.
+      </div>
+
+      <!-- B-09, B-23, B-27 -->
       <WinningsEntry
+        v-else
         :draw-id="draw.drawId"
-        :winning-classes="draw.ticket?.winningClasses ?? []"
+        :winning-classes="draw.ticket.winningClasses ?? []"
+        :status="draw.status"
         :pending="winningsCmds[draw.drawId]?.pending ?? false"
         @submit="payload => recordWinnings(draw.drawId, payload)"
       />

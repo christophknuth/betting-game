@@ -1,5 +1,40 @@
 <template>
-  <form @submit.prevent="submit">
+  <!--
+    Ohne erreichte Gewinnklasse gibt es nichts einzutragen: ein Gewinn ohne
+    Klasse kann es nicht geben. Statt der Felder steht hier der eine Schritt,
+    der dann noch offen ist — die Ziehung abschließen (B-27).
+  -->
+  <div
+    v-if="!achieved.length"
+    class="closing"
+  >
+    <p class="state note">
+      <strong>Keine Reihe dieses Scheins hat eine Gewinnklasse erreicht.</strong>
+      Damit steht der Gewinn dieser Ziehung fest: 0,00 €. Einzutragen ist nichts mehr,
+      die Ziehung muss nur noch abgeschlossen werden.
+    </p>
+
+    <p
+      v-if="evaluated"
+      class="hint"
+    >
+      Bereits ohne Gewinn abgeschlossen.
+    </p>
+    <button
+      v-else
+      class="btn-secondary"
+      type="button"
+      :disabled="pending"
+      @click="closeWithoutWinnings"
+    >
+      {{ pending ? 'Wird gesendet …' : 'Ohne Gewinn abschließen' }}
+    </button>
+  </div>
+
+  <form
+    v-else
+    @submit.prevent="submit"
+  >
     <div class="field">
       <span class="label">Angabe des Gewinns</span>
       <div class="modes">
@@ -13,18 +48,10 @@
             type="radio"
             :name="`mode-${drawId}`"
             :value="option.value"
-            :disabled="option.value === 'classes' && !achieved.length"
           >
           {{ option.label }}
         </label>
       </div>
-      <span
-        v-if="!achieved.length"
-        class="hint"
-      >
-        Keine Reihe dieses Scheins hat eine Gewinnklasse erreicht — es bleibt die Summe für
-        den Schein, in der Regel 0,00 €.
-      </span>
     </div>
 
     <div
@@ -112,6 +139,14 @@ import { formatAmount, winningClassLabel } from '@/support/format'
  * Which classes the ticket achieved is known before any of this: the rows are
  * evaluated when the draw is recorded (B-22), so the form can offer exactly
  * those and say how many rows each of them holds.
+ *
+ * **Where there are none, there is no form at all** (B-27). The fields used to
+ * stay on screen with the class-by-class option greyed out, which read as an
+ * entry somebody had forgotten to make - while the only figure the draw could
+ * possibly have was zero. What is left in that case is one decision, and it is
+ * a button: close the draw. It sends exactly the same command with a total of
+ * 0,00 €, so the winnings are still recorded rather than assumed, and the draw
+ * reaches `evaluated` like any other.
  */
 const MODES = [
   { value: 'total', label: 'Summe für den Schein' },
@@ -124,6 +159,9 @@ const props = defineProps({
   /** The classes rows of this ticket achieved: `{ winningClass, rowCount }`. */
   winningClasses: { type: Array, default: () => [] },
 
+  /** The draw's status - `evaluated` means its winnings are already booked. */
+  status: { type: String, default: 'drawn' },
+
   pending: { type: Boolean, default: false }
 })
 
@@ -134,6 +172,8 @@ const mode = ref('total')
 const achieved = computed(() =>
   props.winningClasses.filter(entry => entry.rowCount > 0)
 )
+
+const evaluated = computed(() => props.status === 'evaluated')
 
 // A draw whose rows won nothing has no classes to offer; if a reload brings
 // some in later, the choice stays where the user left it.
@@ -193,9 +233,30 @@ function submit() {
       : { winningClasses: entered.value }
   )
 }
+
+/**
+ * B-27: the draw is closed with the figure it has, and that figure is zero.
+ *
+ * The same command as everything above, deliberately - "nothing won" is a
+ * result that was read off a statement, and it belongs in the books the same
+ * way a win does. A second endpoint that only moved the status would record the
+ * decision without the number behind it.
+ */
+function closeWithoutWinnings() {
+  emit('submit', { totalAmount: 0 })
+}
 </script>
 
 <style scoped>
+.closing .btn-secondary {
+  margin-top: 0.75rem;
+}
+
+.closing .hint {
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+}
+
 .modes {
   display: flex;
   flex-wrap: wrap;
