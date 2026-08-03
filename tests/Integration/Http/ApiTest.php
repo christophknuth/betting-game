@@ -480,4 +480,52 @@ final class ApiTest extends HttpTestCase
 
         self::assertSame(400, $response->statusCode(), 'a filter must not silently become 0');
     }
+
+    /** B-25 */
+    public function testTheAdminRenamesAParticipantAndSetsThemInactive(): void
+    {
+        $admin = $this->token(1, ['admin']);
+        $this->givenParticipant(7, 'Erika Musterman');
+
+        self::assertSame(202, $this->send('PUT', '/admin/participants/7', $admin, [
+            'displayName' => 'Erika Mustermann',
+        ])->statusCode());
+
+        self::assertSame(202, $this->send('PUT', '/admin/participants/7/status', $admin, [
+            'isActive' => false,
+        ])->statusCode());
+
+        $roster = $this->send('GET', '/admin/participants', $admin);
+        self::assertSame(200, $roster->statusCode());
+        self::assertSame('Erika Mustermann', $roster->data()['participants'][0]['displayName']);
+        self::assertFalse($roster->data()['participants'][0]['isActive']);
+
+        // The same list as a picker asks for it
+        $active = $this->send('GET', '/admin/participants?active=true', $admin);
+        self::assertSame([], $active->data()['participants'], 'nobody is still playing');
+    }
+
+    /** B-25: the status has to be stated, not defaulted into deactivation. */
+    public function testSettingAParticipantStatusWithoutSayingWhichIs400(): void
+    {
+        $admin = $this->token(1, ['admin']);
+        $this->givenParticipant(7, 'Erika Mustermann');
+
+        $response = $this->send('PUT', '/admin/participants/7/status', $admin, []);
+
+        self::assertSame(400, $response->statusCode());
+        self::assertStringContainsString('isActive', $response->data()['message']);
+    }
+
+    /** B-25 is admin-only, like the rest of the roster (B-16). */
+    public function testAParticipantCannotRenameAnybody(): void
+    {
+        $this->givenParticipant(7, 'Erika Mustermann');
+
+        $response = $this->send('PUT', '/admin/participants/7', $this->token(7), [
+            'displayName' => 'Wer Anders',
+        ]);
+
+        self::assertSame(403, $response->statusCode());
+    }
 }

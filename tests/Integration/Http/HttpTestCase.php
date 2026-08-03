@@ -14,6 +14,7 @@ use BettingGame\Presentation\Controller\AdminBetRowController;
 use BettingGame\Presentation\Controller\AdminDrawController;
 use BettingGame\Presentation\Controller\AdminFeeController;
 use BettingGame\Presentation\Controller\AdminOperationsController;
+use BettingGame\Presentation\Controller\AdminParticipantController;
 use BettingGame\Presentation\Controller\AdminTippYearController;
 use BettingGame\Presentation\Controller\CommandStatusController;
 use BettingGame\Presentation\Controller\HealthController;
@@ -67,6 +68,12 @@ abstract class HttpTestCase extends ApplicationTestCase
             ),
             'BettingGame\Presentation\Controller\AdminBetRowController' => new AdminBetRowController(
                 $this->assignBetRow()
+            ),
+            'BettingGame\Presentation\Controller\AdminParticipantController' => new AdminParticipantController(
+                $this->createParticipant(),
+                $this->renameParticipant(),
+                $this->changeParticipantStatus(),
+                $this->getParticipants()
             ),
             'BettingGame\Presentation\Controller\AdminDrawController' => new AdminDrawController(
                 $this->recordDraw(),

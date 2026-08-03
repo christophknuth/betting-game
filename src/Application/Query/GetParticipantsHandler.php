@@ -26,7 +26,7 @@ final class GetParticipantsHandler
     {
         $participants = [];
 
-        foreach ($this->participants->findAll() as $row) {
+        foreach ($this->participants->findAll($query->isActive) as $row) {
             $participants[] = [
                 'participantId' => Row::int($row, 'participant_id'),
                 'displayName' => Row::string($row, 'display_name'),

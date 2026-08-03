@@ -135,6 +135,7 @@ in this order.
 | **B-13** | As an **administrator** I want to record the yearly distribution, so that every participant receives their share. | `POST /admin/tipp-years/{id}/payout` | **Payout**, **PayoutShare** | 🟢 |
 | **B-18** | As an **administrator** I want to set the status of a tipp year, so that I can start it, end it and correct a wrong booking. | `PUT /admin/tipp-years/{id}/status` | **TippYear** | 🟢 |
 | **B-21** | As an **administrator** I want to create a participant and see the existing ones, so that I can add them to a tipp year. | `POST`/`GET /admin/participants` | **Participant** | 🟢 |
+| **B-25** | As an **administrator** I want to correct a participant's name and record that somebody no longer plays, so that the roster matches the syndicate without losing what has been booked. | `PUT /admin/participants/{id}`, `PUT /admin/participants/{id}/status` | **Participant** | 🟢 |
 
 **Acceptance criteria:**
 
@@ -156,6 +157,11 @@ in this order.
   the act of recording it
 - B-21: `400` on a display name under 2 or over 50 characters (`DisplayName`)
 - B-21: both are admin-only. A participant must not enumerate the others (B-16)
+- B-25: the name is the only thing corrected. It is not copied into any read model — fees, rows, memberships and payout shares join the participant — so one write fixes it everywhere, and the event keeps the previous name for the history
+- B-25: `409` on renaming to the name they already have, and on setting the status they already have. An event that describes no change does not belong in the history
+- B-25: **there is no delete.** A participant is referenced by memberships, bet rows, fees and payout shares of played years; removing the row would take those with it or leave them pointing nowhere. `is_active = false` says "plays no more" and changes only what happens next
+- B-25: an inactive participant is refused by **B-11** (`409`) and left out of `GET /admin/participants?active=true`, which is what the pickers ask for. The roster itself shows everybody — otherwise nobody could be brought back
+- B-25: `isActive` is required on the status route. A body without it would deactivate somebody by default, which is not a request anybody made
 
 ## Turn of the year — specified, not implemented yet
 
@@ -342,7 +348,7 @@ model.
 |---|---|
 | Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 456 test methods (258 unit, 198 integration) |
 | `demo/` | The read-only demo for Prediction/Result disappeared with the change of course and has not been replaced |
-| [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.3.0, 21 paths, 24 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
+| [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.5.0, 23 paths, 26 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
 | PHPStan level 10, PSR-12 | Unchanged and still met |
 
 ---
@@ -383,6 +389,7 @@ mainly the infrastructure that is usable for the base version, not the domain lo
 | B-18 | `PUT /admin/tipp-years/{id}/status` | `ChangeTippYearStatusHandler` | — |
 | B-14 | `POST`/`GET /admin/tipp-years/{id}/bet-periods` | `CreateBetPeriodHandler` | `GetBetPeriodsHandler` |
 | B-21 | `POST`/`GET /admin/participants` | `CreateParticipantHandler` | `GetParticipantsHandler` |
+| B-25 | `PUT /admin/participants/{id}`, `…/status` | `RenameParticipantHandler`, `ChangeParticipantStatusHandler` | — |
 
 Handlers return a `CommandResult` respectively a `QueryResult`; commands answer with `202`,
 queries with `200`. The response's `commandId` is by now the primary key in `command_log`

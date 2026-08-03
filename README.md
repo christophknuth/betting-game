@@ -21,7 +21,7 @@ specified but not implemented — see [USER_STORIES.md](USER_STORIES.md).
 | [PSR.md](PSR.md) | PSR standards: state and use |
 | [CHANGELOG.md](CHANGELOG.md) | Chronicle of the larger rebuilds |
 
-Machine-readable: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3, v2.3.0),
+Machine-readable: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3, v2.5.0),
 [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid),
 [database/schema.sql](database/schema.sql).
 
@@ -129,6 +129,8 @@ for that.
 | Endpoint | Story |
 |---|---|
 | `GET` / `POST /admin/participants` | B-21 list and create participants |
+| `PUT /admin/participants/{id}` | B-25 correct the display name |
+| `PUT /admin/participants/{id}/status` | B-25 set active or inactive — there is no delete |
 | `PUT /admin/participants/{id}/bet-row` | B-06 assign a bet row |
 | `GET /admin/fees` | B-07 the fee situation |
 | `PUT /admin/fees/{feeId}/payment` | B-07 set the payment status |

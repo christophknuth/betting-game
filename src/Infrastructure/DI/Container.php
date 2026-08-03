@@ -243,6 +243,7 @@ final class Container
             // Command handlers - autowired from the repository interfaces above
             Command\AddMemberHandler::class => \DI\autowire(),
             Command\AssignBetRowHandler::class => \DI\autowire(),
+            Command\ChangeParticipantStatusHandler::class => \DI\autowire(),
             Command\ChangeTippYearStatusHandler::class => \DI\autowire(),
             Command\CreateBetPeriodHandler::class => \DI\autowire(),
             Command\CreateParticipantHandler::class => \DI\autowire(),
@@ -251,6 +252,7 @@ final class Container
             Command\RecordDrawHandler::class => \DI\autowire(),
             Command\RecordDrawWinningsHandler::class => \DI\autowire(),
             Command\RecordFeePaymentHandler::class => \DI\autowire(),
+            Command\RenameParticipantHandler::class => \DI\autowire(),
             Command\SubmitTicketHandler::class => \DI\autowire(),
 
             // Query handlers

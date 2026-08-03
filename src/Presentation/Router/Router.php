@@ -60,7 +60,7 @@ final class Router
                 'method' => 'draws',
             ]);
 
-            // --- Admin: participants (B-21) ---
+            // --- Admin: participants (B-21, B-25) ---
 
             $r->addRoute('GET', '/admin/participants', [
                 'controller' => 'AdminParticipantController',
@@ -70,6 +70,21 @@ final class Router
             $r->addRoute('POST', '/admin/participants', [
                 'controller' => 'AdminParticipantController',
                 'method' => 'create',
+                'role' => 'admin',
+                'command' => true,
+            ]);
+            // The name is the only thing about a participant worth correcting;
+            // the status below decides whether they still play. Deleting is
+            // not offered - see ChangeParticipantStatusHandler.
+            $r->addRoute('PUT', '/admin/participants/{participantId:\d+}', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'rename',
+                'role' => 'admin',
+                'command' => true,
+            ]);
+            $r->addRoute('PUT', '/admin/participants/{participantId:\d+}/status', [
+                'controller' => 'AdminParticipantController',
+                'method' => 'changeStatus',
                 'role' => 'admin',
                 'command' => true,
             ]);

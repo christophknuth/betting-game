@@ -6,6 +6,7 @@ namespace BettingGame\Tests\Integration\Application;
 
 use BettingGame\Application\Command\AddMemberHandler;
 use BettingGame\Application\Command\AssignBetRowHandler;
+use BettingGame\Application\Command\ChangeParticipantStatusHandler;
 use BettingGame\Application\Command\ChangeTippYearStatusCommand;
 use BettingGame\Application\Command\ChangeTippYearStatusHandler;
 use BettingGame\Application\Command\CreateBetPeriodHandler;
@@ -15,6 +16,7 @@ use BettingGame\Application\Command\DistributePayoutHandler;
 use BettingGame\Application\Command\RecordDrawHandler;
 use BettingGame\Application\Command\RecordDrawWinningsHandler;
 use BettingGame\Application\Command\RecordFeePaymentHandler;
+use BettingGame\Application\Command\RenameParticipantHandler;
 use BettingGame\Application\Command\SubmitTicketHandler;
 use BettingGame\Application\Query\GetBetPeriodsHandler;
 use BettingGame\Application\Query\GetBetRowHandler;
@@ -119,6 +121,16 @@ abstract class ApplicationTestCase extends IntegrationTestCase
     protected function createParticipant(): CreateParticipantHandler
     {
         return new CreateParticipantHandler($this->participants);
+    }
+
+    protected function renameParticipant(): RenameParticipantHandler
+    {
+        return new RenameParticipantHandler($this->participants);
+    }
+
+    protected function changeParticipantStatus(): ChangeParticipantStatusHandler
+    {
+        return new ChangeParticipantStatusHandler($this->participants);
     }
 
     protected function assignBetRow(): AssignBetRowHandler

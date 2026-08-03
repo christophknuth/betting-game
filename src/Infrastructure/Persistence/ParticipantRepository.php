@@ -27,13 +27,24 @@ final class ParticipantRepository extends EventSourcedRepository implements Part
         return $this->db->fetchOne('SELECT * FROM participant WHERE participant_id = ?', [$id]);
     }
 
-    /** @return list<array<string, mixed>> */
-    public function findAll(): array
+    /**
+     * @param bool|null $isActive null for everybody, true for the ones still playing
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findAll(?bool $isActive = null): array
     {
         // By name, not by id: this feeds a picker, and a reader looking for
         // someone scans names.
+        if ($isActive === null) {
+            return $this->db->fetchAll(
+                'SELECT * FROM participant ORDER BY display_name, participant_id'
+            );
+        }
+
         return $this->db->fetchAll(
-            'SELECT * FROM participant ORDER BY display_name, participant_id'
+            'SELECT * FROM participant WHERE is_active = ? ORDER BY display_name, participant_id',
+            [$isActive ? 1 : 0]
         );
     }
 

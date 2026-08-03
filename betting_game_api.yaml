@@ -54,7 +54,7 @@ info:
     - `401` - the token is rejected. The reason is deliberately absent from the response.
     - `503` - Keycloak is unreachable, the signature cannot be checked right now. The call
       is repeatable; throwing the token away would be wrong.
-  version: 2.3.0
+  version: 2.5.0
   contact:
     name: API Support
     email: support@bettinggame.com
@@ -320,6 +320,15 @@ paths:
       operationId: getParticipants
       security:
         - bearerAuth: []
+      parameters:
+        - name: active
+          in: query
+          description: |
+            `true` returns only the participants still playing — what a picker asks for,
+            because B-11 refuses an inactive one anyway. Absent returns everybody, which
+            is what the roster shows.
+          schema:
+            type: boolean
       responses:
         '200':
           description: List of participants
@@ -377,6 +386,101 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /admin/participants/{participantId}:
+    put:
+      tags:
+        - Admin - Participants
+      summary: Rename a participant (B-25)
+      description: |
+        Corrects the name a participant is listed under (CQRS command).
+
+        The correction reaches everything at once: fees, rows, memberships and payout
+        shares join the participant rather than copying the name. What was true at the time
+        stays in the event, which records the previous name alongside the new one.
+
+        The name is the only thing about a participant that can be corrected. `409` when it
+        is the name they already have — an event that describes no change does not belong
+        in the history.
+      operationId: renameParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameParticipantCommand'
+      responses:
+        '202':
+          description: Rename accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /admin/participants/{participantId}/status:
+    put:
+      tags:
+        - Admin - Participants
+      summary: Set a participant active or inactive (B-25)
+      description: |
+        Records that somebody has left the syndicate, or come back (CQRS command).
+
+        **Inactive is not deleted.** Memberships, bet rows, fees and payout shares of
+        played years stay exactly as they are; a participant is referenced by all of them
+        and removing the row would either take them along or leave them pointing nowhere.
+        What changes is the future: an inactive participant is not offered by
+        `GET /admin/participants?active=true` and is refused by B-11 with `409`.
+
+        `409` when they already have that status. `isActive` is required — a body without
+        it would deactivate somebody by default.
+      operationId: changeParticipantStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ParticipantIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeParticipantStatusCommand'
+      responses:
+        '202':
+          description: Status change accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
         '503':
           $ref: '#/components/responses/ServiceUnavailableError'
 
@@ -1627,6 +1731,28 @@ components:
           minLength: 2
           maxLength: 50
           example: Erika Mustermann
+
+    RenameParticipantCommand:
+      type: object
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: Erika Mustermann
+
+    ChangeParticipantStatusCommand:
+      type: object
+      required:
+        - isActive
+      properties:
+        isActive:
+          type: boolean
+          description: |
+            `false` for somebody who has left the syndicate, `true` to bring them back.
+            Required: a missing value would deactivate a participant by default.
 
     ParticipantSummary:
       type: object
