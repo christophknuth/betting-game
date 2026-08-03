@@ -56,9 +56,37 @@ final class Kernel
             $response = $this->dispatch($request);
         } catch (Throwable $e) {
             $response = $this->errors->toResponse($e);
+            $this->logFailure($request, $e, $response);
         }
 
         return Translator::localise($response, $language);
+    }
+
+    /**
+     * What the caller is no longer told, written down where it belongs.
+     *
+     * Commands log their own rejection a few lines further down; this is the
+     * other half - queries. A `GET` that ended in a 500 used to leave no trace
+     * anywhere at all, and since the response now says "Internal Server Error"
+     * and nothing else, without this there would be nothing left to read.
+     *
+     * Only from 500 up. A 404 or a 409 out of a query is the API answering
+     * correctly, and logging those would bury the faults among them.
+     */
+    private function logFailure(Request $request, Throwable $e, JsonResponse $response): void
+    {
+        if ($response->statusCode() < 500) {
+            return;
+        }
+
+        $this->logger->error('Request failed', [
+            'method' => $request->method(),
+            'uri' => $request->uri(),
+            'actor' => $this->actor($request),
+            'status' => $response->statusCode(),
+            'reason' => $e->getMessage(),
+            'exception' => $e::class,
+        ]);
     }
 
     private function dispatch(Request $request): JsonResponse
@@ -185,7 +213,10 @@ final class Kernel
             // doing its job - a second running tipp year, a duplicate bet row -
             // and the interface deliberately no longer explains which. This is
             // where that goes, with the reason intact.
-            $this->logger->warning('Command rejected', [
+            //
+            // From 500 up it is not a rule saying no but us failing, and that
+            // is an error however it arrived.
+            $this->logger->log($mapped->statusCode() >= 500 ? 'error' : 'warning', 'Command rejected', [
                 'command' => $commandType,
                 'commandId' => $commandId,
                 'actor' => $this->actor($request),

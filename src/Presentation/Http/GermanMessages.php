@@ -158,6 +158,20 @@ final class GermanMessages
         'Internal Server Error' => 'Interner Serverfehler',
         'Service Unavailable' => 'Dienst nicht verfügbar',
 
+        // --- The database is behind the code (see Support\SchemaOutOfDate) ----
+        // Said in words rather than as the driver's "SQLSTATE[42S22]: Column
+        // not found", and addressed to whoever can act on it: the pending
+        // migrations have not been run.
+        'The database is not up to date with the application: column %s is missing'
+            => 'Die Datenbank ist nicht auf dem Stand der Anwendung: '
+                . 'Die Spalte %s fehlt. Bitte die ausstehenden Migrationen einspielen.',
+        'The database is not up to date with the application: table %s is missing'
+            => 'Die Datenbank ist nicht auf dem Stand der Anwendung: '
+                . 'Die Tabelle %s fehlt. Bitte die ausstehenden Migrationen einspielen.',
+        'The stored data is not up to date with the application: %s is missing'
+            => 'Die gespeicherten Daten sind nicht auf dem Stand der Anwendung: '
+                . '%s fehlt. Bitte die ausstehenden Migrationen einspielen.',
+
         // --- A request that never reached a rule ------------------------------
         'A command was rejected without an idempotency key'
             => 'Ein Kommando wurde ohne Idempotenzschlüssel abgelehnt',

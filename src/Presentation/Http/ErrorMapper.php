@@ -10,6 +10,7 @@ use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Domain\Exception\InvalidArgumentException;
 use BettingGame\Domain\Exception\UnauthorizedAccessException;
+use BettingGame\Support\SchemaOutOfDateException;
 use Throwable;
 
 /**
@@ -19,8 +20,11 @@ use Throwable;
  * place that knows the translation. Keeping it in a single class is what makes
  * "a rejected business rule is a 409" true everywhere instead of per endpoint.
  *
- * Anything unrecognised is a 500 - and its message is only shown in debug mode,
- * because an unexpected exception can carry connection strings or SQL.
+ * Anything unrecognised is a 500 whose `message` is the same sentence every
+ * time, because an unexpected exception can carry connection strings or SQL.
+ * What it actually said goes into `detail`, and only in debug mode - a field
+ * no interface prints. Putting it in `message` is how a driver error in
+ * English ended up in front of a participant.
  */
 final class ErrorMapper
 {
@@ -55,9 +59,28 @@ final class ErrorMapper
 
             $e instanceof BusinessRuleViolationException => JsonResponse::conflict($e->getMessage()),
 
-            default => JsonResponse::internalError(
-                $this->debug ? $e->getMessage() : 'Internal Server Error'
-            ),
+            // Our fault, but a nameable one: the database is behind the code.
+            // Its own sentence rather than "Internal Server Error", because it
+            // is the one 500 somebody can do something about - and it names a
+            // column, never a query.
+            $e instanceof SchemaOutOfDateException => JsonResponse::internalError($e->getMessage()),
+
+            default => $this->unexpected($e),
         };
+    }
+
+    /**
+     * A 500 that says nothing but "Internal Server Error", which the catalogue
+     * knows and can therefore answer in the caller's language.
+     *
+     * The exception's own words are a debugging aid, so in debug mode they come
+     * along as `detail` - untranslated, next to the translated message, and
+     * ignored by every client.
+     */
+    private function unexpected(Throwable $e): JsonResponse
+    {
+        $response = JsonResponse::internalError();
+
+        return $this->debug ? $response->withData(['detail' => $e->getMessage()]) : $response;
     }
 }

@@ -136,11 +136,28 @@ final class Row
         return $decoded;
     }
 
-    /** @param array<string, mixed> $row */
+    /**
+     * A column that is absent and one that is `NULL` are two different faults,
+     * and only one of them is anybody's to fix.
+     *
+     * `SELECT *` against a table that does not have the column yet hands back a
+     * row without the key - the database is behind the code, and running the
+     * migrations cures it. The same goes for an event payload written before
+     * the field existed, which is why the sentence says "stored data" rather
+     * than "column". A key that is there and `NULL` is the opposite: the schema
+     * is right and the code asked for a non-null value where one is allowed to
+     * be missing, which is a bug and needs `nullableX()`.
+     *
+     * @param array<string, mixed> $row
+     */
     private static function require(array $row, string $column): mixed
     {
-        if (!array_key_exists($column, $row) || $row[$column] === null) {
-            throw new RuntimeException("Column $column is missing or null");
+        if (!array_key_exists($column, $row)) {
+            throw SchemaOutOfDateException::missingField($column);
+        }
+
+        if ($row[$column] === null) {
+            throw new RuntimeException("Column $column is null");
         }
 
         return $row[$column];

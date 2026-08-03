@@ -39,6 +39,25 @@ Three decisions worth keeping:
   "has this database been migrated?" has one answer, however the database came about, and
   `schema.sql` stays the schema of the current version rather than a second source of truth.
 
+**And the error in between says so.** `SchemaOutOfDateException` is what `Row` throws when a
+`SELECT *` comes back without a column, and what `Db` turns the driver's `42S22`/`42S02`
+into. It is the one 500 whose message reaches the caller — *"Die Datenbank ist nicht auf dem
+Stand der Anwendung: Die Spalte duration_weeks fehlt. Bitte die ausstehenden Migrationen
+einspielen."* — because the cure is somebody running a command, not a bug report. It names a
+column, never a query.
+
+Everything else unexpected is now `Internal Server Error` and nothing else, in the caller's
+language. The exception's own words used to be the response's `message` in debug builds,
+which is exactly how a driver error in English came to be read by a participant looking at
+their own tickets; they are a `detail` field beside it now, and only in debug. What the
+caller is no longer told is written down instead: a request that ends in a 500 is logged with
+the reason, the route and who sent it. Queries had been logging nothing at all — only
+commands did — so without that there would have been nothing left to read.
+
+`Row` also stopped saying "missing or null" for two different faults. A column that is absent
+is the database being behind the code; one that is there and `NULL` is our own bug, and needs
+`nullableX()`.
+
 ---
 
 ## Somebody can sign themselves up (2026-08-03, E1-01)
