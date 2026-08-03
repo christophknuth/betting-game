@@ -272,6 +272,12 @@ the unique key would leave a `bet_row.assigned` event in the store that describe
 is the reason PHPStan level 10 passes without casts: `mixed` from external sources is
 checked in exactly two places instead of guessed everywhere.
 
+`SchemaOutOfDateException` — the database is older than the code that reads it. Thrown by
+`Row` (a column a `SELECT *` did not bring back) and by `Db` (the driver's `42S22` and
+`42S02`), and the one 500 whose message reaches the caller, because the cure is a person
+running `bin/migrate` rather than a bug report. Everything else unexpected is an
+"Internal Server Error" and nothing more: an exception can carry a query or a DSN.
+
 ---
 
 ## 5. Operations

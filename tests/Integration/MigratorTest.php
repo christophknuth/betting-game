@@ -6,6 +6,7 @@ namespace BettingGame\Tests\Integration;
 
 use BettingGame\Infrastructure\Persistence\Migrator;
 use BettingGame\Support\Row;
+use BettingGame\Support\SchemaOutOfDateException;
 
 /**
  * Bringing a database that already holds data up to the current schema.
@@ -17,8 +18,8 @@ use BettingGame\Support\Row;
  * changed nothing in the database that was serving them.
  *
  * The tests below therefore do to the test database what a version switch does
- * to a real one: take the columns away again and let the migrations put them
- * back.
+ * to a real one - take the columns away again and let the migrations put them
+ * back - and check the error the application gives in between.
  */
 final class MigratorTest extends IntegrationTestCase
 {
@@ -90,6 +91,69 @@ final class MigratorTest extends IntegrationTestCase
         self::assertNotEmpty($applied);
         self::assertContains('duration_weeks', $this->columnsOf('ticket'));
         self::assertContains('draw_days', $this->columnsOf('ticket'));
+    }
+
+    /**
+     * What the participant list did before the migration: `SELECT *` succeeds,
+     * the row simply has no `status`, and the code that reads it is what
+     * notices. That used to be "Column status is missing or null", a sentence
+     * about a PHP array; it is now the one thing worth saying.
+     */
+    public function testUntilThenTheApplicationSaysTheDatabaseIsBehindRatherThanSpeakingSql(): void
+    {
+        $this->givenParticipant(1, 'Anna');
+        $this->db->execute('ALTER TABLE participant DROP COLUMN status');
+
+        try {
+            $row = $this->db->fetchOne('SELECT * FROM participant WHERE participant_id = 1');
+            self::assertNotNull($row);
+
+            $this->expectException(SchemaOutOfDateException::class);
+            $this->expectExceptionMessage(
+                'The stored data is not up to date with the application: status is missing'
+            );
+
+            Row::string($row, 'status');
+        } finally {
+            // Whatever the assertions did, the next test needs its schema back
+            $this->forgetMigrations();
+            $this->migrator->migrate();
+        }
+    }
+
+    /**
+     * And the other way of noticing: a query that names the column outright
+     * fails in the driver, in English, with the statement attached. That is the
+     * message the browser showed.
+     */
+    public function testAQueryNamingTheMissingColumnFailsAsTheSameKindOfFault(): void
+    {
+        $this->db->execute('ALTER TABLE ticket DROP COLUMN duration_weeks');
+
+        try {
+            $this->db->fetchAll('SELECT t.duration_weeks FROM ticket t');
+            self::fail('the driver should have refused this');
+        } catch (SchemaOutOfDateException $e) {
+            self::assertSame(
+                'The database is not up to date with the application: column duration_weeks is missing',
+                $e->getMessage(),
+                'the alias and the SQL clause are not part of it'
+            );
+            self::assertNotNull($e->getPrevious(), 'the driver message stays for the log');
+        } finally {
+            $this->forgetMigrations();
+            $this->migrator->migrate();
+        }
+    }
+
+    public function testAMissingTableIsTheSameDiagnosis(): void
+    {
+        $this->expectException(SchemaOutOfDateException::class);
+        $this->expectExceptionMessage(
+            'The database is not up to date with the application: table nothing_here is missing'
+        );
+
+        $this->db->fetchAll('SELECT * FROM nothing_here');
     }
 
     /** @return list<string> */

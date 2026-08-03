@@ -197,7 +197,7 @@ src/                              155 files, one class per file
 │   ├── Http/                     Kernel, Request, JsonResponse, Input, Authorization,
 │   │                             ErrorMapper
 │   └── Router/                   Router (FastRoute)
-└── Support/                      Row (typed access to DB rows)
+└── Support/                      Row (typed access to DB rows), SchemaOutOfDateException
 
 bin/migrate                       applies database/migrations/ (part of a version switch)
 tests/Unit/                       without a database
