@@ -38,6 +38,57 @@ final class WinningsDistribution
         float $totalAmount,
         array $breakdown = []
     ): array {
+        ['evaluated' => $evaluated, 'winnersByClass' => $winnersByClass] =
+            self::evaluate($drawnNumbers, $drawnSuperzahl, $ticketSuperzahl, $rows);
+
+        if ($winnersByClass === []) {
+            return $evaluated;
+        }
+
+        return self::attribute($evaluated, $winnersByClass, $totalAmount, $breakdown);
+    }
+
+    /**
+     * How many rows of the ticket achieved each winning class.
+     *
+     * What turns an amount per row into money: the statement says what one row
+     * of a class was paid, this says how many of the ticket's rows were in it.
+     * Classes no row achieved are absent rather than zero - a caller reading it
+     * with `?? 0` gets the same answer and does not have to know which of the
+     * nine classes exist.
+     *
+     * @param list<array{ticketRowId: int, numbers: LottoNumbers}> $rows
+     *
+     * @return array<int, int> winning class => rows of the ticket in it
+     */
+    public static function rowsPerClass(
+        LottoNumbers $drawnNumbers,
+        ?Superzahl $drawnSuperzahl,
+        ?Superzahl $ticketSuperzahl,
+        array $rows
+    ): array {
+        $winnersByClass = self::evaluate($drawnNumbers, $drawnSuperzahl, $ticketSuperzahl, $rows)['winnersByClass'];
+
+        return array_map(count(...), $winnersByClass);
+    }
+
+    /**
+     * Every row's hits and class, and which rows landed in which class.
+     *
+     * The Superzahl is the ticket's, not the row's: it comes off the printed
+     * slip and applies to all of them at once.
+     *
+     * @param list<array{ticketRowId: int, numbers: LottoNumbers}> $rows
+     *
+     * @return array{evaluated: list<array{ticketRowId: int, matchedNumbers: int, superzahlMatched: bool,
+     *     winningClass: int|null, amount: float}>, winnersByClass: array<int, list<int>>}
+     */
+    private static function evaluate(
+        LottoNumbers $drawnNumbers,
+        ?Superzahl $drawnSuperzahl,
+        ?Superzahl $ticketSuperzahl,
+        array $rows
+    ): array {
         $superzahlMatched = $drawnSuperzahl !== null
             && $ticketSuperzahl !== null
             && $ticketSuperzahl->equals($drawnSuperzahl);
@@ -62,16 +113,17 @@ final class WinningsDistribution
             ];
         }
 
-        if ($winnersByClass === []) {
-            return $evaluated;
-        }
-
-        return self::attribute($evaluated, $winnersByClass, $totalAmount, $breakdown);
+        return ['evaluated' => $evaluated, 'winnersByClass' => $winnersByClass];
     }
 
     /**
      * With a breakdown each class's amount is split among the rows in that
-     * class. Without one there is no way to tell the classes apart, so the
+     * class. Since B-23 that amount is `rows × the amount one row was paid`, so
+     * the split hands every row exactly what the statement said it won - the
+     * division is what also keeps the older events, whose classes carry a lump
+     * sum and nothing per row, attributable in the same way.
+     *
+     * Without a breakdown there is no way to tell the classes apart, so the
      * total is split evenly over every winning row - an assumption, and stated
      * as one, because the lottery statement does not say it.
      *

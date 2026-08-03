@@ -4,72 +4,72 @@ declare(strict_types=1);
 
 namespace BettingGame\Domain\ValueObject;
 
-use BettingGame\Domain\Exception\BusinessRuleViolationException;
-
 /**
- * What a ticket won in one draw - stated as one figure, or class by class.
+ * What a ticket won in one draw, settled.
  *
- * B-23: the lottery statement comes in both shapes. Sometimes it is a single
- * sum for the Spielauftrag, sometimes it lists what each winning class paid.
- * Whoever has the detailed one should not have to add it up by hand, and
- * whoever has the sum should not have to invent a breakdown.
+ * This is the result of applying a `WinningStatement` to the rows that took
+ * part - never built from a request directly, which is why the amounts here are
+ * taken as already validated.
  *
- * Without a total, the breakdown becomes one: the class amounts are added up
- * here rather than by the person reading the statement.
+ * Where the statement gave an amount per row, the arithmetic is the one B-23
+ * exists for:
  *
- * Sending both stays allowed and keeps its older meaning - the total is what
- * the ticket won, the breakdown says how much of it is attributable to named
- * classes, and the rest is winnings that no row of this ticket can claim. Only
- * a breakdown adding up to *more* than the total is refused: that describes a
- * ticket paying out more than it won.
+ *     total = Σ over the classes: amount for one row × rows of the ticket in it
+ *
+ * A class the ticket did not achieve contributes nothing and is kept all the
+ * same. That the Quote was entered and produced nothing is a fact about this
+ * draw, and dropping it would make the record unreadable next to the statement
+ * it was typed from.
  */
 final class DrawWinnings
 {
     /**
-     * @param list<array{winningClass: int, amount: float}> $breakdown
+     * @param list<array{winningClass: int, amountPerRow: float, rowCount: int, amount: float}> $classes
      */
     private function __construct(
         private float $total,
-        private array $breakdown
+        private array $classes
     ) {
     }
 
-    /**
-     * @param list<array{winningClass: int, amount: float}> $breakdown
-     */
-    public static function of(?float $total, array $breakdown = []): self
+    /** The statement gave one figure for the whole Spielauftrag. */
+    public static function ofTotal(float $total): self
     {
-        if ($breakdown === []) {
-            if ($total === null) {
-                throw new BusinessRuleViolationException(
-                    'Record either the ticket total or the amounts per winning class'
-                );
-            }
+        return new self($total, []);
+    }
 
-            return new self(self::nonNegative($total), []);
+    /**
+     * The statement gave what one row of each class was paid.
+     *
+     * @param list<array{winningClass: int, amountPerRow: float}> $amountsPerRow from a validated statement
+     * @param array<int, int>                                     $rowsPerClass  class => rows of the ticket in it
+     */
+    public static function perClass(array $amountsPerRow, array $rowsPerClass): self
+    {
+        $classes = [];
+        $totalCents = 0;
+
+        foreach ($amountsPerRow as $entry) {
+            $rowCount = $rowsPerClass[$entry['winningClass']] ?? 0;
+
+            // Multiplied in cents rather than in floats: a Quote of 0.10 times
+            // three rows is 0.30000000000000004 the other way round, and the
+            // year's total is summed from these figures.
+            $classCents = (int) round($entry['amountPerRow'] * 100) * $rowCount;
+            $totalCents += $classCents;
+
+            $classes[] = [
+                'winningClass' => $entry['winningClass'],
+                'amountPerRow' => $entry['amountPerRow'],
+                'rowCount' => $rowCount,
+                // Cast, not decoration: PHP divides two integers into an
+                // integer where it comes out even, and 300 in a field declared
+                // as an amount is a type nobody downstream expects.
+                'amount' => (float) ($classCents / 100),
+            ];
         }
 
-        $sum = self::sum($breakdown);
-
-        if ($total === null) {
-            return new self($sum, $breakdown);
-        }
-
-        // Half a cent of tolerance, because both figures arrive as floats: 0.1
-        // plus 0.2 is not 0.3 in binary, and a hundredth of a cent apart is
-        // that, not a disagreement about money.
-        if ($sum > self::nonNegative($total) + 0.005) {
-            throw new BusinessRuleViolationException(sprintf(
-                'The winning classes add up to %.2f, more than the ticket total of %.2f',
-                $sum,
-                $total
-            ));
-        }
-
-        // The stated total wins, and a breakdown below it is not a mistake: it
-        // attributes part of the winnings to classes and leaves the rest with
-        // the ticket, where no row can claim it.
-        return new self($total, $breakdown);
+        return new self((float) ($totalCents / 100), $classes);
     }
 
     /** What the whole ticket won - the figure the tipp year is summed from. */
@@ -78,47 +78,36 @@ final class DrawWinnings
         return $this->total;
     }
 
-    /** @return list<array{winningClass: int, amount: float}> */
+    /**
+     * What each class contributed, as the attribution consumes it.
+     *
+     * `WinningsDistribution` divides a class's amount among the rows in that
+     * class, which for an amount of `rowCount × amountPerRow` hands every one of
+     * them exactly the amount per row again. Feeding it the class total rather
+     * than the Quote keeps one attribution path for both shapes of statement -
+     * and for the events that were written before the Quote was asked for.
+     *
+     * @return list<array{winningClass: int, amount: float}>
+     */
     public function breakdown(): array
     {
-        return $this->breakdown;
+        return array_map(
+            static fn (array $class): array => [
+                'winningClass' => $class['winningClass'],
+                'amount' => $class['amount'],
+            ],
+            $this->classes
+        );
     }
 
     /**
-     * @param list<array{winningClass: int, amount: float}> $breakdown
+     * The full picture per class - what was entered, how many rows it applied
+     * to and what came of it. This is what goes into the event.
+     *
+     * @return list<array{winningClass: int, amountPerRow: float, rowCount: int, amount: float}>
      */
-    private static function sum(array $breakdown): float
+    public function classes(): array
     {
-        $seen = [];
-        $cents = 0;
-
-        foreach ($breakdown as $entry) {
-            // Constructed for the check alone: a class outside 1-9 is not a
-            // winning class, and WinningClass is where that is decided.
-            new WinningClass($entry['winningClass']);
-
-            if (isset($seen[$entry['winningClass']])) {
-                throw new BusinessRuleViolationException(
-                    sprintf('Winning class %d is listed twice', $entry['winningClass'])
-                );
-            }
-
-            $seen[$entry['winningClass']] = true;
-
-            // Added in cents: summing floats and rounding at the end can land a
-            // cent away from the statement the administrator is reading off.
-            $cents += (int) round(self::nonNegative($entry['amount']) * 100);
-        }
-
-        return $cents / 100;
-    }
-
-    private static function nonNegative(float $amount): float
-    {
-        if ($amount < 0.0) {
-            throw new BusinessRuleViolationException('A winning amount cannot be negative');
-        }
-
-        return $amount;
+        return $this->classes;
     }
 }

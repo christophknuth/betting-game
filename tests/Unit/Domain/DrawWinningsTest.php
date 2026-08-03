@@ -6,83 +6,91 @@ namespace BettingGame\Tests\Unit\Domain;
 
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Exception\InvalidArgumentException;
-use BettingGame\Domain\ValueObject\DrawWinnings;
+use BettingGame\Domain\ValueObject\WinningStatement;
 use PHPUnit\Framework\TestCase;
 
 /**
  * B-23: the statement is read either as one sum for the ticket or class by
- * class, and both have to arrive at the same booked figure.
+ * class, and what the ticket won follows from it.
  *
- * Money entered by hand, so the interesting cases are the ones where the two
- * shapes meet: a breakdown that accounts for only part of the ticket's total -
- * which is allowed and predates B-23 - one that claims more than it, and a sum
- * of cents that floating point would round away from the statement.
+ * Class by class the figure is what *one* row of that class was paid. It only
+ * becomes money together with the rows: how many of the ticket's rows landed in
+ * each class is the second half of the multiplication, and this is where the
+ * two halves meet.
  */
 final class DrawWinningsTest extends TestCase
 {
     public function testATotalOnItsOwnIsTheBookedFigure(): void
     {
-        $winnings = DrawWinnings::of(123.45);
+        $winnings = WinningStatement::of(123.45)->settle([]);
 
         self::assertSame(123.45, $winnings->total());
         self::assertSame([], $winnings->breakdown(), 'nothing to attribute per class');
     }
 
-    public function testABreakdownOnItsOwnAddsUpToTheTotal(): void
+    public function testAnAmountPerRowIsMultipliedByTheRowsInThatClass(): void
     {
-        $winnings = DrawWinnings::of(null, [
-            ['winningClass' => 5, 'amount' => 300.00],
-            ['winningClass' => 8, 'amount' => 12.50],
-        ]);
+        $winnings = WinningStatement::of(null, [['winningClass' => 5, 'amountPerRow' => 150.00]])
+            ->settle([5 => 2]);
 
-        self::assertSame(312.50, $winnings->total());
-        self::assertCount(2, $winnings->breakdown());
+        self::assertSame(300.00, $winnings->total(), '2 rows x 150.00');
+        self::assertSame([['winningClass' => 5, 'amount' => 300.00]], $winnings->breakdown());
     }
 
-    public function testTheSumIsAddedInCentsNotInFloats(): void
+    public function testTheClassesAddUpToTheTicketsTotal(): void
     {
-        // 0.1 + 0.2 is 0.30000000000000004 in binary floating point. Three
-        // times 0.10 has to be exactly 0.30, or the year's total drifts.
-        $winnings = DrawWinnings::of(null, [
-            ['winningClass' => 7, 'amount' => 0.10],
-            ['winningClass' => 8, 'amount' => 0.20],
-        ]);
+        $winnings = WinningStatement::of(null, [
+            ['winningClass' => 5, 'amountPerRow' => 12.30],
+            ['winningClass' => 8, 'amountPerRow' => 5.00],
+        ])->settle([5 => 2, 8 => 3]);
 
-        self::assertSame(0.30, $winnings->total());
+        self::assertSame(39.60, $winnings->total(), '2 x 12.30 + 3 x 5.00');
     }
 
-    public function testATotalThatAgreesWithItsBreakdownIsAccepted(): void
+    public function testAClassNoRowReachedContributesNothingAndIsKept(): void
     {
-        $winnings = DrawWinnings::of(312.50, [
-            ['winningClass' => 5, 'amount' => 300.00],
-            ['winningClass' => 8, 'amount' => 12.50],
-        ]);
+        // Kept on purpose: that the amount was entered and produced nothing is
+        // a fact about this draw, and the record has to read like the statement
+        // it was typed from.
+        $winnings = WinningStatement::of(null, [['winningClass' => 2, 'amountPerRow' => 500.00]])
+            ->settle([5 => 2]);
 
-        self::assertSame(312.50, $winnings->total());
+        self::assertSame(0.0, $winnings->total());
+        self::assertSame(
+            [['winningClass' => 2, 'amountPerRow' => 500.00, 'rowCount' => 0, 'amount' => 0.0]],
+            $winnings->classes()
+        );
     }
 
-    public function testABreakdownMayAccountForOnlyPartOfTheTotal(): void
+    public function testTheMultiplicationIsDoneInCentsNotInFloats(): void
     {
-        // Older than B-23 and deliberate: the ticket won 500, of which 300 is
-        // attributable to class 5. The remaining 200 stays with the ticket -
-        // it counts towards the year, but no row of this ticket can claim it.
-        $winnings = DrawWinnings::of(500.00, [['winningClass' => 5, 'amount' => 300.00]]);
+        // 0.07 times three is 0.21000000000000002 in binary floating point, and
+        // the year's total is summed from these figures.
+        $winnings = WinningStatement::of(null, [['winningClass' => 8, 'amountPerRow' => 0.07]])
+            ->settle([8 => 3]);
 
-        self::assertSame(500.00, $winnings->total());
-        self::assertCount(1, $winnings->breakdown());
+        self::assertSame(0.21, $winnings->total());
     }
 
-    public function testABreakdownClaimingMoreThanTheTotalIsRejected(): void
+    public function testWhatWasEnteredSurvivesNextToWhatCameOfIt(): void
     {
-        // A ticket cannot pay out more than it won, whichever of the two
-        // figures the administrator mistyped.
+        $winnings = WinningStatement::of(null, [['winningClass' => 5, 'amountPerRow' => 12.30]])
+            ->settle([5 => 2]);
+
+        self::assertSame(
+            [['winningClass' => 5, 'amountPerRow' => 12.30, 'rowCount' => 2, 'amount' => 24.60]],
+            $winnings->classes()
+        );
+    }
+
+    public function testATotalAlongsideTheClassesIsRejected(): void
+    {
+        // Which of the two would count is not for the system to guess, and the
+        // amounts per class are the ones that can be checked against the rows.
         $this->expectException(BusinessRuleViolationException::class);
-        $this->expectExceptionMessage('add up to 312.50, more than the ticket total of 100.00');
+        $this->expectExceptionMessage('follows from the amounts per winning class');
 
-        DrawWinnings::of(100.00, [
-            ['winningClass' => 5, 'amount' => 300.00],
-            ['winningClass' => 8, 'amount' => 12.50],
-        ]);
+        WinningStatement::of(300.00, [['winningClass' => 5, 'amountPerRow' => 150.00]]);
     }
 
     public function testNeitherFigureIsRejected(): void
@@ -90,7 +98,7 @@ final class DrawWinningsTest extends TestCase
         $this->expectException(BusinessRuleViolationException::class);
         $this->expectExceptionMessage('either the ticket total or the amounts per winning class');
 
-        DrawWinnings::of(null);
+        WinningStatement::of(null);
     }
 
     public function testAClassListedTwiceIsRejected(): void
@@ -100,9 +108,9 @@ final class DrawWinningsTest extends TestCase
         $this->expectException(BusinessRuleViolationException::class);
         $this->expectExceptionMessage('Winning class 5 is listed twice');
 
-        DrawWinnings::of(null, [
-            ['winningClass' => 5, 'amount' => 300.00],
-            ['winningClass' => 5, 'amount' => 12.50],
+        WinningStatement::of(null, [
+            ['winningClass' => 5, 'amountPerRow' => 300.00],
+            ['winningClass' => 5, 'amountPerRow' => 12.50],
         ]);
     }
 
@@ -110,27 +118,27 @@ final class DrawWinningsTest extends TestCase
     {
         $this->expectException(BusinessRuleViolationException::class);
 
-        DrawWinnings::of(-1.00);
+        WinningStatement::of(-1.00);
     }
 
-    public function testANegativeClassAmountIsRejected(): void
+    public function testANegativeAmountPerRowIsRejected(): void
     {
         $this->expectException(BusinessRuleViolationException::class);
 
-        DrawWinnings::of(null, [['winningClass' => 5, 'amount' => -1.00]]);
+        WinningStatement::of(null, [['winningClass' => 5, 'amountPerRow' => -1.00]]);
     }
 
     public function testAClassOutsideOneToNineIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        DrawWinnings::of(null, [['winningClass' => 10, 'amount' => 5.00]]);
+        WinningStatement::of(null, [['winningClass' => 10, 'amountPerRow' => 5.00]]);
     }
 
     public function testAZeroTotalIsARecordedResultNotAMissingOne(): void
     {
         // The ticket won nothing on this draw, and that is worth booking: it
         // distinguishes an evaluated draw from one nobody has looked at.
-        self::assertSame(0.0, DrawWinnings::of(0.0)->total());
+        self::assertSame(0.0, WinningStatement::of(0.0)->settle([])->total());
     }
 }

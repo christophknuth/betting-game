@@ -566,9 +566,11 @@ paths:
         Records what the ticket won on this draw (CQRS command).
 
         The hits per row are computed from the winning numbers and the ticket's row
-        snapshots; the amount recorded is the winnings of the whole ticket. Since B-22 the
-        hits are already known from the draw — this recomputes them with the money in hand,
-        which is also how a draw recorded before its ticket gets its evaluation.
+        snapshots. Where the statement is read class by class, the amount entered is what
+        **one** row of that class was paid and the ticket's total follows from the rows -
+        nobody multiplies anything by hand. Since B-22 the hits are already known from the
+        draw — this recomputes them with the money in hand, which is also how a draw
+        recorded before its ticket gets its evaluation.
       operationId: recordDrawWinnings
       security:
         - bearerAuth: []
@@ -1704,13 +1706,18 @@ components:
     RecordDrawWinningsCommand:
       type: object
       description: |
-        B-23: state the winnings as one sum for the ticket **or** as the amounts per
-        winning class - at least one of the two, `400` when both are missing.
+        B-23: state the winnings as one sum for the ticket **or** class by class - exactly
+        one of the two. `400` when both are missing, and `400` when both are sent: class by
+        class the total is derived, so a second figure beside it cannot be checked.
 
-        Sent together, the total is what the ticket won and the breakdown says how much of
-        it is attributable to named classes; the remainder counts towards the year without
-        any row being able to claim it. A breakdown adding up to more than the total is
-        `400`, as is a class listed twice.
+        Class by class, `amountPerRow` is what **one** row of that class was paid - the
+        figure the published statement gives. The rest is the system's:
+
+            total = Σ over the classes: amountPerRow × rows of the ticket in that class
+
+        Which rows are in which class comes from the ticket's own row snapshots, so a class
+        no row reached contributes nothing however large its amount. A class listed twice
+        is `400`.
       anyOf:
         - required: [totalAmount]
         - required: [winningClasses]
@@ -1719,26 +1726,26 @@ components:
           type: number
           format: decimal
           description: |
-            Winnings of the whole ticket on this draw. May be omitted when `winningClasses`
-            states them class by class - they are then added up into it.
+            Winnings of the whole ticket on this draw, for a statement that gives one
+            figure. The system computes the hits per row itself and spreads the amount over
+            the rows that won. Must be omitted when `winningClasses` is sent.
         winningClasses:
           type: array
-          description: |
-            The breakdown. If omitted, the system computes the hits per row itself and
-            distributes the total amount across them.
+          description: What one row of each winning class was paid. Sent without `totalAmount`.
           items:
             type: object
             required:
               - winningClass
-              - amount
+              - amountPerRow
             properties:
               winningClass:
                 type: integer
                 minimum: 1
                 maximum: 9
-              amount:
+              amountPerRow:
                 type: number
                 format: decimal
+                description: The amount for a single row of this class, not for all of them
 
     CreateTippYearCommand:
       type: object

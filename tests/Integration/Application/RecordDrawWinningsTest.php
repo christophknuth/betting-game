@@ -209,82 +209,100 @@ final class RecordDrawWinningsTest extends ApplicationTestCase
         self::assertSame(5, Row::int($matches[8], 'winning_class'));
     }
 
-    public function testAnExplicitBreakdownSplitsTheClassAmountNotTheTotal(): void
+    public function testEveryRowOfAClassIsPaidTheAmountEnteredForIt(): void
     {
+        // B-23: 150.00 is what *one* row of class 5 was paid, and two rows of
+        // this ticket are in it. Nobody types 300.
         $this->recordDrawWinnings()->handle(
             new RecordDrawWinningsCommand(
                 $this->drawId,
-                500.00,
-                [['winningClass' => 5, 'amount' => 300.00]]
+                null,
+                [['winningClass' => 5, 'amountPerRow' => 150.00]]
             )
         );
 
         $matches = $this->matchesByParticipant();
 
-        // 300 for the class, over its two rows - the other 200 stays with the
-        // ticket and is not attributed to any row.
         self::assertSame(150.0, Row::float($matches[7], 'amount'));
         self::assertSame(150.0, Row::float($matches[8], 'amount'));
-        self::assertSame(0.0, Row::float($matches[9], 'amount'));
+        self::assertSame(0.0, Row::float($matches[9], 'amount'), 'a losing row gets nothing');
+        self::assertSame(300.00, $this->draws->totalWinnings($this->tippYearId), '2 rows x 150.00');
     }
 
-    public function testABreakdownNamingAClassNobodyReachedPaysNothing(): void
+    public function testTheTotalIsTheAmountTimesTheRowsOfEveryClass(): void
     {
-        $this->recordDrawWinnings()->handle(
-            new RecordDrawWinningsCommand(
-                $this->drawId,
-                500.00,
-                [['winningClass' => 2, 'amount' => 500.00]]
-            )
-        );
-
-        $matches = $this->matchesByParticipant();
-
-        // Nobody hit six numbers, so no row can claim the class 2 amount
-        foreach ([7, 8, 9] as $participantId) {
-            self::assertSame(0.0, Row::float($matches[$participantId], 'amount'));
-        }
-    }
-
-    public function testTheTicketTotalIsWhatTheAdministratorEntered(): void
-    {
-        $this->recordDrawWinnings()->handle(
-            new RecordDrawWinningsCommand(
-                $this->drawId,
-                500.00,
-                [['winningClass' => 5, 'amount' => 300.00]]
-            )
-        );
-
-        // The per-row split is an attribution; the year's total stays the
-        // amount actually received.
-        self::assertSame(500.00, $this->draws->totalWinnings($this->tippYearId));
-    }
-
-    public function testTheBreakdownAloneBooksItsSumForTheTicket(): void
-    {
-        // B-23: no totalAmount at all - the statement was read class by class
+        // Class 8 is on the statement like every other class; this ticket has
+        // no row in it, so it contributes nothing.
         $this->recordDrawWinnings()->handle(
             new RecordDrawWinningsCommand($this->drawId, null, [
-                ['winningClass' => 5, 'amount' => 300.00],
-                ['winningClass' => 8, 'amount' => 12.50],
+                ['winningClass' => 5, 'amountPerRow' => 12.30],
+                ['winningClass' => 8, 'amountPerRow' => 5.00],
             ])
         );
 
-        self::assertSame(312.50, $this->draws->totalWinnings($this->tippYearId));
+        self::assertSame(24.60, $this->draws->totalWinnings($this->tippYearId), '2 x 12.30 + 0 x 5.00');
 
         $matches = $this->matchesByParticipant();
-        self::assertSame(150.0, Row::float($matches[7], 'amount'), 'class 5 split over its two rows');
-        self::assertSame(0.0, Row::float($matches[9], 'amount'), 'class 8 reached nobody');
+        self::assertSame(12.30, Row::float($matches[7], 'amount'));
+        self::assertSame(12.30, Row::float($matches[8], 'amount'));
+        self::assertSame(0.0, Row::float($matches[9], 'amount'));
     }
 
-    public function testABreakdownClaimingMoreThanTheTicketWonIsRejected(): void
+    public function testAClassNobodyReachedPaysNothingAtAll(): void
     {
+        // Nobody hit six numbers, so the class 2 amount cannot reach a row -
+        // and must not reach the ticket's total either.
+        $this->recordDrawWinnings()->handle(
+            new RecordDrawWinningsCommand(
+                $this->drawId,
+                null,
+                [['winningClass' => 2, 'amountPerRow' => 500.00]]
+            )
+        );
+
+        self::assertSame(0.0, $this->draws->totalWinnings($this->tippYearId));
+
+        foreach ([7, 8, 9] as $participantId) {
+            self::assertSame(0.0, Row::float($this->matchesByParticipant()[$participantId], 'amount'));
+        }
+    }
+
+    public function testWhatWasEnteredAndWhatCameOfItAreBothRecorded(): void
+    {
+        $this->recordDrawWinnings()->handle(
+            new RecordDrawWinningsCommand(
+                $this->drawId,
+                null,
+                [['winningClass' => 5, 'amountPerRow' => 12.30]]
+            )
+        );
+
+        $event = $this->db->fetchOne(
+            "SELECT event_data FROM event_store WHERE event_type = 'draw.winnings_recorded'"
+        );
+        self::assertNotNull($event);
+
+        /** @var array<string, mixed> $payload */
+        $payload = json_decode(Row::string($event, 'event_data'), true);
+
+        self::assertSame(
+            [['winning_class' => 5, 'amount_per_row' => 12.3, 'row_count' => 2, 'amount' => 24.6]],
+            $payload['winning_classes'],
+            'the statement, the rows it applied to and the result'
+        );
+    }
+
+    public function testATotalAlongsideTheClassesIsRejected(): void
+    {
+        // The total follows from the classes. A second figure beside them is
+        // either the same number twice or a contradiction, and there is no
+        // telling which.
         $this->expectException(BusinessRuleViolationException::class);
+        $this->expectExceptionMessageMatches('/follows from the amounts per winning class/');
 
         $this->recordDrawWinnings()->handle(
-            new RecordDrawWinningsCommand($this->drawId, 100.00, [
-                ['winningClass' => 5, 'amount' => 300.00],
+            new RecordDrawWinningsCommand($this->drawId, 300.00, [
+                ['winningClass' => 5, 'amountPerRow' => 150.00],
             ])
         );
     }

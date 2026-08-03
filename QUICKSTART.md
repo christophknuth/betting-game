@@ -180,25 +180,22 @@ runs in whole cents through `EvenSplit`.
 api PUT /admin/draws/1/winnings '{"totalAmount":123.45}'
 ```
 
-The amount can optionally be broken down by winning class; without that the system computes
-the hits itself and distributes the total across them:
+**B-23 — or class by class.** Whoever reads the statement per winning class enters what
+**one** row of that class was paid and leaves the total out — it follows from the rows:
 
 ```bash
 api POST /admin/draws '{"tippYearId":1,"drawDate":"2026-01-10","numbers":[3,12,19,33,44,45],"superzahl":7}'
 api PUT /admin/draws/2/winnings \
-  '{"totalAmount":500.00,"winningClasses":[{"winningClass":5,"amount":300.00}]}'
+  '{"winningClasses":[{"winningClass":5,"amountPerRow":150.00},{"winningClass":8,"amountPerRow":12.50}]}'
 ```
 
-**B-23 — or the other way round.** Whoever reads the statement class by class leaves the
-total out, and the classes are added up into it:
+`total = Σ amountPerRow × rows of the ticket in that class`. Which rows are in which class
+comes from the row snapshots, so a class nobody reached contributes nothing however large
+its amount — and every class entered is recorded with its row count, so the booking still
+reads like the statement it was typed from.
 
-```bash
-api PUT /admin/draws/2/winnings \
-  '{"winningClasses":[{"winningClass":5,"amount":300.00},{"winningClass":8,"amount":12.50}]}'
-```
-
-One of the two has to be there — neither is `400`, as is a class listed twice or a
-breakdown adding up to more than the stated total.
+Exactly one of the two has to be there: neither is `400`, and so is both — as is a class
+listed twice.
 
 **B-07 — record a payment.** `GET /admin/fees` returns the fee IDs.
 

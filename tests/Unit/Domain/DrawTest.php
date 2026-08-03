@@ -88,7 +88,9 @@ final class DrawTest extends TestCase
         $draw = $this->draw();
         $draw->releaseEvents();
 
-        $draw->recordWinnings(11, 1234.50, [['winningClass' => 5, 'amount' => 1234.50]]);
+        $draw->recordWinnings(11, 1234.50, [
+            ['winning_class' => 5, 'amount_per_row' => 617.25, 'row_count' => 2, 'amount' => 1234.50],
+        ]);
 
         self::assertSame(Draw::EVALUATED, $draw->status());
 

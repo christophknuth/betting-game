@@ -215,6 +215,14 @@ final class DrawProjector implements Projector
     }
 
     /**
+     * What each class contributed to the ticket, out of the event.
+     *
+     * Only `amount` is read, although the event also carries what one row of
+     * the class was paid and how many rows that was: the attribution divides
+     * the class total among exactly those rows and arrives at the same figure -
+     * and that is the one field the events written before B-23 asked for the
+     * amount per row have as well.
+     *
      * @param array<string, mixed> $data
      *
      * @return list<array{winningClass: int, amount: float}>
