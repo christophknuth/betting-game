@@ -123,8 +123,19 @@ authenticated route fail as a 500 later.
 
 `schema.sql` is mounted into `docker-entrypoint-initdb.d` and therefore runs **only into an
 empty data directory**. A database that already holds data keeps its old definition, and
-the application fails against it. Apply changes by hand — the CHANGELOG entry for a change
-that needs it carries the exact statements.
+the application fails against it.
+
+That is what [database/migrations/](database/migrations/README.md) is for. Every schema
+change is also a file there, and a version switch applies it:
+
+```bash
+docker-compose exec php php bin/migrate --status   # what is pending (exit 1 if any)
+docker-compose exec php php bin/migrate            # apply it
+```
+
+Nothing does this on its own — four PHP-FPM workers would otherwise start four `ALTER`s on
+the same table. Until it has run, the API answers `500` with "Die Datenbank ist nicht auf
+dem Stand der Anwendung", naming the column; that message is the reminder.
 
 ## 🚀 Quick Start
 

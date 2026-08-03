@@ -56,7 +56,8 @@ up on 2026-07-29.
 | [USER_STORIES.md](USER_STORIES.md) | ✅ **Current and authoritative.** The domain reference, including per-story status |
 | [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Current** (v2.6.0, "Lottery Syndicate API"). The authoritative API contract |
 | [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) | ✅ Current |
-| [database/schema.sql](database/schema.sql) | ✅ Current |
+| [database/schema.sql](database/schema.sql) | ✅ Current. The schema of a **fresh** installation |
+| [database/migrations/](database/migrations/README.md) | ✅ Current. The same changes as steps, for a database that already has data — `bin/migrate` |
 | [README.md](README.md) | ✅ Current. Overview, endpoints, installation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | ✅ Current. Layers, class map, open points |
 | [QUICKSTART.md](QUICKSTART.md) | ✅ Current. A tipp year played through, and since B-18/B-21 without reaching into the database |
@@ -198,10 +199,12 @@ src/                              155 files, one class per file
 │   └── Router/                   Router (FastRoute)
 └── Support/                      Row (typed access to DB rows)
 
+bin/migrate                       applies database/migrations/ (part of a version switch)
 tests/Unit/                       without a database
 tests/Integration/                needs MariaDB, otherwise skips itself
 config/config.php                 all values from environment variables
-database/schema.sql               20 tables (13 read model + event sourcing + ops)
+database/schema.sql               21 tables (13 read model + event sourcing + ops)
+database/migrations/              the same schema, as steps for a database that has data
 docker/                           Dockerfile.php (FPM), Dockerfile.test (CLI+pcov), Caddyfile
 keycloak/realm-export.json        realm, demo users, roles, the participant_id claim
 ```
@@ -392,7 +395,11 @@ class belongs to. No comments that restate the signature.
    token**, never from the path or the body.
 7. **DI:** register the handler and controller in `src/Infrastructure/DI/Container.php`
    (usually `\DI\autowire()`).
-8. **Schema:** extend `database/schema.sql` and `betting_game_er_extended.mermaid`.
+8. **Schema:** extend `database/schema.sql` and `betting_game_er_extended.mermaid` — and
+   write the same change as a step in `database/migrations/` (see its
+   [README](database/migrations/README.md)). `schema.sql` only ever reaches an empty data
+   directory; without the migration the change never arrives in a database that is already
+   running.
 9. **Tests:** a unit test for the domain rule, an integration test for the flow, and the
    rebuild test has to cover the new table too.
 10. **Docs:** extend `betting_game_api.yaml`, set the status in `USER_STORIES.md`.
@@ -490,8 +497,15 @@ tables, a route without the `command` flag, a controller method with
     -e "SELECT table_name FROM information_schema.tables WHERE table_schema='betting_game';"
   ```
 
-  Reloading works without deleting the volume — `schema.sql` starts with
-  `DROP TABLE IF EXISTS` for every table. If a foreign schema is still in the database, the
+  **For a schema change the answer is `bin/migrate`**, not one of the two below: it brings
+  an existing database up to date without emptying it, and a version switch is where it
+  belongs (see [database/migrations/README.md](database/migrations/README.md)). Until it
+  has run, every request that touches the new column answers `500` — "Die Datenbank ist
+  nicht auf dem Stand der Anwendung", with the column named.
+
+  Reloading the whole schema **discards all data** and is for a database that has gone
+  wrong, not for an upgrade. It works without deleting the volume — `schema.sql` starts
+  with `DROP TABLE IF EXISTS` for every table. If a foreign schema is still in the database, the
   order of the `DROP`s does not bite, because it is laid out for the *new* foreign-key
   graph; in that case switch the check off for the session:
 

@@ -6,6 +6,41 @@ what was changed when, and why.
 
 ---
 
+## A version switch changes the database (2026-08-03)
+
+Two features shipped that day added columns, and the stack serving them kept the schema from
+before: `schema.sql` is mounted into `docker-entrypoint-initdb.d` and is read **only into an
+empty data directory**. "Meine Teilnahmen" answered
+`SQLSTATE[42S22]: Column not found: 1054 Unknown column 't.duration_weeks' in 'SELECT'`, the
+participant list `Column status is missing or null` — both in the browser, both in English,
+both saying nothing anybody could act on. Every previous schema change had been a block of
+`ALTER TABLE` in a CHANGELOG entry that somebody had to find and paste.
+
+**`database/migrations/` is the way now.** Numbered files, applied in order, written down in
+`schema_migration`:
+
+```bash
+docker-compose exec php php bin/migrate --status   # what is pending, exit 1 if any
+docker-compose exec php php bin/migrate            # apply it, part of a version switch
+```
+
+`0001` to `0003` are the changes that had accumulated: the Bearbeitungsentgelt, the Laufzeit
+in weeks, and the participant's account and status.
+
+Three decisions worth keeping:
+
+- **Nothing migrates on its own.** Four PHP-FPM workers would start four `ALTER`s on the same
+  table. It is a step of a deployment, like `composer install`.
+- **A migration must survive being run twice** (`ADD COLUMN IF NOT EXISTS`). MariaDB commits
+  DDL as it goes, so a migration that fails halfway cannot be rolled back — running it again
+  is what takes the place of a transaction. Where a statement reads a column a fresh database
+  never had, it is assembled with `PREPARE` (`0003` carries `is_active` over into `status`).
+- **A fresh database runs them too**, finds everything in place and only writes its line. So
+  "has this database been migrated?" has one answer, however the database came about, and
+  `schema.sql` stays the schema of the current version rather than a second source of truth.
+
+---
+
 ## Somebody can sign themselves up (2026-08-03, E1-01)
 
 Getting a new member into the application took two people and a detour through Keycloak: the

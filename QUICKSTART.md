@@ -24,6 +24,16 @@ On its first start Keycloak needs 30–60 seconds for the realm import:
 The schema is loaded automatically from [database/schema.sql](database/schema.sql) on the
 database's first start. To load it again: `make db-reset`.
 
+**On a version switch** the schema is not loaded again — the data directory is no longer
+empty. What brings an existing database up to date is
+[database/migrations/](database/migrations/README.md):
+
+```bash
+git pull
+docker-compose exec php composer install
+docker-compose exec php php bin/migrate      # or: make db-migrate
+```
+
 > This walkthrough deliberately goes through `curl`. The same steps also exist as a user
 > interface in the `frontend` container on port 3000 ([FRONTEND.md](FRONTEND.md)); if you
 > do not need it, stop it: `docker-compose stop frontend`.
