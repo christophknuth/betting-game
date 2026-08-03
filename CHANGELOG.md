@@ -6,6 +6,37 @@ what was changed when, and why.
 
 ---
 
+## One answer to which ticket played (2026-08-03)
+
+Ticket periods overlap more easily than they used to. `uk_year_period` only keeps two
+tickets from *starting* on the same day, and since the Laufzeit is chosen in weeks, a
+four-week Spielauftrag and a shorter one handed in after it cover the same Wednesday. Three
+pieces of code then have to agree on which of them played that Wednesday — and they did not:
+
+| | Rule |
+|---|---|
+| `TicketRepository::findCovering()` (write path) | **no `ORDER BY` at all** |
+| `DrawRepository::findWithWinnings()` (B-05/B-24) | newest period |
+| `DrawProjector` (rebuild) | newest period |
+
+So the draw was evaluated against whichever ticket the storage engine returned first, while
+the interface listed the rows of the *newest* one underneath it. Those rows had no
+evaluation and never got one: every row "noch nicht ausgewertet", for good, on a draw that
+said `ausgewertet` in its badge.
+
+The rule is now written down once, as `TicketRepository::COVERING_TICKET_ORDER`, and all
+three use it: **the ticket handed in last wins**, tie-broken by id. It is the more recent
+decision and it carries the rows as they stand.
+[CoveringTicketTest](tests/Integration/Application/CoveringTicketTest.php) holds the three
+to the same answer — two overlapping tickets, one draw, and the rows listed under it are the
+rows that were evaluated, before and after a rebuild.
+
+Existing draws are repaired by rebuilding the draw projection
+(`POST /admin/projections/draw_read_model/rebuild`), which recomputes every match from the
+event log.
+
+---
+
 ## A version switch changes the database (2026-08-03)
 
 Two features shipped that day added columns, and the stack serving them kept the schema from

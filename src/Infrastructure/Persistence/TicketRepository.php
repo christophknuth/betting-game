@@ -24,6 +24,26 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
 {
     private const STREAM_PREFIX = 'ticket-';
 
+    /**
+     * Which of the tickets covering a date the draw belongs to.
+     *
+     * Periods may overlap: `uk_year_period` only keeps two tickets from
+     * *starting* on the same day, and since the Laufzeit is chosen in weeks a
+     * four-week Spielauftrag and a one-week one handed in after it are an
+     * everyday occurrence. **The one handed in last wins** - it is the more
+     * recent decision, and it carries the rows as they stand now.
+     *
+     * The tie-break on the id matters as much as the rule: without an order at
+     * all, `findCovering()` returned whatever the storage engine felt like,
+     * while both read paths already took the newest. So a draw was evaluated
+     * against one ticket while the rows of *another* were listed underneath it,
+     * each of them "noch nicht ausgewertet" for good.
+     *
+     * Both readers use this ordering, and `CoveringTicketTest` holds all three
+     * to the same answer.
+     */
+    public const COVERING_TICKET_ORDER = 'ORDER BY period_start DESC, ticket_id DESC LIMIT 1';
+
     /** The read model this repository keeps current; see EventSourcedRepository. */
     protected function projectionName(): string
     {
@@ -137,10 +157,12 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
         return $row === null ? null : $this->toAggregate($row);
     }
 
+    /** See COVERING_TICKET_ORDER for which ticket wins where periods overlap. */
     public function findCovering(int $tippYearId, DateTimeImmutable $date): ?Ticket
     {
         $row = $this->db->fetchOne(
-            'SELECT * FROM ticket WHERE tipp_year_id = ? AND ? BETWEEN period_start AND period_end',
+            'SELECT * FROM ticket WHERE tipp_year_id = ? AND ? BETWEEN period_start AND period_end '
+            . self::COVERING_TICKET_ORDER,
             [$tippYearId, $date->format('Y-m-d')]
         );
 
