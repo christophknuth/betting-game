@@ -6,6 +6,7 @@ namespace BettingGame\Tests\Integration;
 
 use BettingGame\Domain\Model\Fee;
 use BettingGame\Domain\Model\Ticket;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use BettingGame\Infrastructure\Persistence\FeeRepository;
@@ -56,14 +57,13 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
         );
     }
 
-    private function givenTicket(int $id = 1, string $start = '2026-01-01', string $end = '2026-01-31'): Ticket
+    private function givenTicket(int $id = 1, string $start = '2026-01-01', int $weeks = 4): Ticket
     {
         $ticket = Ticket::submit(
             $id,
             1,
             new DateTimeImmutable($start),
-            new DateTimeImmutable($end),
-            9,
+            new DrawSchedule($weeks, DrawSchedule::BOTH),
             1.20,
             [
                 ['betRowId' => 1, 'participantId' => 7, 'numbers' => new LottoNumbers([3, 12, 19, 27, 33, 45])],
@@ -86,9 +86,11 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
 
         self::assertNotNull($loaded);
         self::assertSame(2, $loaded->rowCount());
-        self::assertSame(9, $loaded->drawCount());
-        self::assertSame(21.60, $loaded->totalCost(), '2 rows x 9 draws x 1.20');
-        self::assertSame(10.80, $loaded->feeShares()[0]);
+        self::assertSame(8, $loaded->drawCount());
+        self::assertSame(4, $loaded->schedule()?->durationWeeks(), 'the Laufzeit round trips too');
+        self::assertSame(DrawSchedule::BOTH, $loaded->schedule()?->drawDays());
+        self::assertSame(19.20, $loaded->totalCost(), '2 rows x 8 draws x 1.20');
+        self::assertSame(9.60, $loaded->feeShares()[0]);
         self::assertSame(7, $loaded->superzahl()?->value());
         self::assertSame('LOT-2026-01', $loaded->lotteryReference());
         self::assertSame([7, 8], $loaded->participantIds());
@@ -113,8 +115,8 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
 
     public function testFindCoveringResolvesTheTicketADrawFallsInto(): void
     {
-        $this->givenTicket(1, '2026-01-01', '2026-01-31');
-        $this->givenTicket(2, '2026-02-01', '2026-02-28');
+        $this->givenTicket(1, '2026-01-01');
+        $this->givenTicket(2, '2026-02-01');
 
         $january = $this->tickets->findCovering(1, new DateTimeImmutable('2026-01-14'));
         $february = $this->tickets->findCovering(1, new DateTimeImmutable('2026-02-14'));
@@ -126,15 +128,14 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
 
     public function testParticipationMarksTicketsTheOwnRowWasNotOn(): void
     {
-        $this->givenTicket(1, '2026-01-01', '2026-01-31');
+        $this->givenTicket(1, '2026-01-01');
 
         // A second ticket carrying only Anna's row
         $ticket = Ticket::submit(
             2,
             1,
             new DateTimeImmutable('2026-02-01'),
-            new DateTimeImmutable('2026-02-28'),
-            8,
+            new DrawSchedule(4, DrawSchedule::BOTH),
             1.20,
             [['betRowId' => 1, 'participantId' => 7, 'numbers' => new LottoNumbers([3, 12, 19, 27, 33, 45])]]
         );
@@ -163,7 +164,7 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
         $loaded = $this->fees->find(1);
         self::assertNotNull($loaded);
         self::assertTrue($loaded->isOpen());
-        self::assertSame(10.80, $loaded->amount());
+        self::assertSame(9.60, $loaded->amount());
 
         $loaded->markPaid('bank transfer', 'admin', new DateTimeImmutable('2026-01-20 10:00:00'));
         $this->fees->save($loaded);
@@ -189,8 +190,8 @@ final class TicketAndFeeRepositoryTest extends IntegrationTestCase
 
     public function testFeesOfAParticipantCarryTheTicketPeriod(): void
     {
-        $this->givenTicket(1, '2026-01-01', '2026-01-31');
-        $this->givenTicket(2, '2026-02-01', '2026-02-28');
+        $this->givenTicket(1, '2026-01-01');
+        $this->givenTicket(2, '2026-02-01');
 
         $this->fees->save(Fee::charge(1, 7, 1, 10.80, new DateTimeImmutable('2026-01-31')));
         $this->fees->save(Fee::charge(2, 7, 2, 10.80, new DateTimeImmutable('2026-02-28')));

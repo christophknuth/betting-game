@@ -123,12 +123,14 @@ erDiagram
     Ticket {
         int ticket_id PK
         int tipp_year_id FK "UK(tipp_year_id, period_start)"
-        date period_start "first day of the covered month"
-        date period_end
+        date period_start "the day the Spielauftrag was handed in"
+        date period_end "derived: period_start + duration_weeks x 7 - 1 days"
+        int duration_weeks "Laufzeit as chosen; null before it was recorded"
+        string draw_days "wednesday / saturday / both; null before it was recorded"
         string lottery_reference "receipt id from the lottery operator"
         int superzahl "0-9, from the ticket serial - applies to every row"
         int row_count "rows on the ticket when it was submitted"
-        int draw_count "draws the ticket takes part in"
+        int draw_count "derived: duration_weeks x draw days per week"
         decimal total_cost
         string status "draft / submitted / settled"
         datetime submitted_at "nullable"

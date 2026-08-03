@@ -18,6 +18,7 @@ use BettingGame\Domain\Exception\DuplicateEntryException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Domain\Exception\InvalidArgumentException;
 use BettingGame\Domain\Model\Fee;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 
 /**
  * The rejections the user stories call for - every one of these is a 409 or a
@@ -173,7 +174,7 @@ final class CommandRulesTest extends ApplicationTestCase
         $this->expectException(BusinessRuleViolationException::class);
         $this->expectExceptionMessageMatches('/while the tipp year runs/');
         $this->submitTicket()->handle(
-            new SubmitTicketCommand($this->tippYearId, '2026-01-01', '2026-01-31', 9)
+            new SubmitTicketCommand($this->tippYearId, '2026-01-01', 4, DrawSchedule::BOTH)
         );
     }
 
@@ -184,7 +185,7 @@ final class CommandRulesTest extends ApplicationTestCase
         $this->expectException(BusinessRuleViolationException::class);
         $this->expectExceptionMessageMatches('/No bet row is valid/');
         $this->submitTicket()->handle(
-            new SubmitTicketCommand($this->tippYearId, '2026-01-01', '2026-01-31', 9)
+            new SubmitTicketCommand($this->tippYearId, '2026-01-01', 4, DrawSchedule::BOTH)
         );
     }
 
@@ -197,13 +198,13 @@ final class CommandRulesTest extends ApplicationTestCase
         $this->startTippYear($this->tippYearId);
 
         $this->submitTicket()->handle(
-            new SubmitTicketCommand($this->tippYearId, '2026-01-01', '2026-01-31', 9)
+            new SubmitTicketCommand($this->tippYearId, '2026-01-01', 4, DrawSchedule::BOTH)
         );
 
         $this->expectException(DuplicateEntryException::class);
         $this->expectExceptionMessageMatches('/uk_year_period/');
         $this->submitTicket()->handle(
-            new SubmitTicketCommand($this->tippYearId, '2026-01-01', '2026-01-31', 9)
+            new SubmitTicketCommand($this->tippYearId, '2026-01-01', 4, DrawSchedule::BOTH)
         );
     }
 
@@ -421,7 +422,7 @@ final class CommandRulesTest extends ApplicationTestCase
         $this->startTippYear($this->tippYearId);
 
         $ticket = $this->submitTicket()->handle(
-            new SubmitTicketCommand($this->tippYearId, '2026-01-01', '2026-01-31', 9)
+            new SubmitTicketCommand($this->tippYearId, '2026-01-01', 4, DrawSchedule::BOTH)
         );
         self::assertNotNull($ticket->resourceId);
 

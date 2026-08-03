@@ -153,8 +153,10 @@ async function seedTippYear(api, calendarYear) {
 
   const ticket = await api('POST', `/admin/tipp-years/${tippYearId}/tickets`, {
     periodStart: `${calendarYear}-01-01`,
-    periodEnd: `${calendarYear}-01-31`,
-    drawCount: 1,
+    // A week on one draw day - one draw, which is what keeps the seeded fee at
+    // an amount the specs can name.
+    durationWeeks: 1,
+    drawDays: 'wednesday',
     superzahl: 7,
     lotteryReference: `E2E-${suffix}`
   })

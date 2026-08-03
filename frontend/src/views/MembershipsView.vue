@@ -71,6 +71,9 @@
                 Zeitraum
               </th>
               <th scope="col">
+                Laufzeit
+              </th>
+              <th scope="col">
                 Ziehungen
               </th>
               <th scope="col">
@@ -89,6 +92,9 @@
               <!-- The period identifies the ticket; its id is a number nobody
                    here can do anything with. -->
               <td>{{ formatDate(ticket.periodStart) }} – {{ formatDate(ticket.periodEnd) }}</td>
+              <!-- Leer bei Scheinen, die vor der Erfassung der Laufzeit
+                   eingereicht wurden — die Ziehungen daneben stehen trotzdem. -->
+              <td>{{ scheduleLabel(ticket.durationWeeks, ticket.drawDays) ?? '—' }}</td>
               <td class="numeric">
                 {{ ticket.drawCount }}
               </td>
@@ -131,6 +137,7 @@ import api from '@/services/api'
 import { useQuery } from '@/composables/useCommand'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate, formatDateTime, statusLabel } from '@/support/format'
+import { scheduleLabel } from '@/support/drawSchedule'
 
 const authStore = useAuthStore()
 const query = useQuery()

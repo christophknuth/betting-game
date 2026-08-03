@@ -18,9 +18,11 @@ PHP 8.4, no framework, onion architecture with event sourcing and CQRS.
   configuration, not an assumption in code — one period spanning the whole year is allowed.
 - Each participant has **exactly one bet row per period** (`BetRow`), of six numbers.
 - Once a month a shared **ticket** (`Ticket`) is submitted: a snapshot of all valid rows.
-  Its cost is `rows × draws × price` plus a **Bearbeitungsentgelt** charged once for the
-  Spielauftrag, at a rate the tipp year's price list sets by the ticket's length. It creates
-  one **fee** (`Fee`) per participant.
+  It is handed in on one day for a **Laufzeit in weeks** and for Wednesday, Saturday or
+  both (`DrawSchedule`) — the period it covers and the number of draws follow from that
+  and are never typed in. Its cost is `rows × draws × price` plus a
+  **Bearbeitungsentgelt** charged once for the Spielauftrag, at a rate the tipp year's
+  price list sets by the ticket's length. It creates one **fee** (`Fee`) per participant.
 - **Draws** (`Draw`) produce winnings for the ticket as a whole; they are collected over the
   year and distributed **evenly across all participants** at the end of it.
 

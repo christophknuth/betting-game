@@ -23,6 +23,7 @@ use BettingGame\Application\Query\GetPayoutShareQuery;
 use BettingGame\Application\Query\GetTippYearsQuery;
 use BettingGame\Domain\Exception\EntityNotFoundException;
 use BettingGame\Domain\Model\Fee;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 use DateTimeImmutable;
 
 /**
@@ -69,7 +70,7 @@ final class QueryTest extends ApplicationTestCase
 
         // January: only Anna is a member
         $january = $this->submitTicket()->handle(
-            new SubmitTicketCommand($this->tippYearId, '2026-01-01', '2026-01-31', 9, 7, 'LOT-2026-01')
+            new SubmitTicketCommand($this->tippYearId, '2026-01-01', 4, DrawSchedule::BOTH, 7, 'LOT-2026-01')
         );
         self::assertNotNull($january->resourceId);
         $this->januaryTicketId = $january->resourceId;
@@ -79,7 +80,7 @@ final class QueryTest extends ApplicationTestCase
         $this->assignBetRow()->handle(new AssignBetRowCommand(8, $this->q1, [1, 2, 3, 4, 5, 6]));
 
         $this->submitTicket()->handle(
-            new SubmitTicketCommand($this->tippYearId, '2026-02-01', '2026-02-28', 8, 7, 'LOT-2026-02')
+            new SubmitTicketCommand($this->tippYearId, '2026-02-01', 4, DrawSchedule::BOTH, 7, 'LOT-2026-02')
         );
 
         $draw = $this->recordDraw()->handle(
@@ -170,11 +171,12 @@ final class QueryTest extends ApplicationTestCase
         self::assertCount(2, $data['fees'], 'January and February');
         self::assertSame('2026-02-01', $data['fees'][0]['periodStart'], 'newest first');
 
-        // 1 row x 9 draws x 1.20 in January, 2 rows x 8 x 1.20 split in two in February
-        self::assertSame(10.80, $data['fees'][1]['amount']);
+        // Both tickets run four weeks on both draw days: 1 row x 8 draws x 1.20
+        // in January, 2 rows x 8 x 1.20 split in two in February
+        self::assertSame(9.60, $data['fees'][1]['amount']);
         self::assertSame(9.60, $data['fees'][0]['amount']);
-        self::assertSame(20.40, $data['summary']['totalCharged']);
-        self::assertSame(20.40, $data['summary']['totalOpen']);
+        self::assertSame(19.20, $data['summary']['totalCharged']);
+        self::assertSame(19.20, $data['summary']['totalOpen']);
         self::assertSame(2, $data['summary']['openCount']);
     }
 
@@ -189,7 +191,7 @@ final class QueryTest extends ApplicationTestCase
 
         $data = $this->getParticipantFees()->handle(new GetParticipantFeesQuery(7))->toArray();
 
-        self::assertSame(20.40, $data['summary']['totalCharged']);
+        self::assertSame(19.20, $data['summary']['totalCharged']);
         self::assertSame(9.60, $data['summary']['totalOpen']);
         self::assertSame(1, $data['summary']['openCount']);
     }

@@ -12,6 +12,7 @@ use BettingGame\Domain\Repository\BetRowRepositoryInterface;
 use BettingGame\Domain\Repository\FeeRepositoryInterface;
 use BettingGame\Domain\Repository\TicketRepositoryInterface;
 use BettingGame\Domain\Repository\TippYearRepositoryInterface;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 use BettingGame\Domain\ValueObject\Superzahl;
 use DateTimeImmutable;
 
@@ -22,6 +23,9 @@ use DateTimeImmutable;
  * with an active membership - the repository decides that, because both
  * conditions are joins. They are copied onto the ticket as a snapshot, and each
  * participant on it owes the same share of the total.
+ *
+ * How many draws are paid for is not part of the command: it follows from the
+ * Laufzeit and the chosen draw days, and `DrawSchedule` derives it.
  */
 final class SubmitTicketHandler
 {
@@ -48,7 +52,12 @@ final class SubmitTicketHandler
         }
 
         $periodStart = new DateTimeImmutable($command->periodStart);
-        $periodEnd = new DateTimeImmutable($command->periodEnd);
+
+        // The schedule is what was chosen; the period's end follows from it and
+        // is needed twice before the ticket exists - for the rate of the
+        // Bearbeitungsentgelt and for the due date of the fees.
+        $schedule = new DrawSchedule($command->durationWeeks, $command->drawDays);
+        $periodEnd = $schedule->periodEnd($periodStart);
 
         $rows = $this->betRows->findRowsForTicket($command->tippYearId, $periodStart);
 
@@ -63,8 +72,7 @@ final class SubmitTicketHandler
             $this->tickets->nextIdentity(),
             $command->tippYearId,
             $periodStart,
-            $periodEnd,
-            $command->drawCount,
+            $schedule,
             $tippYear->ticketCostPerRow(),
             array_map(
                 static fn ($row): array => [
@@ -105,7 +113,15 @@ final class SubmitTicketHandler
 
         return CommandResult::accepted(
             $ticket->id(),
-            sprintf('Ticket submitted with %d rows, %.2f total', $ticket->rowCount(), $ticket->totalCost())
+            // The caller sent a day and a Laufzeit - the period and the number
+            // of draws are what the API made of them, so the answer names them.
+            sprintf(
+                'Ticket submitted with %d rows over %d draws until %s, %.2f total',
+                $ticket->rowCount(),
+                $ticket->drawCount(),
+                $periodEnd->format('Y-m-d'),
+                $ticket->totalCost()
+            )
         );
     }
 }

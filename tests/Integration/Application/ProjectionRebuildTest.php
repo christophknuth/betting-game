@@ -16,6 +16,8 @@ use BettingGame\Application\Command\SubmitTicketCommand;
 use BettingGame\Domain\Model\Fee;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\ValueObject\DisplayName;
+use BettingGame\Domain\ValueObject\DrawSchedule;
+use BettingGame\Support\Row;
 
 /**
  * OPS-04: that a rebuilt read model is the read model.
@@ -99,12 +101,13 @@ final class ProjectionRebuildTest extends ApplicationTestCase
         $this->startTippYear($tippYearId);
 
         $january = $this->submitTicket()->handle(
-            new SubmitTicketCommand($tippYearId, '2026-01-01', '2026-01-31', 9, 7, 'LOT-2026-01')
+            new SubmitTicketCommand($tippYearId, '2026-01-01', 4, DrawSchedule::BOTH, 7, 'LOT-2026-01')
         );
         self::assertNotNull($january->resourceId);
 
+        // A shorter one on a single draw day, so the rebuild has both shapes
         $this->submitTicket()->handle(
-            new SubmitTicketCommand($tippYearId, '2026-02-01', '2026-02-28', 8, 3, 'LOT-2026-02')
+            new SubmitTicketCommand($tippYearId, '2026-02-01', 2, DrawSchedule::SATURDAY, 3, 'LOT-2026-02')
         );
 
         $drawn = $this->recordDraw()->handle(
@@ -217,6 +220,41 @@ final class ProjectionRebuildTest extends ApplicationTestCase
                 "$table differs after a rebuild - the write path and the projector disagree"
             );
         }
+    }
+
+    public function testARebuildSurvivesTicketsWrittenBeforeTheLaufzeitExisted(): void
+    {
+        // Tickets used to be handed in with a period and a number of draws
+        // typed out, so their events carry no Laufzeit. The log is immutable:
+        // a projector that insisted on one would fail on every ticket ever
+        // submitted, and a rebuild is the worst moment to find that out.
+        $this->playAWholeYear();
+
+        $stripped = $this->db->fetchAll(
+            "SELECT event_store_id, event_data FROM event_store WHERE event_type = 'ticket.submitted'"
+        );
+        self::assertNotEmpty($stripped);
+
+        foreach ($stripped as $event) {
+            /** @var array<string, mixed> $payload */
+            $payload = json_decode(Row::string($event, 'event_data'), true);
+            unset($payload['duration_weeks'], $payload['draw_days']);
+
+            $this->db->execute(
+                'UPDATE event_store SET event_data = ? WHERE event_store_id = ?',
+                [json_encode($payload), Row::int($event, 'event_store_id')]
+            );
+        }
+
+        $this->projections()->rebuildAll();
+
+        $ticket = $this->db->fetchOne("SELECT * FROM ticket WHERE period_start = '2026-01-01'");
+
+        self::assertNotNull($ticket);
+        self::assertNull($ticket['duration_weeks'], 'nothing is invented, and nothing crashes');
+        self::assertNull($ticket['draw_days']);
+        self::assertSame(8, Row::int($ticket, 'draw_count'), 'what it played is in the event either way');
+        self::assertSame('2026-01-28', Row::string($ticket, 'period_end'));
     }
 
     public function testRebuildingIsIdempotent(): void

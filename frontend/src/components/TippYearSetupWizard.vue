@@ -79,7 +79,7 @@
       <p class="state note">
         Der Zeitraum ist frei wählbar und muss kein Kalenderjahr sein. Das Entgelt fällt
         <strong>einmal je Tippschein</strong> an, nicht je Reihe — welcher der beiden Sätze
-        gilt, entscheidet die Länge des jeweiligen Scheins. Wer keines zahlt, lässt beide
+        gilt, entscheidet die Laufzeit des jeweiligen Scheins. Wer keines zahlt, lässt beide
         auf 0.
       </p>
       <p class="state note">

@@ -7,6 +7,7 @@ namespace BettingGame\Infrastructure\Persistence;
 use BettingGame\Support\Row;
 use BettingGame\Domain\Model\Ticket;
 use BettingGame\Domain\Repository\TicketRepositoryInterface;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use DateTimeImmutable;
@@ -73,15 +74,18 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
                 $this->db->execute(
                     '
                     INSERT INTO ticket (
-                        ticket_id, tipp_year_id, period_start, period_end, lottery_reference,
-                        superzahl, row_count, draw_count, processing_fee, total_cost, status, submitted_at, version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ticket_id, tipp_year_id, period_start, period_end, duration_weeks, draw_days,
+                        lottery_reference, superzahl, row_count, draw_count, processing_fee,
+                        total_cost, status, submitted_at, version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ',
                     [
                         $ticket->id(),
                         $ticket->tippYearId(),
                         $ticket->periodStart()->format('Y-m-d'),
                         $ticket->periodEnd()->format('Y-m-d'),
+                        $ticket->schedule()?->durationWeeks(),
+                        $ticket->schedule()?->drawDays(),
                         $ticket->lotteryReference(),
                         $ticket->superzahl()?->value(),
                         $ticket->rowCount(),
@@ -165,8 +169,9 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
         return $this->db->fetchAll(
             '
             SELECT
-                t.ticket_id, t.period_start, t.period_end, t.draw_count,
-                t.row_count, t.processing_fee, t.total_cost, t.status, t.lottery_reference,
+                t.ticket_id, t.period_start, t.period_end, t.duration_weeks, t.draw_days,
+                t.draw_count, t.row_count, t.processing_fee, t.total_cost, t.status,
+                t.lottery_reference,
                 own.ticket_row_id IS NOT NULL AS participated,
                 own.numbers AS own_numbers
             FROM ticket t
@@ -208,12 +213,21 @@ final class TicketRepository extends EventSourcedRepository implements TicketRep
         $ticketId = Row::int($row, 'ticket_id');
         $superzahl = Row::nullableInt($row, 'superzahl');
 
+        // Both columns are written together or not at all, so one of them being
+        // there is enough to rebuild the schedule - the check on the other is
+        // what keeps the value object out of a half-filled row.
+        $durationWeeks = Row::nullableInt($row, 'duration_weeks');
+        $drawDays = Row::nullableString($row, 'draw_days');
+
         return Ticket::fromProjection(
             id: $ticketId,
             tippYearId: Row::int($row, 'tipp_year_id'),
             periodStart: new DateTimeImmutable(Row::string($row, 'period_start')),
             periodEnd: new DateTimeImmutable(Row::string($row, 'period_end')),
             drawCount: Row::int($row, 'draw_count'),
+            schedule: $durationWeeks === null || $drawDays === null
+                ? null
+                : new DrawSchedule($durationWeeks, $drawDays),
             processingFee: Row::nullableFloat($row, 'processing_fee') ?? 0.0,
             totalCost: Row::float($row, 'total_cost'),
             rows: $this->loadRows($ticketId),

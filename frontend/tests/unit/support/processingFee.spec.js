@@ -40,6 +40,8 @@ describe('applicableProcessingFee', () => {
 
   it('stays quiet while the form is incomplete or inverted', () => {
     expect(applicableProcessingFee('', '2027-01-31', YEAR)).toBeNull()
+    // What the view passes while the Laufzeit is still empty
+    expect(applicableProcessingFee('2027-01-04', undefined, YEAR)).toBeNull()
     expect(applicableProcessingFee('2027-01-31', '2027-01-01', YEAR)).toBeNull()
     expect(applicableProcessingFee('2027-01-01', '2027-01-31', null)).toBeNull()
   })

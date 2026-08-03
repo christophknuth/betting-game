@@ -152,12 +152,23 @@ CREATE TABLE bet_row (
 CREATE TABLE ticket (
     ticket_id INT AUTO_INCREMENT PRIMARY KEY,
     tipp_year_id INT NOT NULL,
-    period_start DATE NOT NULL,
+    period_start DATE NOT NULL COMMENT 'The day the Spielauftrag was handed in',
+    -- Not entered by hand: what is chosen at the counter is a Laufzeit in weeks
+    -- and the draw days. period_end is period_start plus duration_weeks weeks
+    -- less a day, and draw_count follows from the weeks and the days chosen -
+    -- 6 aus 49 is drawn every Wednesday and Saturday, holidays included. Both
+    -- are stored rather than derived on read: what a submitted ticket covered
+    -- and cost must not move when a rule changes.
     period_end DATE NOT NULL,
+    -- NULL only for tickets handed in before the Laufzeit was recorded; their
+    -- period and draw count still say what they played.
+    duration_weeks TINYINT UNSIGNED NULL COMMENT 'Laufzeit in weeks, as chosen at submission',
+    draw_days ENUM('wednesday', 'saturday', 'both') NULL
+        COMMENT 'Which of the two weekly draws the ticket takes part in',
     lottery_reference VARCHAR(100) NULL COMMENT 'Receipt id from the lottery operator',
     superzahl TINYINT NULL COMMENT '0-9, from the ticket serial - applies to every row',
     row_count INT NOT NULL DEFAULT 0,
-    draw_count INT NOT NULL DEFAULT 0,
+    draw_count INT NOT NULL DEFAULT 0 COMMENT 'duration_weeks * draw days per week',
     processing_fee DECIMAL(10, 2) NOT NULL DEFAULT 0.00
         COMMENT 'Bearbeitungsentgelt charged for this Spielauftrag, as a snapshot',
     total_cost DECIMAL(10, 2) NOT NULL DEFAULT 0.00

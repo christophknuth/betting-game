@@ -6,6 +6,7 @@ namespace BettingGame\Domain\Model;
 
 use BettingGame\Domain\Event\TicketSubmitted;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
+use BettingGame\Domain\ValueObject\DrawSchedule;
 use BettingGame\Domain\ValueObject\EvenSplit;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
@@ -17,6 +18,12 @@ use DateTimeImmutable;
  * It carries a snapshot of every active bet row. A later correction of a bet
  * row does not reach back into a submitted ticket - that is why the numbers are
  * copied rather than referenced.
+ *
+ * What was handed in is a start date and a `DrawSchedule`; the period's end and
+ * the number of draws are derived from those and then kept as facts of the
+ * ticket. Keeping them rather than recomputing them on read is the same
+ * reasoning as for the row numbers and the Bearbeitungsentgelt: what a
+ * submitted ticket cost must not change because a rule was rewritten later.
  */
 final class Ticket
 {
@@ -35,6 +42,7 @@ final class Ticket
         private DateTimeImmutable $periodStart,
         private DateTimeImmutable $periodEnd,
         private int $drawCount,
+        private ?DrawSchedule $schedule,
         private float $totalCost,
         private array $rows,
         private ?Superzahl $superzahl,
@@ -52,8 +60,7 @@ final class Ticket
         int $id,
         int $tippYearId,
         DateTimeImmutable $periodStart,
-        DateTimeImmutable $periodEnd,
-        int $drawCount,
+        DrawSchedule $schedule,
         float $ticketCostPerRow,
         array $rows,
         ?Superzahl $superzahl = null,
@@ -64,17 +71,16 @@ final class Ticket
             throw new BusinessRuleViolationException('A ticket needs at least one bet row');
         }
 
-        if ($drawCount < 1) {
-            throw new BusinessRuleViolationException('A ticket must cover at least one draw');
-        }
-
-        if ($periodEnd <= $periodStart) {
-            throw new BusinessRuleViolationException('Period end must be after period start');
-        }
-
         if ($processingFee < 0.0) {
             throw new BusinessRuleViolationException('A processing fee cannot be negative');
         }
+
+        // Neither of these is a number anyone hands in: the Laufzeit and the
+        // chosen draw days decide them, and the schedule has already refused
+        // anything that would leave the ticket without a draw or without a
+        // period.
+        $periodEnd = $schedule->periodEnd($periodStart);
+        $drawCount = $schedule->drawCount();
 
         // The Bearbeitungsentgelt is charged once for the Spielauftrag, not per
         // row and not per draw - which is why it is added rather than folded
@@ -87,6 +93,7 @@ final class Ticket
             $periodStart,
             $periodEnd,
             $drawCount,
+            $schedule,
             $totalCost,
             array_values($rows),
             $superzahl,
@@ -101,6 +108,8 @@ final class Ticket
             $tippYearId,
             $periodStart->format('Y-m-d'),
             $periodEnd->format('Y-m-d'),
+            $schedule->durationWeeks(),
+            $schedule->drawDays(),
             $drawCount,
             $totalCost,
             array_map(
@@ -122,6 +131,10 @@ final class Ticket
     /**
      * Rehydrates from the read model without recording events.
      *
+     * The schedule is nullable, the period and the draw count are not: a ticket
+     * handed in before the Laufzeit was recorded has a period and a number of
+     * draws all the same, and those are what it was billed on.
+     *
      * @param list<array{betRowId: int, participantId: int, numbers: LottoNumbers}> $rows
      */
     public static function fromProjection(
@@ -130,6 +143,7 @@ final class Ticket
         DateTimeImmutable $periodStart,
         DateTimeImmutable $periodEnd,
         int $drawCount,
+        ?DrawSchedule $schedule,
         float $totalCost,
         array $rows,
         ?Superzahl $superzahl,
@@ -145,6 +159,7 @@ final class Ticket
             $periodStart,
             $periodEnd,
             $drawCount,
+            $schedule,
             $totalCost,
             $rows,
             $superzahl,
@@ -216,6 +231,17 @@ final class Ticket
     public function drawCount(): int
     {
         return $this->drawCount;
+    }
+
+    /**
+     * What was handed in - the Laufzeit and the draw days.
+     *
+     * Null for tickets from before those were recorded; their period and draw
+     * count still say what they played.
+     */
+    public function schedule(): ?DrawSchedule
+    {
+        return $this->schedule;
     }
 
     /** The Bearbeitungsentgelt charged for this Spielauftrag, as a snapshot. */

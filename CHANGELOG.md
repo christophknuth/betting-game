@@ -6,6 +6,50 @@ what was changed when, and why.
 
 ---
 
+## A ticket is handed in for weeks, not for a period (2026-08-03)
+
+Submitting a ticket asked for a start date, an end date **and** a number of draws. That is
+not what happens at the counter: a Spielauftrag is handed in on one day, for a Laufzeit in
+weeks, and for Wednesday, Saturday or both. Everything else follows — and asking for it
+meant the two could disagree. Nothing stopped a ticket that ran a month from being billed
+for forty draws.
+
+`DrawSchedule` (a value object, `Domain/ValueObject`) now derives both numbers. The period
+is `period_start + duration_weeks × 7 − 1` days, both ends included, and the draw count is
+`duration_weeks` times one or two. **The multiplication is exact rather than an estimate:**
+6 aus 49 is drawn on Wednesday and on Saturday, holidays included, and a period of whole
+weeks holds each weekday exactly once per week — so the day the ticket is handed in cannot
+change what it pays for. `DrawScheduleTest` checks the shortcut against a walk over the
+calendar, and the vitest suite checks the copy of the rule the form shows.
+
+`SubmitTicketCommand` therefore takes `periodStart`, `durationWeeks` and `drawDays`;
+`periodEnd` and `drawCount` cannot be sent any more. The Laufzeit is capped at 52 weeks —
+not a rule of the domain, but a mistyped 520 would bill every member for ten years in one
+go, and the fees are written the moment the ticket is.
+
+The fee structure is untouched: `rows × draws × price` plus the Bearbeitungsentgelt once
+per Spielauftrag, whose rate the tipp year's price list still picks by the length of the
+order. A Laufzeit of one week is seven days, which is exactly what the cheaper rate is for.
+
+**The event log stays readable.** `ticket.submitted` gained `duration_weeks` and
+`draw_days` and kept `period_end` and `draw_count` — an event says what happened, and
+recomputing the period of an old ticket from a rule that has since changed is not that.
+Both new fields are nullable everywhere they are read, so a rebuild still projects every
+ticket written before the Laufzeit existed instead of failing on all of them.
+
+```sql
+ALTER TABLE ticket
+  ADD COLUMN duration_weeks TINYINT UNSIGNED NULL AFTER period_end,
+  ADD COLUMN draw_days ENUM('wednesday','saturday','both') NULL AFTER duration_weeks;
+```
+
+In the frontend the form asks for *Abgabe am*, *Laufzeit (Wochen)* and *Ziehungstage*, and
+says what it will become — "läuft bis 28.01.2026 und nimmt an 8 Ziehungen teil" — before
+the ticket is sent rather than after. The participant view shows the Laufzeit next to the
+draw count, and a dash where an older ticket has none.
+
+---
+
 ## Errors in the language they are read in (2026-08-02)
 
 Assigning a bet row to somebody who already has one for the period answered in English —
