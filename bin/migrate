@@ -1,0 +1,102 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Brings the database up to the schema this version expects.
+ *
+ * Part of a version switch, next to `composer install`:
+ *
+ *     docker-compose exec php php bin/migrate --status
+ *     docker-compose exec php php bin/migrate
+ *
+ * Exits 1 when something failed, and with --status 1 when migrations are
+ * pending - so a deployment script can ask without applying anything.
+ */
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use BettingGame\Infrastructure\Config\Config;
+use BettingGame\Infrastructure\Persistence\Db;
+use BettingGame\Infrastructure\Persistence\Migrator;
+
+/** @var array<string, mixed> $config */
+$config = require __DIR__ . '/../config/config.php';
+$settings = new Config($config);
+
+$statusOnly = in_array('--status', array_slice($argv, 1), true);
+
+// The container is not built here on purpose: it wires controllers, Keycloak
+// and a logger, none of which a schema change needs, and every one of which is
+// a way for this to fail for a reason that has nothing to do with the database.
+try {
+    $pdo = new PDO(
+        sprintf(
+            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+            $settings->string('db.host', 'localhost'),
+            $settings->int('db.port', 3306),
+            $settings->string('db.database', 'betting_game')
+        ),
+        $settings->string('db.username', 'root'),
+        $settings->string('db.password', ''),
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]
+    );
+} catch (Throwable $e) {
+    fwrite(STDERR, 'No database: ' . $e->getMessage() . PHP_EOL);
+
+    exit(1);
+}
+
+$migrator = new Migrator(new Db($pdo), Migrator::defaultDirectory());
+
+echo 'Database: ' . $settings->string('db.database', 'betting_game')
+    . ' on ' . $settings->string('db.host', 'localhost') . PHP_EOL;
+
+try {
+    $pending = $migrator->pending();
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Cannot read the migration state: ' . $e->getMessage() . PHP_EOL);
+
+    exit(1);
+}
+
+if ($pending === []) {
+    echo 'Up to date, ' . count($migrator->all()) . ' migrations applied.' . PHP_EOL;
+
+    exit(0);
+}
+
+echo 'Pending:' . PHP_EOL;
+
+foreach ($pending as $migration) {
+    echo '  ' . $migration->version . '_' . $migration->name . PHP_EOL;
+}
+
+if ($statusOnly) {
+    exit(1);
+}
+
+try {
+    $applied = $migrator->migrate();
+} catch (Throwable $e) {
+    // Half a migration may have run: MariaDB commits DDL as it goes. Every
+    // migration is written to survive a second attempt, so the way out is to
+    // fix the cause and run this again.
+    fwrite(STDERR, $e->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Stopped. Nothing after this one was applied.' . PHP_EOL);
+
+    exit(1);
+}
+
+foreach ($applied as $migration) {
+    echo 'Applied ' . $migration->version . '_' . $migration->name . PHP_EOL;
+}
+
+echo count($applied) . ' migrations applied.' . PHP_EOL;
+
+exit(0);

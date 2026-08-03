@@ -249,7 +249,10 @@ A complete run from an empty tipp year to the distribution is in
 
 ## Data model
 
-20 tables in [database/schema.sql](database/schema.sql).
+21 tables in [database/schema.sql](database/schema.sql) — which is read into an **empty**
+database only. An existing one is brought up to date by
+[database/migrations/](database/migrations/README.md), applied with `bin/migrate` as part of
+a version switch.
 
 **Read model (13, built from events):** `participant`, `tipp_year`, `membership`,
 `bet_period`, `bet_row`, `ticket`, `ticket_row`, `draw`, `ticket_draw_result`,
@@ -259,7 +262,8 @@ A complete run from an empty tipp year to the distribution is in
 `event_stream` (stream metadata with version), `snapshot`, `projection_state`,
 `event_publisher` (outbox, prepared).
 
-**Operations (1):** `command_log` — command history and idempotency keys.
+**Operations (2):** `command_log` — command history and idempotency keys; `schema_migration`
+— which migrations this database has seen.
 
 The `user` table dates from before Keycloak and is no longer written by any projector;
 identities live in the realm.
@@ -294,6 +298,7 @@ composer install
 mysql -u root -p -e "CREATE DATABASE betting_game CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -u root -p betting_game < database/schema.sql
 cp .env.example .env          # config/config.php reads everything from environment variables
+php bin/migrate               # on an upgrade: applies database/migrations/
 php -S localhost:8080 -t public
 ```
 

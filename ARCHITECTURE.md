@@ -232,7 +232,7 @@ throw domain exceptions.
 | `Config/` | `Config` — typed access to the config array |
 | `DI/` | `Container` (PHP-DI), `PsrContainer` (PSR-11) |
 | `EventStore/` | `PdoEventStore` |
-| `Persistence/` | `Db` + 9 repositories, `EventSourcedRepository` as the base |
+| `Persistence/` | `Db` + 9 repositories, `EventSourcedRepository` as the base, `Migrator`/`Migration` |
 | `Projection/` | 7 projectors, one per read model |
 | `Logging/` | `LoggerFactory` (Monolog, PSR-3) |
 

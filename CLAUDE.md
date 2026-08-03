@@ -49,6 +49,7 @@ The frontend has its own suites (Vitest, Playwright) — see [FRONTEND.md](FRONT
 | How does a request flow? | [src/Presentation/Http/Kernel.php](src/Presentation/Http/Kernel.php) |
 | How is everything wired up? | [src/Infrastructure/DI/Container.php](src/Infrastructure/DI/Container.php) |
 | Which tables exist? | [database/schema.sql](database/schema.sql) |
+| How does a schema change reach a database that has data? | [database/migrations/README.md](database/migrations/README.md), `bin/migrate` |
 
 ## Things to keep in mind
 

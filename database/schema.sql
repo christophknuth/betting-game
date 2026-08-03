@@ -14,6 +14,7 @@
 -- The schema of the sports-betting extension lives in schema-e2-sports.sql.
 
 -- Drop existing tables (in correct order due to foreign keys)
+DROP TABLE IF EXISTS schema_migration;
 DROP TABLE IF EXISTS command_log;
 DROP TABLE IF EXISTS projection_state;
 DROP TABLE IF EXISTS event_publisher;
@@ -389,6 +390,20 @@ CREATE TABLE command_log (
     UNIQUE KEY uk_idempotency_key (idempotency_key),
     INDEX idx_status (status),
     INDEX idx_correlation_id (correlation_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Which of database/migrations/ this database has seen (see its README.md).
+--
+-- This file is the schema of the current version and is only ever read into an
+-- empty data directory; the migrations are the same changes as steps, for a
+-- database that already holds data. A fresh installation therefore runs them
+-- too, where they find everything in place and do nothing but write their line
+-- here - which is what makes "has this database been migrated?" one question
+-- with one answer, however the database came about.
+CREATE TABLE schema_migration (
+    version VARCHAR(20) PRIMARY KEY COMMENT 'The file name up to the first underscore',
+    name VARCHAR(191) NOT NULL,
+    applied_at DATETIME(6) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

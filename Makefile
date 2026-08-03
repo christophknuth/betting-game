@@ -1,4 +1,4 @@
-.PHONY: help install test test-unit test-integration test-db-start test-db-stop coverage start stop restart db-reset logs
+.PHONY: help install test test-unit test-integration test-db-start test-db-stop coverage start stop restart db-migrate db-migrate-status db-reset logs
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -64,6 +64,12 @@ test-db-start: ## Start the database the integration tests run against
 
 test-db-stop: ## Remove the integration test database
 	docker-compose -f docker-compose.test.yml rm -sfv test-db
+
+db-migrate: ## Apply pending schema migrations (part of a version switch)
+	docker-compose exec php php bin/migrate
+
+db-migrate-status: ## Show which migrations are pending, apply nothing
+	docker-compose exec php php bin/migrate --status
 
 db-reset: ## Reset database
 	docker-compose exec db mysql -uroot -psecret betting_game < database/schema.sql
