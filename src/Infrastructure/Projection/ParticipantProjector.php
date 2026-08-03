@@ -6,6 +6,7 @@ namespace BettingGame\Infrastructure\Projection;
 
 use BettingGame\Application\Projection\Projector;
 use BettingGame\Domain\Repository\RecordedEvent;
+use BettingGame\Domain\ValueObject\ParticipantStatus;
 use BettingGame\Infrastructure\Persistence\Db;
 use BettingGame\Support\Row;
 
@@ -53,24 +54,33 @@ final class ParticipantProjector implements Projector
         match ($record->event->eventType()) {
             self::EVENT_CREATED => $this->db->execute(
                 '
-                INSERT INTO participant (participant_id, user_id, display_name, registered_at, is_active, version)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO participant (
+                    participant_id, user_id, display_name, keycloak_subject, registered_at, status, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 ',
                 [
                     Row::int($data, 'participant_id'),
                     Row::nullableInt($data, 'user_id'),
                     Row::string($data, 'display_name'),
+                    // Absent from every participant created before E1-01 - the
+                    // event log is immutable, and demanding it would break a
+                    // rebuild on all of them.
+                    Row::nullableString($data, 'keycloak_subject'),
                     $record->event->occurredAt()->format('Y-m-d H:i:s'),
-                    Row::bool($data, 'auto_approved') ? 1 : 0,
+                    // What the administrator enters is approved by the act of
+                    // entering it; a self-registration waits (E1-01).
+                    Row::bool($data, 'auto_approved')
+                        ? ParticipantStatus::ACTIVE
+                        : ParticipantStatus::PENDING,
                     $record->version,
                 ]
             ),
-            // E1's approval of a self-registration. B-25's status change lands
-            // in the same column and is a different thing - an administrator
-            // saying who still plays.
+            // E1-01: the administrator said yes to a registration. B-25's
+            // status change lands in the same column and is a different thing -
+            // somebody leaving, or coming back.
             self::EVENT_APPROVED => $this->db->execute(
-                'UPDATE participant SET is_active = 1, version = ? WHERE participant_id = ?',
-                [$record->version, Row::int($data, 'participant_id')]
+                'UPDATE participant SET status = ?, version = ? WHERE participant_id = ?',
+                [ParticipantStatus::ACTIVE, $record->version, Row::int($data, 'participant_id')]
             ),
             self::EVENT_RENAMED => $this->db->execute(
                 'UPDATE participant SET display_name = ?, version = ? WHERE participant_id = ?',
@@ -81,9 +91,11 @@ final class ParticipantProjector implements Projector
                 ]
             ),
             self::EVENT_STATUS_CHANGED => $this->db->execute(
-                'UPDATE participant SET is_active = ?, version = ? WHERE participant_id = ?',
+                'UPDATE participant SET status = ?, version = ? WHERE participant_id = ?',
                 [
-                    Row::bool($data, 'is_active') ? 1 : 0,
+                    Row::bool($data, 'is_active')
+                        ? ParticipantStatus::ACTIVE
+                        : ParticipantStatus::INACTIVE,
                     $record->version,
                     Row::int($data, 'participant_id'),
                 ]

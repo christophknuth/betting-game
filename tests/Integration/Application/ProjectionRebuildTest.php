@@ -66,9 +66,11 @@ final class ProjectionRebuildTest extends ApplicationTestCase
         $this->participants->save(Participant::create(7, 1, new DisplayName('Anna'), true));
         $this->participants->save(Participant::create(8, 2, new DisplayName('Ben')));
 
+        // Ben arrives pending, like a self-registration, and is approved - so
+        // the rebuild has a participant.approved event to replay as well.
         $ben = $this->participants->findParticipant(8);
         self::assertNotNull($ben);
-        $ben->approve();
+        $ben->changeStatus(true);
         $this->participants->save($ben);
 
         $year = $this->createTippYear()->handle(

@@ -15,6 +15,14 @@
         </p>
 
         <div class="nav-links">
+          <!-- E1-01: nur solange der Zugang noch kein Teilnehmer ist — danach
+               gibt es dort nichts mehr zu tun. -->
+          <router-link
+            v-if="!authStore.participantId"
+            to="/register"
+          >
+            Mitspielen
+          </router-link>
           <router-link to="/bet-row">
             Meine Reihe
           </router-link>

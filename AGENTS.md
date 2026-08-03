@@ -26,8 +26,15 @@ PHP 8.4, no framework, onion architecture with event sourcing and CQRS.
 - **Draws** (`Draw`) produce winnings for the ticket as a whole; they are collected over the
   year and distributed **evenly across all participants** at the end of it.
 
-**Expansion stage: base.** Participants only read, the administrator writes everything.
-E1 (self-service) and E2 (sports betting) are specified but not implemented.
+**Expansion stage: base, plus E1-01.** Participants only read, the administrator writes
+everything — with one exception: **self-registration** (`POST /registrations`) creates a
+`pending` participant for whoever is signed in, and the administrator approves it. The rest
+of E1 (self-service) and E2 (sports betting) are specified but not implemented.
+
+A participant therefore has three states — `pending`, `active`, `inactive` — and only an
+`active` one may join a tipp year. Where a token carries no `participant_id` claim, the
+kernel resolves the account through `participant.keycloak_subject`, which is what a
+registration wrote there.
 
 ### Roles
 
@@ -47,7 +54,7 @@ up on 2026-07-29.
 | Document | State |
 |---|---|
 | [USER_STORIES.md](USER_STORIES.md) | ✅ **Current and authoritative.** The domain reference, including per-story status |
-| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Current** (v2.5.0, "Lottery Syndicate API"). The authoritative API contract |
+| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Current** (v2.6.0, "Lottery Syndicate API"). The authoritative API contract |
 | [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) | ✅ Current |
 | [database/schema.sql](database/schema.sql) | ✅ Current |
 | [README.md](README.md) | ✅ Current. Overview, endpoints, installation |
@@ -166,14 +173,14 @@ src/                              155 files, one class per file
 │   ├── Model/                    aggregates: TippYear, BetPeriod, BetRow, Ticket,
 │   │                             Draw, Fee, Participant + the RecordsEvents trait
 │   ├── ValueObject/              LottoNumbers, Superzahl, DateRange, EvenSplit, DrawSchedule,
-│   │                             WinningClass, TippYearStatus, Email, DisplayName, …
+│   │                             WinningClass, TippYearStatus, ParticipantStatus, DisplayName, …
 │   ├── Event/                    DomainEvent + 16 concrete events
 │   ├── Repository/               repository interfaces + RecordedEvent
 │   ├── Service/                  WinningsDistribution (used by the handler AND the projector)
 │   └── Exception/                the exception hierarchy under DomainException
 ├── Application/
-│   ├── Command/                  13 commands + handlers, CommandResult
-│   ├── Query/                    11 queries + handlers, QueryResult
+│   ├── Command/                  14 commands + handlers, CommandResult
+│   ├── Query/                    12 queries + handlers, QueryResult
 │   └── Projection/               ProjectionManager, Projector, ProjectionStatus
 ├── Infrastructure/
 │   ├── Auth/                     TokenVerifier, JwkSet, KeycloakKeys, AuthMiddleware

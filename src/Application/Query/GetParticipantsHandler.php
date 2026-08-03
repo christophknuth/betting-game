@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BettingGame\Application\Query;
 
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
+use BettingGame\Domain\ValueObject\ParticipantStatus;
 use BettingGame\Support\Row;
 
 /**
@@ -26,11 +27,24 @@ final class GetParticipantsHandler
     {
         $participants = [];
 
-        foreach ($this->participants->findAll($query->isActive) as $row) {
+        // Constructed for the check alone: an unknown filter is a bad request,
+        // and answering it with an empty roster would look like a syndicate
+        // that has no members.
+        $filter = $query->status === null ? null : (new ParticipantStatus($query->status))->value();
+
+        foreach ($this->participants->findAll($filter) as $row) {
+            $status = Row::string($row, 'status');
+
             $participants[] = [
                 'participantId' => Row::int($row, 'participant_id'),
                 'displayName' => Row::string($row, 'display_name'),
-                'isActive' => Row::bool($row, 'is_active'),
+                'status' => $status,
+                // Three states, one of which is the interesting one for
+                // everything that asks "may this person play?"
+                'isActive' => $status === ParticipantStatus::ACTIVE,
+                // E1-01: whether they signed themselves up. Not the subject
+                // itself - that identifies an account and belongs in no list.
+                'selfRegistered' => Row::nullableString($row, 'keycloak_subject') !== null,
                 'registeredAt' => Row::string($row, 'registered_at'),
             ];
         }

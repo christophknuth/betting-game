@@ -252,6 +252,7 @@ final class Container
             Command\RecordDrawHandler::class => \DI\autowire(),
             Command\RecordDrawWinningsHandler::class => \DI\autowire(),
             Command\RecordFeePaymentHandler::class => \DI\autowire(),
+            Command\RegisterParticipantHandler::class => \DI\autowire(),
             Command\RenameParticipantHandler::class => \DI\autowire(),
             Command\SubmitTicketHandler::class => \DI\autowire(),
 
@@ -261,6 +262,7 @@ final class Container
             Query\GetDrawsHandler::class => \DI\autowire(),
             Query\GetFeesHandler::class => \DI\autowire(),
             Query\GetMembershipsHandler::class => \DI\autowire(),
+            Query\GetMyRegistrationHandler::class => \DI\autowire(),
             Query\GetParticipantFeesHandler::class => \DI\autowire(),
             Query\GetParticipantsHandler::class => \DI\autowire(),
             Query\GetPayoutShareHandler::class => \DI\autowire(),
@@ -271,6 +273,7 @@ final class Container
             // Controllers
             HealthController::class => \DI\autowire(),
             Controller\ParticipantController::class => \DI\autowire(),
+            Controller\RegistrationController::class => \DI\autowire(),
             Controller\TippYearController::class => \DI\autowire(),
             Controller\AdminBetRowController::class => \DI\autowire(),
             Controller\AdminDrawController::class => \DI\autowire(),

@@ -66,6 +66,10 @@ final class ConstraintMessages
 
         // B-21: a display name is not unique, but the account behind it is
         'uk_user' => 'This account is already linked to a participant',
+
+        // E1-01: one participant per Keycloak account
+        'uk_keycloak_subject' => 'This account already belongs to a participant',
+
         'uk_username' => 'This username is already taken',
         'uk_email' => 'This email address is already taken',
 

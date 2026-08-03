@@ -191,6 +191,20 @@ VITE_API_URL=http://localhost:8080
 needed. The mapper hangs **directly off the client** `betting-game-frontend`
 (`protocolMappers`), not off a client scope of its own. Why, follows right below.
 
+### Since E1-01 the claim is an optimisation, not a requirement
+
+A token without `participant_id` is no longer anonymous to the application. Where the claim
+is absent, the kernel looks the account's **`sub`** up in `participant.keycloak_subject` —
+which is what a self-registration (`POST /registrations`) wrote there.
+
+That is the point of E1-01: becoming visible to the application used to mean an
+administrator opening Keycloak and typing an id into a user attribute for every new member.
+Now the registration establishes the link, and the realm only decides who gets a login at
+all.
+
+The claim keeps its place: it is checked first, costs no query, and the seeded users above
+still carry it. What it no longer is, is the only way in.
+
 ### One client scope in the realm export deletes the built-in ones
 
 > This trap made the realm unusable between the change of course and 2026-07-29. Anyone
@@ -213,7 +227,7 @@ And with that the entire authorisation was ineffective, without an error appeari
 
 | Effect | Consequence |
 |---|---|
-| no `participant_id` | B-01 through B-04 answer `403`, the frontend shows the note in `ParticipantScope` |
+| no `participant_id` | Only where the account has no registration either: B-01 through B-04 answer `403` and the frontend offers `/register` (E1-01) |
 | no `realm_access.roles` | **all** admin routes `403`, the admin navigation is missing in the frontend |
 | no `preferred_username` | `bookedBy` falls back to `'admin'`, the display to `'User'` |
 

@@ -19,7 +19,7 @@ INSERT INTO user (user_id, username, password_hash, email) VALUES
   (2, 'testuser', 'x', 'test@example.com')
 ON DUPLICATE KEY UPDATE username = VALUES(username);
 
-INSERT INTO participant (participant_id, user_id, display_name, is_active) VALUES
-  (1, 1, 'Admin', 1),
-  (2, 2, 'Test User', 1)
-ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), is_active = 1;
+INSERT INTO participant (participant_id, user_id, display_name, status) VALUES
+  (1, 1, 'Admin', 'active'),
+  (2, 2, 'Test User', 'active')
+ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), status = 'active';

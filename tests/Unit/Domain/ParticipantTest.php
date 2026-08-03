@@ -36,11 +36,36 @@ final class ParticipantTest extends TestCase
         $this->assertEquals(100, $participant->userId());
         $this->assertEquals('Max Mustermann', $participant->displayName()->value());
         $this->assertFalse($participant->isActive());
+        $this->assertTrue($participant->status()->isPending());
 
         $events = $participant->releaseEvents();
         $this->assertCount(1, $events);
         $this->assertInstanceOf(ParticipantCreated::class, $events[0]);
         $this->assertFalse($events[0]->autoApproved());
+        $this->assertNull($events[0]->keycloakSubject(), 'nobody registered themselves here');
+    }
+
+    public function testRegisteringLeavesAPendingParticipantForTheAccount(): void
+    {
+        // E1-01: the account is what the token said, and the participant is a
+        // request until an administrator says otherwise.
+        $participant = Participant::register(7, 'a5f0-sub', new DisplayName('Erika Mustermann'));
+
+        $this->assertTrue($participant->status()->isPending());
+        $this->assertFalse($participant->isActive());
+        $this->assertSame('a5f0-sub', $participant->keycloakSubject());
+
+        $events = $participant->releaseEvents();
+        $this->assertInstanceOf(ParticipantCreated::class, $events[0]);
+        $this->assertSame('a5f0-sub', $events[0]->toArray()['keycloak_subject']);
+        $this->assertFalse($events[0]->autoApproved());
+    }
+
+    public function testARegistrationWithoutAnAccountIsRefused(): void
+    {
+        $this->expectException(BusinessRuleViolationException::class);
+
+        Participant::register(7, '  ', new DisplayName('Erika Mustermann'));
     }
 
     public function testCreateParticipantWithAutoApprove(): void
@@ -60,16 +85,15 @@ final class ParticipantTest extends TestCase
         $this->assertTrue($events[0]->autoApproved());
     }
 
-    public function testApproveParticipant(): void
+    public function testSayingYesToARegistrationIsRecordedAsAnApproval(): void
     {
-        $participant = Participant::create(
-            1,
-            100,
-            new DisplayName('Pending User')
-        );
-
+        // E1-01: same command as B-25's status change, different fact - and an
+        // audit trail that cannot tell an approval from a reactivation has lost
+        // the more interesting of the two.
+        $participant = Participant::register(1, 'a5f0-sub', new DisplayName('Pending User'));
         $participant->releaseEvents();
-        $participant->approve();
+
+        $participant->changeStatus(true);
 
         $this->assertTrue($participant->isActive());
         $this->assertEquals(1, $participant->version());
@@ -79,20 +103,20 @@ final class ParticipantTest extends TestCase
         $this->assertInstanceOf(ParticipantApproved::class, $events[0]);
     }
 
-    public function testApproveAlreadyActiveParticipantThrowsException(): void
+    public function testARefusedRegistrationBecomesInactive(): void
     {
-        $this->expectException(BusinessRuleViolationException::class);
-        $this->expectExceptionMessage('Participant is already active');
+        $participant = Participant::register(1, 'a5f0-sub', new DisplayName('Pending User'));
+        $participant->releaseEvents();
 
-        $participant = Participant::create(
-            1,
-            100,
-            new DisplayName('Active User'),
-            true
-        );
+        // Pending is not inactive, so this is a change and not a no-op - the
+        // administrator has decided, and the answer was no.
+        $participant->changeStatus(false);
 
-        $participant->approve();
+        $this->assertFalse($participant->isActive());
+        $this->assertFalse($participant->status()->isPending());
+        $this->assertInstanceOf(ParticipantStatusChanged::class, $participant->releaseEvents()[0]);
     }
+
 
     public function testRenamingRecordsBothNames(): void
     {

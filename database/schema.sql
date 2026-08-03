@@ -55,12 +55,25 @@ CREATE TABLE participant (
     participant_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL COMMENT 'Optional - guest participants have no account',
     display_name VARCHAR(50) NOT NULL,
+    -- E1-01: the Keycloak account this participant *is*, from the token's `sub`.
+    -- Set by a self-registration and the reason it needs no manual attribute in
+    -- the realm: the API recognises the same person by it on every request.
+    -- NULL where the administrator entered somebody who has no account yet.
+    keycloak_subject VARCHAR(64) NULL COMMENT 'Keycloak `sub` of the account that registered',
     registered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
+    -- pending: registered themselves, waiting for the administrator (E1-01)
+    -- active:  plays. The only state that may join a tipp year (B-11)
+    -- inactive: a refused registration, or somebody who left (B-25)
+    status ENUM('pending', 'active', 'inactive') NOT NULL DEFAULT 'active',
     version INT DEFAULT 0 COMMENT 'Optimistic locking',
     FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE SET NULL,
     UNIQUE KEY uk_user (user_id),
-    INDEX idx_display_name (display_name)
+    -- One participant per account. Without it a second registration from the
+    -- same login would create a second participant, and identity would resolve
+    -- to whichever the query happened to find first.
+    UNIQUE KEY uk_keycloak_subject (keycloak_subject),
+    INDEX idx_display_name (display_name),
+    INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

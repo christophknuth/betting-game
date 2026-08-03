@@ -60,6 +60,23 @@ final class Router
                 'method' => 'draws',
             ]);
 
+            // --- Self-registration (E1-01) ---
+            //
+            // The only routes that need a token but no participant behind it:
+            // they are how one becomes a participant. Not admin-protected -
+            // whoever the realm let in may ask; the administrator decides
+            // through the status route below.
+
+            $r->addRoute('POST', '/registrations', [
+                'controller' => 'RegistrationController',
+                'method' => 'register',
+                'command' => true,
+            ]);
+            $r->addRoute('GET', '/registrations/me', [
+                'controller' => 'RegistrationController',
+                'method' => 'mine',
+            ]);
+
             // --- Admin: participants (B-21, B-25) ---
 
             $r->addRoute('GET', '/admin/participants', [

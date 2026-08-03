@@ -498,11 +498,15 @@ final class ApiTest extends HttpTestCase
         $roster = $this->send('GET', '/admin/participants', $admin);
         self::assertSame(200, $roster->statusCode());
         self::assertSame('Erika Mustermann', $roster->data()['participants'][0]['displayName']);
+        self::assertSame('inactive', $roster->data()['participants'][0]['status']);
         self::assertFalse($roster->data()['participants'][0]['isActive']);
 
         // The same list as a picker asks for it
-        $active = $this->send('GET', '/admin/participants?active=true', $admin);
+        $active = $this->send('GET', '/admin/participants?status=active', $admin);
         self::assertSame([], $active->data()['participants'], 'nobody is still playing');
+
+        $nonsense = $this->send('GET', '/admin/participants?status=irgendwas', $admin);
+        self::assertSame(400, $nonsense->statusCode(), 'an unknown filter is not an empty roster');
     }
 
     /** B-25: the status has to be stated, not defaulted into deactivation. */

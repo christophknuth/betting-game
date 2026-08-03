@@ -12,6 +12,7 @@ use BettingGame\Application\Command\RenameParticipantCommand;
 use BettingGame\Application\Query\GetParticipantsQuery;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Exception\EntityNotFoundException;
+use BettingGame\Domain\ValueObject\ParticipantStatus;
 use BettingGame\Support\Row;
 
 /**
@@ -81,7 +82,7 @@ final class EditParticipantTest extends ApplicationTestCase
         $row = $this->participants->findById($participantId);
         self::assertNotNull($row);
         self::assertSame('Erika Mustermann', Row::string($row, 'display_name'));
-        self::assertFalse(Row::bool($row, 'is_active'));
+        self::assertSame(ParticipantStatus::INACTIVE, Row::string($row, 'status'));
     }
 
     public function testRenamingAnUnknownParticipantIsRefused(): void
@@ -113,7 +114,7 @@ final class EditParticipantTest extends ApplicationTestCase
         );
 
         $all = $this->getParticipants()->handle(new GetParticipantsQuery())->toArray();
-        $active = $this->getParticipants()->handle(new GetParticipantsQuery(true))->toArray();
+        $active = $this->getParticipants()->handle(new GetParticipantsQuery(ParticipantStatus::ACTIVE))->toArray();
 
         self::assertSame([$staying, $leaving], array_column($all['participants'], 'participantId'));
         self::assertSame(

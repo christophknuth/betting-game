@@ -7,6 +7,7 @@ namespace BettingGame\Tests\Integration\Application;
 use BettingGame\Application\Command\CreateParticipantCommand;
 use BettingGame\Application\Query\GetParticipantsQuery;
 use BettingGame\Domain\Exception\InvalidArgumentException;
+use BettingGame\Domain\ValueObject\ParticipantStatus;
 use BettingGame\Support\Row;
 
 /**
@@ -27,7 +28,11 @@ final class CreateParticipantTest extends ApplicationTestCase
 
         $this->assertNotNull($row);
         $this->assertSame('Erika Mustermann', Row::string($row, 'display_name'));
-        $this->assertTrue(Row::bool($row, 'is_active'), 'What an admin enters counts as approved');
+        $this->assertSame(
+            ParticipantStatus::ACTIVE,
+            Row::string($row, 'status'),
+            'What an admin enters counts as approved'
+        );
         $this->assertNull(
             Row::nullableInt($row, 'user_id'),
             'No account is linked: identity comes from Keycloak, and `user` predates it'

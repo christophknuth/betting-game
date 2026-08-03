@@ -31,13 +31,17 @@ final class AddMemberHandler
             throw new EntityNotFoundException("Participant {$command->participantId} does not exist");
         }
 
-        // B-25: inactive means "plays no more". Past memberships stay untouched,
-        // but a new one is exactly what the flag is there to prevent - and the
-        // picker no longer offers them either.
+        // Only an active participant joins. `inactive` means "plays no more"
+        // (B-25) and `pending` means nobody has said yes to their registration
+        // yet (E1-01) - past memberships stay untouched either way, but a new
+        // one is exactly what the status is there to decide. The pickers do not
+        // offer them, and this is the rule behind that.
         if (!$participant->isActive()) {
-            throw new BusinessRuleViolationException(
-                "Participant {$command->participantId} is inactive and cannot join a tipp year"
-            );
+            throw new BusinessRuleViolationException(sprintf(
+                'Participant %d is %s and cannot join a tipp year',
+                $command->participantId,
+                $participant->status()->value()
+            ));
         }
 
         // The membership projection would happily reactivate an existing row,

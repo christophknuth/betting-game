@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Tests\Integration;
 
+use BettingGame\Domain\ValueObject\ParticipantStatus;
 use BettingGame\Infrastructure\EventStore\PdoEventStore;
 use BettingGame\Infrastructure\Persistence\Db;
 use PDO;
@@ -112,11 +113,19 @@ abstract class IntegrationTestCase extends TestCase
      * Participants are a foreign key of almost everything, so most tests need
      * one before they can write anything at all.
      */
-    protected function givenParticipant(int $id, string $displayName = 'Tester'): int
-    {
+    /**
+     * @param string|null $keycloakSubject set where the test needs the account
+     *     behind the participant - E1-01 resolves identity by it
+     */
+    protected function givenParticipant(
+        int $id,
+        string $displayName = 'Tester',
+        ?string $keycloakSubject = null
+    ): int {
         $this->db->execute(
-            'INSERT INTO participant (participant_id, display_name, is_active, version) VALUES (?, ?, 1, 0)',
-            [$id, $displayName]
+            'INSERT INTO participant (participant_id, display_name, keycloak_subject, status, version)
+             VALUES (?, ?, ?, ?, 0)',
+            [$id, $displayName, $keycloakSubject, ParticipantStatus::ACTIVE]
         );
 
         return $id;

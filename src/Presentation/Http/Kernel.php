@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BettingGame\Presentation\Http;
 
 use BettingGame\Domain\Repository\CommandLogRepositoryInterface;
+use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
 use BettingGame\Infrastructure\Auth\AuthMiddleware;
 use BettingGame\Presentation\Router\Router;
 use FastRoute\Dispatcher;
@@ -32,6 +33,7 @@ final class Kernel
         private AuthMiddleware $auth,
         private ErrorMapper $errors,
         private CommandLogRepositoryInterface $commandLog,
+        private ParticipantRepositoryInterface $participants,
         private LoggerInterface $logger
     ) {
     }
@@ -90,6 +92,8 @@ final class Kernel
             if ($unauthorized !== null) {
                 return $unauthorized;
             }
+
+            $this->resolveParticipant($request);
         }
 
         if (($handler['role'] ?? null) === Authorization::ADMIN_ROLE) {
@@ -101,6 +105,47 @@ final class Kernel
         }
 
         return $this->invoke($handler, $request, $vars);
+    }
+
+    /**
+     * E1-01: which participant the token belongs to, where the claim is silent.
+     *
+     * `participant_id` in the token stays the first source - a realm that maps
+     * the attribute keeps working unchanged, and it costs no query. Where it is
+     * absent the account's `sub` is looked up in the participant read model,
+     * which is what a self-registration wrote there.
+     *
+     * That lookup is the whole reason self-registration is self-service. Before
+     * it, becoming visible to the application meant an administrator opening
+     * Keycloak and typing an id into a user attribute; now the registration
+     * itself establishes the link.
+     *
+     * A **pending** participant is deliberately resolved as well. They are not
+     * a member of anything and every rule that matters checks the status, but
+     * `GET /participants/{id}/…` answering "you are nobody" to somebody whose
+     * registration is on an administrator's desk would be a lie.
+     *
+     * Cross-cutting, so it belongs here rather than in a controller - and
+     * outside AuthMiddleware, which decides whether a token is genuine and
+     * should not also be reading the database.
+     */
+    private function resolveParticipant(Request $request): void
+    {
+        if (is_int($request->attribute('participant_id'))) {
+            return;
+        }
+
+        $subject = $request->attribute('subject');
+
+        if (!is_string($subject) || $subject === '') {
+            return;
+        }
+
+        $participant = $this->participants->findByKeycloakSubject($subject);
+
+        if ($participant !== null) {
+            $request->setAttribute('participant_id', $participant->id());
+        }
     }
 
     /**

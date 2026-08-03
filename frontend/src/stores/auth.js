@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import api from '@/services/api'
 import * as keycloakService from '@/services/keycloak'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -11,6 +12,11 @@ export const useAuthStore = defineStore('auth', () => {
   const subject = ref(null)
   const keycloakInitialized = ref(false)
   const authenticated = ref(false)
+
+  // E1-01: what the API says about this account - `{ registered, status, … }`.
+  // Null while nobody has asked, which is the case for every token that brings
+  // its own participant_id claim.
+  const registration = ref(null)
 
   const isAuthenticated = computed(() => authenticated.value)
   const displayName = computed(() => username.value || email.value || 'User')
@@ -47,6 +53,12 @@ export const useAuthStore = defineStore('auth', () => {
         authenticated.value = true
         updateUserInfo()
 
+        // E1-01: an account that registered itself carries no participant_id
+        // claim and never will. Asking the API closes that gap - and only for
+        // the tokens that need it, since a realm that maps the attribute
+        // answers from the token alone.
+        await loadRegistration()
+
         // Setup token refresh
         keycloakService.onTokenExpired(() => {
           keycloakService.updateToken(30).then(() => {
@@ -77,6 +89,39 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * E1-01: which participant this account is, where the token does not say.
+   *
+   * The API resolves the same thing server-side from the token's subject; this
+   * is the interface learning it, so the participant views know whether they
+   * have somebody to show - and so `/register` can report where a registration
+   * stands.
+   *
+   * A failure is not fatal. Somebody who is logged in but unknown to the
+   * application is exactly the state this call describes, and the views handle
+   * it already.
+   */
+  async function loadRegistration() {
+    if (participantId.value) {
+      return
+    }
+
+    try {
+      const { data } = await api.getMyRegistration()
+
+      registration.value = data
+
+      // Only an approved participant identifies the account. A pending one is
+      // a request, and letting the views open for it would show empty pages
+      // instead of "waiting for approval".
+      if (data.registered && data.status === 'active') {
+        participantId.value = data.participantId
+      }
+    } catch (error) {
+      console.warn('Could not ask the API about this account:', error)
+    }
+  }
+
   async function login() {
     try {
       await keycloakService.login()
@@ -100,6 +145,7 @@ export const useAuthStore = defineStore('auth', () => {
       email.value = null
       roles.value = []
       subject.value = null
+      registration.value = null
     }
   }
 
@@ -119,6 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
     email,
     roles,
     subject,
+    registration,
     keycloakInitialized,
     
     // Computed
@@ -129,6 +176,7 @@ export const useAuthStore = defineStore('auth', () => {
     initKeycloak,
     ready,
     updateUserInfo,
+    loadRegistration,
     login,
     logout,
     hasRole,
