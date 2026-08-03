@@ -8,6 +8,7 @@ use BettingGame\Domain\Event\DomainEvent;
 use BettingGame\Domain\Event\BetPeriodCreated;
 use BettingGame\Domain\Event\BetRowAssigned;
 use BettingGame\Domain\Event\BetRowReplaced;
+use BettingGame\Domain\Event\DrawCorrected;
 use BettingGame\Domain\Event\DrawRecorded;
 use BettingGame\Domain\Event\DrawWinningsRecorded;
 use BettingGame\Domain\Event\FeeCharged;
@@ -326,6 +327,20 @@ final class PdoEventStore implements EventStoreInterface
                 Row::string($eventData, 'draw_date'),
                 self::intList($eventData, 'numbers'),
                 Row::int($eventData, 'superzahl'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'draw.corrected' => new DrawCorrected(
+                Row::string($eventData, 'draw_id'),
+                Row::string($eventData, 'draw_date'),
+                self::intList($eventData, 'numbers'),
+                Row::int($eventData, 'superzahl'),
+                Row::string($eventData, 'previous_draw_date'),
+                self::intList($eventData, 'previous_numbers'),
+                // A draw that was only scheduled had none
+                Row::nullableInt($eventData, 'previous_superzahl'),
                 $domainEventId,
                 $occurredAt,
                 $causationId,

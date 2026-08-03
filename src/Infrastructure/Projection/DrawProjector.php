@@ -28,6 +28,8 @@ final class DrawProjector implements Projector
 
     public const EVENT_RECORDED = 'draw.recorded';
 
+    public const EVENT_CORRECTED = 'draw.corrected';
+
     public const EVENT_WINNINGS_RECORDED = 'draw.winnings_recorded';
 
     public function __construct(private Db $db)
@@ -42,7 +44,7 @@ final class DrawProjector implements Projector
     /** @return list<string> */
     public function eventTypes(): array
     {
-        return [self::EVENT_RECORDED, self::EVENT_WINNINGS_RECORDED];
+        return [self::EVENT_RECORDED, self::EVENT_CORRECTED, self::EVENT_WINNINGS_RECORDED];
     }
 
     public function reset(): void
@@ -60,9 +62,62 @@ final class DrawProjector implements Projector
 
         match ($record->event->eventType()) {
             self::EVENT_RECORDED => $this->recorded($data, $record),
+            self::EVENT_CORRECTED => $this->corrected($data, $record),
             self::EVENT_WINNINGS_RECORDED => $this->winningsRecorded($data, $record),
             default => null,
         };
+    }
+
+    /**
+     * B-28: the draw as it should have been entered, and its rows worked out
+     * again from the new numbers.
+     *
+     * The old matches go first rather than being overwritten: a corrected date
+     * can put the draw on a different ticket, and the rows of the one it left
+     * would otherwise stay behind as results of a draw they never took part in.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function corrected(array $data, RecordedEvent $record): void
+    {
+        $drawId = Row::int($data, 'draw_id');
+        $numbers = $data['numbers'] ?? [];
+
+        $this->db->execute(
+            '
+            UPDATE draw
+            SET draw_date = ?, numbers = ?, superzahl = ?, status = ?, version = ?
+            WHERE draw_id = ?
+            ',
+            [
+                Row::string($data, 'draw_date'),
+                json_encode(
+                    LottoNumbers::fromMixed(is_array($numbers) ? $numbers : [])->toArray(),
+                    JSON_THROW_ON_ERROR
+                ),
+                Row::int($data, 'superzahl'),
+                Draw::DRAWN,
+                $record->version,
+                $drawId,
+            ]
+        );
+
+        $this->db->execute('DELETE FROM ticket_row_match WHERE draw_id = ?', [$drawId]);
+
+        $tippYearRow = $this->db->fetchOne('SELECT tipp_year_id FROM draw WHERE draw_id = ?', [$drawId]);
+
+        if ($tippYearRow === null) {
+            return;
+        }
+
+        $ticketId = $this->coveringTicketId(
+            Row::int($tippYearRow, 'tipp_year_id'),
+            Row::string($data, 'draw_date')
+        );
+
+        if ($ticketId !== null) {
+            $this->rebuildRowMatches($drawId, $ticketId, 0.0, []);
+        }
     }
 
     /** @param array<string, mixed> $data */

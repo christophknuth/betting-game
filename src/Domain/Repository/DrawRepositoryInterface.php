@@ -41,6 +41,15 @@ interface DrawRepositoryInterface
     public function saveRowMatches(int $drawId, array $matches): void;
 
     /**
+     * B-28: drops the evaluation of a draw, before it is worked out again.
+     *
+     * A corrected draw may have moved onto another ticket, whose rows are not
+     * the ones written before - recomputing would leave those behind rather
+     * than replace them.
+     */
+    public function clearRowMatches(int $drawId): void;
+
+    /**
      * The best result any row achieved in a draw, for the summary in B-05.
      *
      * @return array{matchedNumbers: int, superzahlMatched: bool}|null

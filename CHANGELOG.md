@@ -6,6 +6,41 @@ what was changed when, and why.
 
 ---
 
+## A draw can be corrected (2026-08-03, B-28)
+
+Six numbers, typed by hand, and no way back. A transposed digit stayed in the books
+forever: the draw could not be changed and could not be removed, and the rows evaluated
+against it carried the wrong hits from then on.
+
+`PUT /admin/draws/{drawId}` corrects it — **as long as nothing is booked against it**. Once
+the winnings are recorded the draw is not a set of numbers any more but the basis of the
+year's total, and changing the numbers underneath that would rewrite what everybody has
+already seen; `evaluated` therefore refuses, and the way back is to record the winnings
+again. That is a decision with a figure attached rather than a typo.
+
+All three fields are required. A correction states what is right, not what changed —
+otherwise an absent Superzahl would mean both "unchanged" and "there is none", and no
+reader could tell which. **The date is correctable too**, and that is the point of
+including it: the date decides which ticket played, so a draw entered under the wrong day
+belongs to the wrong slip entirely. It has to stay inside the tipp year, and `uk_draw_date`
+refuses a day that already carries one.
+
+Afterwards the rows are evaluated again, through the very same step B-08 uses — extracted
+as `EvaluateDrawRows`, because two implementations of "which rows, against which Superzahl"
+drift into two different sets of winning classes. The old matches are **deleted** first
+rather than overwritten: a corrected date can move the draw onto another ticket, and the
+rows of the one it left would otherwise stay behind as results of a draw they never played.
+
+`DrawCorrected` carries the previous date, numbers and Superzahl as well. A correction is
+the one event whose interest lies in the difference — "the 41 should have been a 14" is the
+fact, and an event carrying only the new numbers would leave the audit trail to reconstruct
+it from the event before.
+
+In the interface every draw that is not evaluated has **Ändern** beside its badge, opening
+the same three fields it was entered with (`DrawFields`, now shared by both forms).
+
+---
+
 ## A draw that won nothing can be closed (2026-08-03, B-27)
 
 Where no row of the ticket reached a winning class, the entry form stayed on screen with

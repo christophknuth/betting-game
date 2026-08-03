@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Tests\Unit\Domain;
 
+use BettingGame\Domain\Event\DrawCorrected;
 use BettingGame\Domain\Event\DrawRecorded;
 use BettingGame\Domain\Event\DrawWinningsRecorded;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
@@ -106,6 +107,109 @@ final class DrawTest extends TestCase
 
         $this->expectException(BusinessRuleViolationException::class);
         $draw->recordWinnings(11, -1.0);
+    }
+
+    // --- B-28: correcting a draw ---
+
+    public function testACorrectionReplacesDateNumbersAndSuperzahl(): void
+    {
+        $draw = $this->draw();
+        $draw->releaseEvents();
+
+        $draw->correct(
+            new DateTimeImmutable('2026-03-04'),
+            new LottoNumbers([3, 12, 19, 27, 33, 44]),
+            new Superzahl(7)
+        );
+
+        self::assertSame('2026-03-04', $draw->drawDate()->format('Y-m-d'));
+        self::assertSame([3, 12, 19, 27, 33, 44], $draw->numbers()?->toArray());
+        self::assertSame(7, $draw->superzahl()?->value());
+        self::assertSame(Draw::DRAWN, $draw->status());
+    }
+
+    public function testTheCorrectionEventCarriesWhatItReplaced(): void
+    {
+        $draw = $this->draw();
+        $draw->releaseEvents();
+
+        $draw->correct(
+            new DateTimeImmutable('2026-03-07'),
+            new LottoNumbers([3, 12, 19, 27, 33, 44]),
+            new Superzahl(4)
+        );
+
+        $events = $draw->releaseEvents();
+        self::assertCount(1, $events);
+        self::assertInstanceOf(DrawCorrected::class, $events[0]);
+
+        $payload = $events[0]->toArray();
+
+        self::assertSame([3, 12, 19, 27, 33, 44], $payload['numbers']);
+        self::assertSame(
+            [3, 12, 19, 27, 33, 45],
+            $payload['previous_numbers'],
+            'the difference is the fact worth recording'
+        );
+        self::assertSame('2026-03-07', $payload['previous_draw_date']);
+        self::assertSame(4, $payload['previous_superzahl']);
+    }
+
+    public function testAnEvaluatedDrawIsNotCorrected(): void
+    {
+        $draw = $this->draw();
+        $draw->recordWinnings(11, 100.0);
+
+        $this->expectException(BusinessRuleViolationException::class);
+        $this->expectExceptionMessage('has been evaluated and cannot be corrected');
+
+        $draw->correct(
+            new DateTimeImmutable('2026-03-07'),
+            new LottoNumbers([1, 2, 3, 4, 5, 6]),
+            new Superzahl(1)
+        );
+    }
+
+    public function testACorrectionThatChangesNothingIsRejected(): void
+    {
+        // Otherwise an accidental save would write an event that says a
+        // correction happened, and the audit trail would carry a change nobody
+        // made.
+        $draw = $this->draw();
+
+        $this->expectException(BusinessRuleViolationException::class);
+        $this->expectExceptionMessage('identical to the current one');
+
+        $draw->correct(
+            new DateTimeImmutable('2026-03-07'),
+            new LottoNumbers([3, 12, 19, 27, 33, 45]),
+            new Superzahl(4)
+        );
+    }
+
+    public function testAScheduledDrawGetsItsNumbersThroughACorrection(): void
+    {
+        // Nothing was drawn yet, so there is nothing to compare against - the
+        // correction is what fills it in, and that is a change by definition.
+        $draw = Draw::fromProjection(
+            1,
+            5,
+            new DateTimeImmutable('2026-03-07'),
+            null,
+            null,
+            Draw::SCHEDULED,
+            null,
+            0
+        );
+
+        $draw->correct(
+            new DateTimeImmutable('2026-03-07'),
+            new LottoNumbers([1, 2, 3, 4, 5, 6]),
+            new Superzahl(1)
+        );
+
+        self::assertSame(Draw::DRAWN, $draw->status());
+        self::assertSame([1, 2, 3, 4, 5, 6], $draw->numbers()?->toArray());
     }
 
     public function testAScheduledDrawCannotBeEvaluated(): void

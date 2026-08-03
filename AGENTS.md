@@ -169,13 +169,13 @@ A rejected unique key is a business rule saying no — not a database error.
 ## 4. Directory structure
 
 ```
-src/                              155 files, one class per file
+src/                              186 files, one class per file
 ├── Domain/                       THE CORE — no outward dependencies
 │   ├── Model/                    aggregates: TippYear, BetPeriod, BetRow, Ticket,
 │   │                             Draw, Fee, Participant + the RecordsEvents trait
 │   ├── ValueObject/              LottoNumbers, Superzahl, DateRange, EvenSplit, DrawSchedule,
 │   │                             WinningClass, TippYearStatus, ParticipantStatus, DisplayName, …
-│   ├── Event/                    DomainEvent + 16 concrete events
+│   ├── Event/                    DomainEvent + 17 concrete events
 │   ├── Repository/               repository interfaces + RecordedEvent
 │   ├── Service/                  WinningsDistribution (used by the handler AND the projector)
 │   └── Exception/                the exception hierarchy under DomainException

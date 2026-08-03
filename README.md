@@ -101,14 +101,15 @@ Handlers throw domain exceptions and know nothing about HTTP.
 | `InvalidArgumentException`, `InvalidInputException` | 400 |
 | `ConcurrencyException` | 409 |
 | `BusinessRuleViolationException` (incl. `DuplicateEntryException`) | 409 |
-| everything else | 500 (message only in debug mode) |
+| `SchemaOutOfDateException` | 500, naming the missing column — the cure is `bin/migrate` |
+| everything else | 500 “Internal Server Error”, the exception's own words only as `detail` in debug mode |
 
 A rejected unique key is a business rule saying no — not a database error.
 `EventSourcedRepository` therefore translates SQLSTATE 23000 into `DuplicateEntryException`.
 
 ## Endpoints
 
-29 routes. The story IDs refer to [USER_STORIES.md](USER_STORIES.md).
+30 routes. The story IDs refer to [USER_STORIES.md](USER_STORIES.md).
 
 ### Participant — read only
 
@@ -148,7 +149,8 @@ that subject, so no attribute has to be set in the realm by hand.
 | `GET /admin/fees` | B-07 the fee situation |
 | `PUT /admin/fees/{feeId}/payment` | B-07 set the payment status |
 | `POST /admin/draws` | B-08 record a draw |
-| `PUT /admin/draws/{drawId}/winnings` | B-09 record the winnings of a draw |
+| `PUT /admin/draws/{drawId}` | B-28 correct a draw, as long as it is not evaluated |
+| `PUT /admin/draws/{drawId}/winnings` | B-09 record the winnings of a draw, B-27 also with `0.00` |
 | `GET` / `POST /admin/tipp-years` | B-10 tipp years |
 | `PUT /admin/tipp-years/{id}/status` | B-18 set the status — every transition, but only one running year |
 | `GET` / `POST /admin/tipp-years/{id}/bet-periods` | B-14 bet periods |
@@ -341,7 +343,7 @@ Start the test database: `make test-db-start`, remove it again: `make test-db-st
 
 - **PHPStan level 10** on `src`, clean (`phpstan.neon`, `treatPhpDocTypesAsCertain: false`)
 - **PSR-12**, `declare(strict_types=1);` in every file
-- 155 files under `src/`, one class per file
+- 186 files under `src/`, one class per file
 
 ## Dependencies
 

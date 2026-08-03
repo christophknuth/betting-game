@@ -9,7 +9,9 @@ use BettingGame\Application\Command\AssignBetRowHandler;
 use BettingGame\Application\Command\ChangeParticipantStatusHandler;
 use BettingGame\Application\Command\ChangeTippYearStatusCommand;
 use BettingGame\Application\Command\ChangeTippYearStatusHandler;
+use BettingGame\Application\Command\CorrectDrawHandler;
 use BettingGame\Application\Command\CreateBetPeriodHandler;
+use BettingGame\Application\Command\EvaluateDrawRows;
 use BettingGame\Application\Command\CreateParticipantHandler;
 use BettingGame\Application\Command\CreateTippYearHandler;
 use BettingGame\Application\Command\DistributePayoutHandler;
@@ -152,7 +154,18 @@ abstract class ApplicationTestCase extends IntegrationTestCase
 
     protected function recordDraw(): RecordDrawHandler
     {
-        return new RecordDrawHandler($this->draws, $this->tippYears, $this->tickets);
+        return new RecordDrawHandler($this->draws, $this->tippYears, $this->evaluateDrawRows());
+    }
+
+    protected function correctDraw(): CorrectDrawHandler
+    {
+        return new CorrectDrawHandler($this->draws, $this->tippYears, $this->evaluateDrawRows());
+    }
+
+    /** B-22: the step both of them share, so both reach the same rows. */
+    protected function evaluateDrawRows(): EvaluateDrawRows
+    {
+        return new EvaluateDrawRows($this->draws, $this->tickets);
     }
 
     protected function recordDrawWinnings(): RecordDrawWinningsHandler

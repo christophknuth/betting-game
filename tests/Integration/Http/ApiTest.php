@@ -293,6 +293,88 @@ final class ApiTest extends HttpTestCase
         );
     }
 
+    /**
+     * B-28: correcting a draw over HTTP, and the door closing behind it.
+     *
+     * The rules themselves are pinned in CorrectDrawTest; what this adds is the
+     * route, the input reading and the status codes - including that the refusal
+     * arrives in the caller's language.
+     */
+    public function testADrawCanBeCorrectedUntilItsWinningsAreRecorded(): void
+    {
+        $admin = $this->token(1, ['admin']);
+        $this->givenParticipant(7, 'Anna');
+
+        $year = $this->send('POST', '/admin/tipp-years', $admin, [
+            'name' => 'Tippjahr 2026',
+            'startDate' => '2026-01-01',
+            'endDate' => '2026-12-31',
+            'ticketCostPerRow' => 1.20,
+        ]);
+        $tippYearId = $year->data()['resourceId'];
+        self::assertIsInt($tippYearId);
+
+        $period = $this->send('POST', "/admin/tipp-years/$tippYearId/bet-periods", $admin, [
+            'name' => '2026 gesamt',
+            'startDate' => '2026-01-01',
+            'endDate' => '2026-12-31',
+        ]);
+        $this->send('POST', "/admin/tipp-years/$tippYearId/members", $admin, ['participantId' => 7]);
+        $this->send('PUT', '/admin/participants/7/bet-row', $admin, [
+            'betPeriodId' => $period->data()['resourceId'],
+            'numbers' => [3, 12, 19, 27, 33, 45],
+        ]);
+        $this->startTippYear($tippYearId);
+        $this->send('POST', "/admin/tipp-years/$tippYearId/tickets", $admin, [
+            'periodStart' => '2026-01-01',
+            'durationWeeks' => 4,
+            'drawDays' => 'both',
+            'superzahl' => 7,
+        ]);
+
+        $draw = $this->send('POST', '/admin/draws', $admin, [
+            'tippYearId' => $tippYearId,
+            'drawDate' => '2026-01-07',
+            'numbers' => [3, 12, 19, 27, 40, 41],
+            'superzahl' => 7,
+        ]);
+        $drawId = $draw->data()['resourceId'];
+        self::assertIsInt($drawId);
+
+        // The 41 should have been the 33
+        $corrected = $this->send('PUT', "/admin/draws/$drawId", $admin, [
+            'drawDate' => '2026-01-07',
+            'numbers' => [3, 12, 19, 27, 33, 41],
+            'superzahl' => 7,
+        ]);
+
+        self::assertSame(202, $corrected->statusCode());
+
+        $draws = $this->send('GET', "/tipp-years/$tippYearId/draws", $this->token(7));
+        self::assertSame([3, 12, 19, 27, 33, 41], $draws->data()['draws'][0]['numbers']);
+
+        // B-26: which slip took part, by the number printed on it
+        $ticket = $draws->data()['draws'][0]['ticket'];
+        self::assertSame(7, $ticket['superzahl'], 'the ticket Superzahl, not the drawn one');
+        self::assertArrayHasKey('lotteryReference', $ticket);
+
+        self::assertSame(202, $this->send('PUT', "/admin/draws/$drawId/winnings", $admin, [
+            'totalAmount' => 25.00,
+        ])->statusCode());
+
+        $refused = $this->send('PUT', "/admin/draws/$drawId", $admin, [
+            'drawDate' => '2026-01-07',
+            'numbers' => [1, 2, 3, 4, 5, 6],
+            'superzahl' => 7,
+        ], ['Accept-Language' => 'de-DE,de;q=0.9']);
+
+        self::assertSame(409, $refused->statusCode());
+        self::assertStringStartsWith(
+            'Diese Ziehung ist bereits ausgewertet',
+            $refused->data()['message']
+        );
+    }
+
     // --- Exceptions become the documented status codes ---
 
     public function testARejectedBusinessRuleIs409(): void

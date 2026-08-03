@@ -54,13 +54,17 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
                 : json_encode($draw->numbers()->toArray(), JSON_THROW_ON_ERROR);
 
             if ($exists) {
+                // The date is written back too, since B-28: a draw entered
+                // under the wrong day is corrected by moving it, and uk_draw_date
+                // is what rejects a move onto a day that already has one.
                 $this->db->execute(
                     '
                     UPDATE draw
-                    SET numbers = ?, superzahl = ?, status = ?, recorded_at = ?, version = ?
+                    SET draw_date = ?, numbers = ?, superzahl = ?, status = ?, recorded_at = ?, version = ?
                     WHERE draw_id = ?
                     ',
                     [
+                        $draw->drawDate()->format('Y-m-d'),
                         $numbers,
                         $draw->superzahl()?->value(),
                         $draw->status(),
@@ -213,6 +217,20 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
                 ]
             );
         }
+    }
+
+    /**
+     * B-28: forgets what this draw's rows were worth.
+     *
+     * A correction can move the draw to another date and therefore onto another
+     * ticket, and the matches of the ticket it is leaving would otherwise stay
+     * behind - rows of a slip that no longer took part, still listed under the
+     * draw with their hits. Recomputing overwrites only the rows it writes
+     * again, so the ones that fall away have to go first.
+     */
+    public function clearRowMatches(int $drawId): void
+    {
+        $this->db->execute('DELETE FROM ticket_row_match WHERE draw_id = ?', [$drawId]);
     }
 
     /** @return array{matchedNumbers: int, superzahlMatched: bool}|null */
