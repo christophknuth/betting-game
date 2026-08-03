@@ -21,6 +21,10 @@ use BettingGame\Support\Row;
  * the ticket is now joined by its period rather than through the result row:
  * the rows took part in the draw whether or not anyone has recorded what they
  * won, and until that happens `totalAmount` is null rather than zero.
+ *
+ * B-26 adds which slip that was. Two Spielaufträge can cover the same date, so
+ * "the ticket" is a choice - and the Losnummer is what lets a reader check it
+ * against the slip in their hand rather than take the word for it.
  */
 final class GetDrawsHandler
 {
@@ -64,6 +68,12 @@ final class GetDrawsHandler
                 'status' => $status,
                 'ticket' => $ticketId === null ? null : [
                     'ticketId' => $ticketId,
+                    // B-26: the Losnummer identifies the Spielauftrag on the
+                    // slip, and its last digit is the Superzahl - the one every
+                    // row of this ticket is measured against, as opposed to the
+                    // one drawn above.
+                    'lotteryReference' => Row::nullableString($row, 'lottery_reference'),
+                    'superzahl' => Row::nullableInt($row, 'ticket_superzahl'),
                     'rowCount' => Row::nullableInt($row, 'row_count') ?? 0,
                     // Null, not 0.00, for as long as no winnings are recorded:
                     // zero is a statement about a draw somebody has looked at.

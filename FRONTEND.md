@@ -51,11 +51,11 @@ approves it in the roster. The rest of E1 is not implemented.
 | MembershipsView | `/memberships` | `GET /participants/{id}/memberships` | B-02 |
 | FeesView | `/fees` | `GET /participants/{id}/fees` | B-03 |
 | PayoutShareView | `/payout-share` | `GET /participants/{id}/payout-share` | B-04 |
-| DrawsView | `/draws` | `GET /tipp-years/{id}/draws` | B-05, B-24 |
+| DrawsView | `/draws` | `GET /tipp-years/{id}/draws` | B-05, B-24, B-26 |
 | AdminParticipantsView | `/admin/participants` | `GET`/`POST /admin/participants`, `PUT /admin/participants/{id}`, `…/status` | B-21, B-25 |
 | AdminBetRowsView | `/admin/bet-rows` | `PUT /admin/participants/{id}/bet-row` | B-06 |
 | AdminFeesView | `/admin/fees` | `GET /admin/fees`, `PUT /admin/fees/{id}/payment` | B-07 |
-| AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09, B-22, B-23, B-24 |
+| AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09, B-22 – B-24, B-26 |
 | AdminTippYearsView | `/admin/tipp-years` | `GET /admin/tipp-years`, `PUT /admin/tipp-years/{id}/status` | B-10, B-18 |
 | AdminTippYearView | `/admin/tipp-years/{id}` | periods, members, tickets, distribution of one year | B-11 – B-14, B-18 |
 | AdminOperationsView | `/admin/operations` | `GET /commands/{id}`, `GET /admin/audit/…`, `GET/POST /admin/projections…` | OPS-01, OPS-03, OPS-04 |

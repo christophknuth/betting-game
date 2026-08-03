@@ -6,6 +6,22 @@ what was changed when, and why.
 
 ---
 
+## Which slip took part in a draw (2026-08-03, B-26)
+
+A draw showed six numbers, a Superzahl and the rows of a ticket — but not **which** ticket,
+and not the Superzahl that ticket carries. Both matter, and for different reasons.
+
+The Superzahl on the slip is the last digit of its Losnummer, it applies to every row, and
+it is what decides the classes "+ Superzahl". Beside the drawn Superzahl on the same card,
+that is one word for two different things; the views now say which is which, and where a
+ticket has none, that no row of it can reach one of those classes.
+
+The Losnummer is the answer to a question the reader could not otherwise ask: periods
+overlap, the API picks the ticket handed in last, and naming that ticket by the number
+printed on it is what lets somebody check the evaluation against the slip in their hand.
+
+---
+
 ## One answer to which ticket played (2026-08-03)
 
 Ticket periods overlap more easily than they used to. `uk_year_period` only keeps two

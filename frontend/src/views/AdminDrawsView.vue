@@ -142,11 +142,46 @@
       </div>
 
       <div
-        v-if="draw.ticket?.totalAmount !== null && draw.ticket?.totalAmount !== undefined"
-        class="state success section"
+        v-if="draw.ticket"
+        class="section"
       >
-        Tippschein #{{ draw.ticket.ticketId }} ({{ draw.ticket.rowCount }} Reihen) hat
-        {{ formatAmount(draw.ticket.totalAmount) }} gewonnen.
+        <!--
+          B-26: Welcher Schein an dieser Ziehung teilgenommen hat, mit seiner
+          Losnummer und der Superzahl daraus. Beides gehört zum Schein und nicht
+          zur Ziehung — und weil sich Laufzeiten überschneiden dürfen, ist die
+          Losnummer die einzige Angabe, an der sich prüfen lässt, ob ausgewertet
+          wurde, was in der Hand liegt.
+        -->
+        <dl class="facts">
+          <dt>Tippschein</dt>
+          <dd>
+            {{ draw.ticket.lotteryReference ?? 'ohne Losnummer' }}
+            <span class="muted">
+              · #{{ draw.ticket.ticketId }} · {{ draw.ticket.rowCount }} Reihen
+            </span>
+          </dd>
+
+          <dt>Superzahl des Scheins</dt>
+          <dd>
+            {{ draw.ticket.superzahl ?? '–' }}
+            <span class="muted">
+              <template v-if="draw.ticket.superzahl === null">
+                nicht erfasst — ohne sie erreicht keine Reihe eine Klasse mit Superzahl
+              </template>
+              <template v-else-if="draw.ticket.superzahl === draw.superzahl">
+                — trifft die gezogene Superzahl
+              </template>
+              <template v-else>
+                — letzte Ziffer der Losnummer, gezogen wurde {{ draw.superzahl }}
+              </template>
+            </span>
+          </dd>
+
+          <template v-if="draw.ticket.totalAmount !== null && draw.ticket.totalAmount !== undefined">
+            <dt>Gewinn des Scheins</dt>
+            <dd>{{ formatAmount(draw.ticket.totalAmount) }}</dd>
+          </template>
+        </dl>
       </div>
 
       <!-- B-24 -->
@@ -154,7 +189,7 @@
         v-if="draw.ticket"
         class="section"
       >
-        <h4>Reihen des Scheins #{{ draw.ticket.ticketId }}</h4>
+        <h4>Reihen des Scheins</h4>
         <DrawRows
           :rows="draw.ticket.rows ?? []"
           :numbers="draw.numbers ?? []"
@@ -262,3 +297,12 @@ async function recordWinnings(drawId, payload) {
 
 onMounted(() => years.load(() => api.admin.getTippYears()))
 </script>
+
+<style scoped>
+/* Beisatz zu einer Angabe, nicht die Angabe selbst */
+.muted {
+  color: var(--gray-500);
+  font-weight: 400;
+  font-size: 0.8125rem;
+}
+</style>

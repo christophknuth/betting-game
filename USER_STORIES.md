@@ -82,6 +82,7 @@ The period length is therefore a **configuration, not an assumption in code**. T
 | **B-04** | As a **participant** I want to see my proportional winnings for the tipp year, so that I know what will be distributed. | `GET /participants/{id}/payout-share` | **PayoutShare** ⋈ **Payout** ⋈ **TippYear** | 🟢 |
 | **B-05** | As a **participant** I want to see the ticket's winnings per draw, so that I can follow the course of the tipp year. | `GET /tipp-years/{id}/draws` | **Draw** ⋈ **TicketDrawResult** | 🟢 |
 | **B-24** | As a **participant** I want to see all rows of the active ticket for a draw, with the winning ones highlighted, so that I can tell at a glance what the syndicate achieved. | `GET /tipp-years/{id}/draws` | **TicketRow** ⋈ **TicketRowMatch** ⋈ **Participant** | 🟢 |
+| **B-26** | As a **participant** I want to see which slip took part in a draw, by its Losnummer and the Superzahl that follows from it, so that I can check the evaluation against the ticket in my hand. | `GET /tipp-years/{id}/draws` | `Ticket.lottery_reference`, `.superzahl` | 🟢 |
 
 **Acceptance criteria:**
 
@@ -93,6 +94,8 @@ The period length is therefore a **configuration, not an assumption in code**. T
 - B-24: the numbers are the `TicketRow` snapshot, so a bet row corrected afterwards does not rewrite what took part in the draw
 - B-24: `draw.ticket` is the ticket whose period contains the draw date and appears as soon as that ticket exists — before B-24 it appeared only with the winnings. `totalAmount` is therefore `null` until they are recorded, which is not the same as `0.00`
 - B-24: every participant sees every row of the ticket, with the name of whoever plays it. That is a **deliberate widening** of what a participant sees: B-16 guards the per-participant endpoints, where the path carries a `participantId`, and this one carries none. The rows of one ticket are the syndicate's shared business — it is handed in as one slip and everyone pays a share of it — but if that is not wanted, this is the place to say so
+- B-26: the ticket's Superzahl is **not** the drawn one and is shown as its own fact. It is the last digit of the Losnummer, it applies to every row of the slip, and it is what decides the classes "+ Superzahl". Where it is missing, no row can reach one of them — which the view says rather than leaving the reader to work out
+- B-26: the Losnummer is what makes the choice of ticket checkable. Ticket periods may overlap (only two *starts* on the same day are refused), so the API picks the one handed in last; naming it by the number on the slip is what lets a reader see which one that was
 
 ## Administrator
 
@@ -386,6 +389,7 @@ mainly the infrastructure that is usable for the base version, not the domain lo
 | B-04 | `GET /participants/{id}/payout-share` | — | `GetPayoutShareHandler` |
 | B-05 | `GET /tipp-years/{id}/draws` | — | `GetDrawsHandler` |
 | B-24 | `GET /tipp-years/{id}/draws` | — | `GetDrawsHandler` |
+| B-26 | `GET /tipp-years/{id}/draws` | — | `GetDrawsHandler` |
 | B-06 | `PUT /admin/participants/{id}/bet-row` | `AssignBetRowHandler` | — |
 | B-07 | `PUT /admin/fees/{id}/payment`, `GET /admin/fees` | `RecordFeePaymentHandler` | `GetFeesHandler` |
 | B-08 | `POST /admin/draws` | `RecordDrawHandler` | — |

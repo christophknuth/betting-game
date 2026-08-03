@@ -141,6 +141,10 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
      * TicketRepository::COVERING_TICKET_ORDER - the write path picks the same
      * one, otherwise this would list the rows of a ticket nobody evaluated.
      *
+     * B-26 brings the Losnummer and the ticket's Superzahl along. Both belong
+     * to the ticket rather than to the draw, and both decide what the rows are
+     * worth: the Superzahl on the slip is the one a row is measured against.
+     *
      * @return list<array<string, mixed>>
      */
     public function findWithWinnings(int $tippYearId): array
@@ -149,7 +153,7 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
             '
             SELECT
                 d.draw_id, d.draw_date, d.numbers, d.superzahl, d.status,
-                t.ticket_id, t.row_count,
+                t.ticket_id, t.row_count, t.lottery_reference, t.superzahl AS ticket_superzahl,
                 r.total_amount, r.winning_classes, r.recorded_at
             FROM draw d
             LEFT JOIN ticket t ON t.ticket_id = (
