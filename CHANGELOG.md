@@ -6,6 +6,57 @@ what was changed when, and why.
 
 ---
 
+## Somebody can sign themselves up (2026-08-03, E1-01)
+
+Getting a new member into the application took two people and a detour through Keycloak: the
+administrator created a participant (B-21), then opened the realm and typed the new id into
+the user's `participant_id` attribute. Miss that second step and the person was logged in and
+invisible — every one of their own views answered with a note asking them to talk to an
+administrator.
+
+`POST /registrations` is the way in now. It takes a display name and nothing else: **the
+account comes from the token's `sub`**, never from the body, because a caller who could name
+somebody else's account would be occupying it before they got there. What it creates is a
+**pending** participant — a request, not a membership.
+
+**The claim is no longer the only identity.** Where a token carries no `participant_id`, the
+kernel looks the account up in `participant.keycloak_subject`, which is what the registration
+wrote there. That single lookup is what makes this self-service rather than a form the
+administrator has to copy; the claim keeps its place as the first source, costs no query, and
+the seeded users still carry it.
+
+**A participant has three states now, not a boolean.** `pending` is a registration nobody has
+decided on, `active` plays, `inactive` is a refused registration or somebody who left. A
+boolean could not tell the first from the last, and a roster that cannot either would hide
+the request or offer a stranger for a tipp year. `ParticipantStatus` is the value object,
+`participant.status` the column, and B-11 refuses anything that is not `active`.
+
+The administrator decides through B-25's status route — no second endpoint. Saying yes to a
+**pending** participant records `ParticipantApproved` rather than `ParticipantStatusChanged`:
+one command, two facts, and an audit trail that can tell an approval from a reactivation.
+Saying no makes them `inactive`.
+
+`GET /registrations/me` answers `registered: false` instead of `404`. Asking is legitimate
+for anyone signed in, and it is what lets the interface offer the form rather than an empty
+page.
+
+```sql
+ALTER TABLE participant
+  ADD COLUMN keycloak_subject VARCHAR(64) NULL AFTER display_name,
+  ADD COLUMN status ENUM('pending','active','inactive') NOT NULL DEFAULT 'active',
+  ADD UNIQUE KEY uk_keycloak_subject (keycloak_subject),
+  DROP COLUMN is_active;
+```
+
+In the frontend `/register` is a participant route that writes — the first one. The store
+asks the API once where the claim is missing and takes the participant from the answer, but
+only an approved one: opening the views for a pending registration would show empty pages
+instead of "waiting for approval". `ParticipantScope` has three cases now and all of them
+are actionable. In the roster an open registration is a decision rather than a toggle:
+**annehmen** and **ablehnen** side by side.
+
+---
+
 ## A participant can be corrected, and can leave (2026-08-03, B-25)
 
 The roster was write-once. A participant could be created and listed, and that was the end

@@ -59,7 +59,7 @@ final class ParticipantRepositoryTest extends IntegrationTestCase
 
         $loaded = $this->repository->findParticipant(1);
         self::assertNotNull($loaded);
-        $loaded->approve();
+        $loaded->changeStatus(true);
         $this->repository->save($loaded);
 
         $reloaded = $this->repository->findParticipant(1);
@@ -75,7 +75,7 @@ final class ParticipantRepositoryTest extends IntegrationTestCase
 
         // Without markCommitted this fails the optimistic-locking check even
         // though nobody else touched the stream.
-        $participant->approve();
+        $participant->changeStatus(true);
         $this->repository->save($participant);
 
         self::assertSame(2, $this->eventStore->getStreamVersion('participant-1'));
@@ -101,6 +101,33 @@ final class ParticipantRepositoryTest extends IntegrationTestCase
         self::assertNotNull($row);
         self::assertSame('Anna', Row::string($row, 'display_name'));
         self::assertNull($this->repository->findById(99));
+    }
+
+    public function testARegistrationIsFoundByTheAccountItCameFrom(): void
+    {
+        // E1-01: this lookup is what links a token to a participant without
+        // anybody entering an id into the realm by hand.
+        $this->repository->save(
+            Participant::register(1, 'a5f0-sub', new DisplayName('Anna'))
+        );
+
+        $found = $this->repository->findByKeycloakSubject('a5f0-sub');
+
+        self::assertNotNull($found);
+        self::assertSame(1, $found->id());
+        self::assertTrue($found->status()->isPending(), 'a registration waits for approval');
+        self::assertNull($this->repository->findByKeycloakSubject('somebody-else'));
+    }
+
+    public function testOneParticipantPerAccount(): void
+    {
+        $this->repository->save(Participant::register(1, 'a5f0-sub', new DisplayName('Anna')));
+
+        // The handler checks first for the sentence; this is the rule itself,
+        // and the only thing that holds against two registrations at once.
+        $this->expectException(DuplicateEntryException::class);
+        $this->expectExceptionMessageMatches('/uk_keycloak_subject/');
+        $this->repository->save(Participant::register(2, 'a5f0-sub', new DisplayName('Anna again')));
     }
 
     public function testNextIdentityFollowsTheMaximum(): void

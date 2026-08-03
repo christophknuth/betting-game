@@ -12,13 +12,16 @@ interface ParticipantRepositoryInterface
     public function findById(int $id): ?array;
 
     /**
-     * @param bool|null $isActive null for everybody, true for the ones still playing
+     * @param string|null $status null for everybody, or one of ParticipantStatus
      *
      * @return list<array<string, mixed>>
      */
-    public function findAll(?bool $isActive = null): array;
+    public function findAll(?string $status = null): array;
 
     public function findParticipant(int $id): ?Participant;
+
+    /** E1-01: the participant behind a Keycloak account, if there is one. */
+    public function findByKeycloakSubject(string $subject): ?Participant;
 
     public function exists(int $id): bool;
 

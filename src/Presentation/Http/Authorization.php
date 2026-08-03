@@ -34,6 +34,26 @@ final class Authorization
     }
 
     /**
+     * The Keycloak account the token belongs to - its `sub`.
+     *
+     * E1-01 is the one flow that identifies somebody by this rather than by a
+     * participant: at registration there is no participant yet, and afterwards
+     * it is what links the two without anybody typing an id into the realm.
+     *
+     * @throws UnauthorizedAccessException when the token carries no subject
+     */
+    public static function subject(Request $request): string
+    {
+        $subject = $request->attribute('subject');
+
+        if (!is_string($subject) || $subject === '') {
+            throw new UnauthorizedAccessException('This token identifies no account');
+        }
+
+        return $subject;
+    }
+
+    /**
      * B-16: a participant only ever reaches their own data.
      *
      * Deliberately strict - an admin does not pass here either. The admin has

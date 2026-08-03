@@ -99,7 +99,7 @@
         <tr
           v-for="participant in participants"
           :key="participant.participantId"
-          :class="{ inactive: !participant.isActive }"
+          :class="{ inactive: participant.status === 'inactive' }"
         >
           <td>#{{ participant.participantId }}</td>
 
@@ -123,7 +123,7 @@
               >
               <button
                 class="btn-primary"
-                :disabled="!renameable(participant) || pending(participant)"
+                :disabled="!renameable(participant) || running(participant)"
                 type="submit"
               >
                 Speichern
@@ -144,8 +144,14 @@
           <td>
             <span
               class="badge"
-              :class="participant.isActive ? 'active' : 'ended'"
-            >{{ participant.isActive ? 'aktiv' : 'inaktiv' }}</span>
+              :class="STATUS_BADGES[participant.status]"
+            >{{ statusLabel(participant.status) }}</span>
+            <!-- E1-01: wer sich selbst angemeldet hat, ist eine Anfrage und
+                 kein Eintrag des Administrators — das erklärt den Status. -->
+            <span
+              v-if="participant.selfRegistered"
+              class="hint"
+            >selbst angemeldet</span>
           </td>
           <td>{{ formatDateTime(participant.registeredAt) }}</td>
 
@@ -158,11 +164,33 @@
             >
               umbenennen
             </button>
+
+            <!-- E1-01: eine offene Anmeldung ist eine Entscheidung, kein
+                 Umschalter — deshalb beide Antworten nebeneinander. -->
+            <template v-if="participant.status === 'pending'">
+              <button
+                class="btn-link"
+                type="button"
+                :disabled="running(participant)"
+                @click="changeStatus(participant, true)"
+              >
+                annehmen
+              </button>
+              <button
+                class="btn-link"
+                type="button"
+                :disabled="running(participant)"
+                @click="changeStatus(participant, false)"
+              >
+                ablehnen
+              </button>
+            </template>
             <button
+              v-else
               class="btn-link"
               type="button"
-              :disabled="pending(participant)"
-              @click="changeStatus(participant)"
+              :disabled="running(participant)"
+              @click="changeStatus(participant, !participant.isActive)"
             >
               {{ participant.isActive ? 'deaktivieren' : 'aktivieren' }}
             </button>
@@ -172,9 +200,11 @@
     </table>
 
     <p class="state note">
-      Ein Teilnehmer wird nicht gelöscht: an ihm hängen Teilnahmen, Gebühren und Anteile
-      vergangener Jahre. <strong>Deaktiviert</strong> heißt „spielt nicht mehr mit" — er wird
-      keinem Tippjahr mehr angeboten, alles Gebuchte bleibt.
+      <strong>Offen</strong> heißt: jemand hat sich selbst angemeldet (E1-01) und wartet auf
+      eine Entscheidung — erst mit <strong>annehmen</strong> kann er einem Tippjahr
+      beitreten. Ein Teilnehmer wird nicht gelöscht: an ihm hängen Teilnahmen, Gebühren und
+      Anteile vergangener Jahre. <strong>Deaktiviert</strong> heißt „spielt nicht mehr mit" —
+      er wird keinem Tippjahr mehr angeboten, alles Gebuchte bleibt.
     </p>
   </div>
 </template>
@@ -184,8 +214,15 @@ import { computed, nextTick, onMounted, reactive, ref, useTemplateRef, watch } f
 import CommandFeedback from '@/components/CommandFeedback.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
-import { formatDateTime } from '@/support/format'
+import { formatDateTime, statusLabel } from '@/support/format'
 import { useNotificationStore } from '@/stores/notifications'
+
+/** The badge classes the stylesheet already carries, per participant status. */
+const STATUS_BADGES = {
+  pending: 'open',
+  active: 'active',
+  inactive: 'ended'
+}
 
 const query = useQuery()
 const command = useCommand()
@@ -230,7 +267,7 @@ const commandFor = participant => (rowCommands[participant.participantId] ??= us
 // reactive map from a template would mutate state mid-render.
 watch(participants, list => list.forEach(commandFor), { immediate: true })
 
-const pending = participant => rowCommands[participant.participantId]?.pending ?? false
+const running = participant => rowCommands[participant.participantId]?.pending ?? false
 
 function startEditing(participant) {
   editingId.value = participant.participantId
@@ -283,9 +320,7 @@ async function rename(participant) {
   await reload()
 }
 
-async function changeStatus(participant) {
-  const isActive = !participant.isActive
-
+async function changeStatus(participant, isActive) {
   const cmd = commandFor(participant)
   const accepted = await cmd.run(key => api.admin.changeParticipantStatus(
     participant.participantId,
@@ -299,8 +334,12 @@ async function changeStatus(participant) {
     return
   }
 
+  // Names what was decided, not just the new state: "angenommen" is the answer
+  // to a request, "aktiv" would read like a setting somebody flipped.
   notifications.success(
-    `${participant.displayName} ist jetzt ${isActive ? 'aktiv' : 'inaktiv'}.`
+    participant.status === 'pending'
+      ? `Anmeldung von ${participant.displayName} ${isActive ? 'angenommen' : 'abgelehnt'}.`
+      : `${participant.displayName} ist jetzt ${isActive ? 'aktiv' : 'inaktiv'}.`
   )
   await reload()
 }
@@ -323,6 +362,12 @@ onMounted(reload)
   display: flex;
   gap: 0.75rem;
   white-space: nowrap;
+}
+
+/* Under the badge, not beside it - the cell is narrow and the note is small */
+td .hint {
+  display: block;
+  margin-top: 0.25rem;
 }
 
 /* Still readable, visibly out of play - the badge says which, this says how

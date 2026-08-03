@@ -35,6 +35,15 @@ const router = createRouter({
           redirect: HOME
         },
         {
+          // E1-01: the one participant route that needs no participant. Under
+          // the same layout on purpose - somebody who has just registered is a
+          // participant-to-be, not a special case with its own chrome.
+          path: 'register',
+          name: 'Register',
+          meta: { title: 'Mitspielen' },
+          component: () => import('@/views/RegisterView.vue')
+        },
+        {
           path: 'bet-row',
           name: 'BetRow',
           meta: { title: 'Meine Tippreihe' },

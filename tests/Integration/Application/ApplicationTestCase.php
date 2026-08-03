@@ -16,6 +16,7 @@ use BettingGame\Application\Command\DistributePayoutHandler;
 use BettingGame\Application\Command\RecordDrawHandler;
 use BettingGame\Application\Command\RecordDrawWinningsHandler;
 use BettingGame\Application\Command\RecordFeePaymentHandler;
+use BettingGame\Application\Command\RegisterParticipantHandler;
 use BettingGame\Application\Command\RenameParticipantHandler;
 use BettingGame\Application\Command\SubmitTicketHandler;
 use BettingGame\Application\Query\GetBetPeriodsHandler;
@@ -23,6 +24,7 @@ use BettingGame\Application\Query\GetBetRowHandler;
 use BettingGame\Application\Query\GetDrawsHandler;
 use BettingGame\Application\Query\GetFeesHandler;
 use BettingGame\Application\Query\GetMembershipsHandler;
+use BettingGame\Application\Query\GetMyRegistrationHandler;
 use BettingGame\Application\Query\GetParticipantFeesHandler;
 use BettingGame\Application\Query\GetParticipantsHandler;
 use BettingGame\Application\Query\GetPayoutShareHandler;
@@ -128,6 +130,11 @@ abstract class ApplicationTestCase extends IntegrationTestCase
         return new RenameParticipantHandler($this->participants);
     }
 
+    protected function registerParticipant(): RegisterParticipantHandler
+    {
+        return new RegisterParticipantHandler($this->participants);
+    }
+
     protected function changeParticipantStatus(): ChangeParticipantStatusHandler
     {
         return new ChangeParticipantStatusHandler($this->participants);
@@ -188,6 +195,11 @@ abstract class ApplicationTestCase extends IntegrationTestCase
     protected function getParticipants(): GetParticipantsHandler
     {
         return new GetParticipantsHandler($this->participants);
+    }
+
+    protected function myRegistration(): GetMyRegistrationHandler
+    {
+        return new GetMyRegistrationHandler($this->participants);
     }
 
     protected function getPayoutShare(): GetPayoutShareHandler

@@ -6,20 +6,34 @@
     class="state note"
   >
     <p>
-      <strong>Dein Zugang ist noch keinem Teilnehmer zugeordnet.</strong>
+      <strong>{{ pending ? 'Deine Anmeldung wird noch geprüft.' : 'Du spielst noch nicht mit.' }}</strong>
     </p>
-    <p>
-      Deshalb gibt es hier nichts zu zeigen — deine eigenen Daten erscheinen, sobald ein
-      Administrator die Zuordnung eingetragen hat. Bitte wende dich an ihn.
+    <p v-if="pending">
+      Deshalb gibt es hier noch nichts zu zeigen — deine eigenen Daten erscheinen, sobald
+      der Administrator die Anmeldung freigegeben hat.
+      <RouterLink to="/register">
+        Zum Stand der Anmeldung
+      </RouterLink>
+    </p>
+    <p v-else>
+      Deine eigenen Daten erscheinen, sobald du als Teilnehmer angemeldet und freigegeben
+      bist.
+      <RouterLink to="/register">
+        Jetzt anmelden
+      </RouterLink>
     </p>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
+
+/** E1-01: waiting for approval reads differently from never having asked. */
+const pending = computed(() => authStore.registration?.status === 'pending')
 
 /**
  * What the panel above used to say, and no longer does.
@@ -27,14 +41,12 @@ const authStore = useAuthStore()
  * It named the missing `participant_id` claim, explained that identity comes
  * from the token rather than the URL, and - when the token carried no roles
  * either - pointed at the realm's client scopes. All of it true, none of it
- * anything the person reading it can act on: the fix is an attribute in
- * Keycloak that only an administrator can set.
+ * anything the person reading it could act on.
  *
- * So the person gets a sentence they can act on, and the diagnosis goes to the
- * browser console, where whoever is actually debugging this will look. It
- * cannot reach the container log from here - nothing in the browser can - and
- * the server-side counterpart is AuthMiddleware, which already logs a rejected
- * token.
+ * Since E1-01 there is something they can do, and it is a link rather than a
+ * request to an administrator: registering is what creates the participant the
+ * views are missing. The diagnosis stays in the browser console, where whoever
+ * is actually debugging a realm will look.
  */
 onMounted(() => {
   if (authStore.participantId) {
@@ -52,10 +64,15 @@ onMounted(() => {
     return
   }
 
-  console.warn(
-    'The token carries no participant_id claim, so the participant views have nobody to '
-    + 'show data for. It is mapped from the user attribute of the same name in the realm.'
-  )
+  // Since E1-01 a missing claim is the normal case rather than a fault: the
+  // API recognises the account by its subject once a registration exists. Only
+  // "no registration either" is worth a line.
+  if (!authStore.registration?.registered) {
+    console.info(
+      'This account has no participant_id claim and no registration, so the participant '
+      + 'views have nobody to show data for. POST /registrations is how one is created.'
+    )
+  }
 })
 </script>
 

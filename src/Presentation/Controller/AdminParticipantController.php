@@ -87,10 +87,12 @@ final class AdminParticipantController
     {
         return JsonResponse::ok(
             $this->participants->handle(new GetParticipantsQuery(
-                // ?active=true is what the pickers ask for: the roster shows
-                // everybody, a "which participant?" field must not offer
-                // someone who has left.
-                $request->queryBool('active') ? true : null
+                // ?status=active is what the pickers ask for and ?status=pending
+                // what the administrator asks to see what E1-01 has brought in.
+                // The roster itself asks for nothing and shows everybody. An
+                // unknown value is refused by the query handler rather than
+                // quietly returning nobody.
+                $request->queryParam('status')
             ))->toArray()
         );
     }

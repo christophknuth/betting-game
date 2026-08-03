@@ -111,6 +111,20 @@ export default {
     return client.get(`/tipp-years/${tippYearId}/draws`, query(filters))
   },
 
+  // --- Self-registration (E1-01) ---
+
+  /**
+   * The two calls an account without a participant may make. The account
+   * itself comes from the token - there is nothing to pass.
+   */
+  register(data, idempotencyKey) {
+    return client.post('/registrations', data, command(idempotencyKey))
+  },
+
+  getMyRegistration() {
+    return client.get('/registrations/me')
+  },
+
   // --- Operations (OPS-01) ---
 
   // Not admin-only: whoever issued the command may look up what became of it.
@@ -122,11 +136,12 @@ export default {
     // --- Participants (B-21, B-25) ---
 
     /**
-     * @param {boolean} activeOnly for a picker: someone who has left the
-     *   syndicate must not be offered, and B-11 refuses them anyway
+     * @param {string|null} status `active` for a picker - someone who has left
+     *   or is still waiting for approval must not be offered, and B-11 refuses
+     *   them anyway. `pending` is what E1-01 has brought in. Nothing shows all.
      */
-    getParticipants(activeOnly = false) {
-      return client.get('/admin/participants', query({ active: activeOnly || null }))
+    getParticipants(status = null) {
+      return client.get('/admin/participants', query({ status }))
     },
 
     createParticipant(data, idempotencyKey) {

@@ -60,8 +60,18 @@ final class GermanMessages
             => 'Der neue Anzeigename ist mit dem bisherigen identisch',
         'This participant is already active' => 'Dieser Teilnehmer ist bereits aktiv',
         'This participant is already inactive' => 'Dieser Teilnehmer ist bereits inaktiv',
-        'Participant %d is inactive and cannot join a tipp year'
-            => 'Der Teilnehmer %d ist inaktiv und kann keinem Tippjahr beitreten',
+        'Participant %d is %s and cannot join a tipp year'
+            => 'Der Teilnehmer %d ist %s und kann keinem Tippjahr beitreten',
+        'Unknown participant status: %s' => 'Unbekannter Teilnehmerstatus: %s',
+
+        // --- Self-registration (E1-01) ---------------------------------------
+        'This account has already registered and is waiting for approval'
+            => 'Für diesen Zugang liegt bereits eine Anmeldung vor, die noch freigegeben werden muss',
+        'This account already belongs to a participant'
+            => 'Dieser Zugang gehört bereits zu einem Teilnehmer',
+        'A registration needs the account it came from'
+            => 'Eine Anmeldung braucht den Zugang, von dem sie stammt',
+        'This token identifies no account' => 'Dieses Token weist keinen Zugang aus',
 
         // --- Tipp year, periods, tickets ------------------------------------
         'Cost per row must be positive' => 'Der Preis je Reihe muss positiv sein',

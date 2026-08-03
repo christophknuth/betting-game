@@ -54,7 +54,7 @@ info:
     - `401` - the token is rejected. The reason is deliberately absent from the response.
     - `503` - Keycloak is unreachable, the signature cannot be checked right now. The call
       is repeatable; throwing the token away would be wrong.
-  version: 2.5.0
+  version: 2.6.0
   contact:
     name: API Support
     email: support@bettinggame.com
@@ -70,6 +70,8 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: Registration
+    description: Self-registration of a participant (E1-01)
   - name: Participant
     description: Read-only access for a participant to their own data
   - name: Tipp Year
@@ -88,6 +90,90 @@ tags:
     description: Processing state of the asynchronous write side
 
 paths:
+  # ============================================
+  # SELF-REGISTRATION (E1-01)
+  # ============================================
+
+  /registrations:
+    post:
+      tags:
+        - Registration
+      summary: Register as a participant (E1-01)
+      description: |
+        Registers the **signed-in account** as a participant (CQRS command).
+
+        The only write in this API that needs a token but no participant behind it - it is
+        how one becomes a participant. The account is taken from the token's `sub` and is
+        never read from the body: a caller who could name somebody else's account would be
+        occupying it before they get there.
+
+        What it creates is **pending** - a request, not a membership. An administrator
+        decides through `PUT /admin/participants/{id}/status`, where saying yes to a pending
+        participant is recorded as the approval it is. Until then the account cannot join a
+        tipp year (`409` from B-11) and is not offered by any picker.
+
+        `409` for a second registration from the same account, whether it is still waiting
+        or already approved.
+
+        **No attribute has to be set in Keycloak afterwards.** Where a token carries no
+        `participant_id` claim, the API resolves the account through the subject recorded
+        here - see KEYCLOAK.md.
+      operationId: registerParticipant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterParticipantCommand'
+      responses:
+        '202':
+          description: Registration accepted, waiting for approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /registrations/me:
+    get:
+      tags:
+        - Registration
+      summary: The state of one's own registration (E1-01)
+      description: |
+        What became of the registration of the account that is asking.
+
+        `registered: false` is an answer, not a `404`: asking is legitimate for anyone
+        signed in, and "you have not registered" is what the interface needs in order to
+        offer the form.
+
+        An approved registration needs no answer here - by then the participant endpoints
+        work.
+      operationId: getMyRegistration
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The registration, or the fact that there is none
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyRegistration'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
   # ============================================
   # PARTICIPANT - read only
   # ============================================
@@ -321,14 +407,16 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: active
+        - name: status
           in: query
           description: |
-            `true` returns only the participants still playing — what a picker asks for,
-            because B-11 refuses an inactive one anyway. Absent returns everybody, which
-            is what the roster shows.
+            `active` returns only the participants who may play - what a picker asks for,
+            because B-11 refuses the others anyway. `pending` is what self-registration
+            (E1-01) has brought in and is waiting for a decision. Absent returns everybody,
+            which is what the roster shows. An unknown value is `400`.
           schema:
-            type: boolean
+            type: string
+            enum: [pending, active, inactive]
       responses:
         '200':
           description: List of participants
@@ -1732,6 +1820,40 @@ components:
           maxLength: 50
           example: Erika Mustermann
 
+    RegisterParticipantCommand:
+      type: object
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 50
+          description: |
+            The name to be listed under. The account itself comes from the token - there is
+            no field for it, deliberately.
+          example: Erika Mustermann
+
+    MyRegistration:
+      type: object
+      required:
+        - registered
+      properties:
+        registered:
+          type: boolean
+          description: False where this account has never registered - not an error
+        participantId:
+          type: integer
+          description: Present once registered
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, inactive]
+          description: |
+            `pending` waits for the administrator, `active` may play, `inactive` is a
+            refused registration or somebody who left.
+
     RenameParticipantCommand:
       type: object
       required:
@@ -1763,8 +1885,18 @@ components:
         displayName:
           type: string
           example: Erika Mustermann
+        status:
+          type: string
+          enum: [pending, active, inactive]
+          description: |
+            `pending` is a self-registration waiting for a decision (E1-01), `inactive` a
+            refused one or somebody who left (B-25). Only `active` may join a tipp year.
         isActive:
           type: boolean
+          description: '`status == active`, for callers that only ask "may this person play?"'
+        selfRegistered:
+          type: boolean
+          description: Whether they registered themselves rather than being entered (E1-01)
         registeredAt:
           type: string
           format: date-time

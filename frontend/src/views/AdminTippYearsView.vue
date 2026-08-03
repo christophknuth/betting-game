@@ -321,7 +321,7 @@ onMounted(() => {
   loadYears()
   // The wizard offers these for the new year's members, so only the ones still
   // playing (B-25) - B-11 refuses the others anyway.
-  people.load(() => api.admin.getParticipants(true))
+  people.load(() => api.admin.getParticipants('active'))
 })
 </script>
 

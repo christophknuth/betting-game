@@ -436,6 +436,8 @@ final class PdoEventStore implements EventStoreInterface
                 Row::nullableInt($eventData, 'user_id'),
                 Row::string($eventData, 'display_name'),
                 Row::bool($eventData, 'auto_approved'),
+                // Absent from every participant created before E1-01
+                Row::nullableString($eventData, 'keycloak_subject'),
                 $domainEventId,
                 $occurredAt,
                 $causationId,

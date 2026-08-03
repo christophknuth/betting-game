@@ -134,7 +134,11 @@ const STATUS_LABELS = {
   waived: 'erlassen',
   // Membership
   active: 'aktiv',
-  ended: 'beendet'
+  ended: 'beendet',
+  // Participant (E1-01, B-25). `pending` is a registration nobody has decided
+  // on yet - "offen" like an unpaid fee, and amber for the same reason.
+  pending: 'offen',
+  inactive: 'inaktiv'
 }
 
 export function statusLabel(status) {

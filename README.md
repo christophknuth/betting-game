@@ -21,7 +21,7 @@ specified but not implemented — see [USER_STORIES.md](USER_STORIES.md).
 | [PSR.md](PSR.md) | PSR standards: state and use |
 | [CHANGELOG.md](CHANGELOG.md) | Chronicle of the larger rebuilds |
 
-Machine-readable: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3, v2.5.0),
+Machine-readable: [betting_game_api.yaml](betting_game_api.yaml) (OpenAPI 3.0.3, v2.6.0),
 [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid),
 [database/schema.sql](database/schema.sql).
 
@@ -108,7 +108,7 @@ A rejected unique key is a business rule saying no — not a database error.
 
 ## Endpoints
 
-25 routes. The story IDs refer to [USER_STORIES.md](USER_STORIES.md).
+29 routes. The story IDs refer to [USER_STORIES.md](USER_STORIES.md).
 
 ### Participant — read only
 
@@ -124,11 +124,24 @@ Identity comes from the token, never from the path. `Authorization::requireSelf(
 someone else's `participantId` with `403` — for an admin too, who has their own endpoints
 for that.
 
+### Self-registration (E1-01)
+
+| Endpoint | Story |
+|---|---|
+| `POST /registrations` | E1-01 register the signed-in account as a participant |
+| `GET /registrations/me` | E1-01 what became of one's own registration |
+
+The only routes that need a token but no participant behind it — they are how one becomes a
+participant. The registration creates a **pending** participant and records the account's
+Keycloak subject; the administrator approves through `PUT /admin/participants/{id}/status`.
+Where a token carries no `participant_id` claim, the kernel resolves the account through
+that subject, so no attribute has to be set in the realm by hand.
+
 ### Administrator
 
 | Endpoint | Story |
 |---|---|
-| `GET` / `POST /admin/participants` | B-21 list and create participants |
+| `GET` / `POST /admin/participants` | B-21 list and create participants (`?status=` filters) |
 | `PUT /admin/participants/{id}` | B-25 correct the display name |
 | `PUT /admin/participants/{id}/status` | B-25 set active or inactive — there is no delete |
 | `PUT /admin/participants/{id}/bet-row` | B-06 assign a bet row |
@@ -159,7 +172,7 @@ may look, and nobody can guess the UUID.
 
 `GET /health` — the only endpoint without authentication. A health check behind a token
 cannot tell a load balancer whether the service is running. It is therefore also absent
-from the OpenAPI specification (21 paths, 24 operations).
+from the OpenAPI specification (25 paths, 28 operations).
 
 ## Authentication
 

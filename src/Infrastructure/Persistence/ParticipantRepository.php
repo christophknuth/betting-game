@@ -8,6 +8,7 @@ use BettingGame\Support\Row;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\Repository\ParticipantRepositoryInterface;
 use BettingGame\Domain\ValueObject\DisplayName;
+use BettingGame\Domain\ValueObject\ParticipantStatus;
 use DateTimeImmutable;
 use BettingGame\Infrastructure\Projection\ParticipantProjector;
 
@@ -28,39 +29,59 @@ final class ParticipantRepository extends EventSourcedRepository implements Part
     }
 
     /**
-     * @param bool|null $isActive null for everybody, true for the ones still playing
+     * @param string|null $status null for everybody, or one of ParticipantStatus
      *
      * @return list<array<string, mixed>>
      */
-    public function findAll(?bool $isActive = null): array
+    public function findAll(?string $status = null): array
     {
         // By name, not by id: this feeds a picker, and a reader looking for
         // someone scans names.
-        if ($isActive === null) {
+        if ($status === null) {
             return $this->db->fetchAll(
                 'SELECT * FROM participant ORDER BY display_name, participant_id'
             );
         }
 
         return $this->db->fetchAll(
-            'SELECT * FROM participant WHERE is_active = ? ORDER BY display_name, participant_id',
-            [$isActive ? 1 : 0]
+            'SELECT * FROM participant WHERE status = ? ORDER BY display_name, participant_id',
+            [$status]
         );
+    }
+
+    /**
+     * The participant behind a Keycloak account (E1-01).
+     *
+     * This is what makes a self-registration self-service: identity comes off
+     * the token either way, but without it the link would have to be typed
+     * into the realm as an attribute by hand.
+     */
+    public function findByKeycloakSubject(string $subject): ?Participant
+    {
+        $row = $this->db->fetchOne(
+            'SELECT * FROM participant WHERE keycloak_subject = ?',
+            [$subject]
+        );
+
+        return $row === null ? null : $this->toAggregate($row);
     }
 
     public function findParticipant(int $id): ?Participant
     {
         $row = $this->findById($id);
 
-        if ($row === null) {
-            return null;
-        }
+        return $row === null ? null : $this->toAggregate($row);
+    }
 
+    /** @param array<string, mixed> $row */
+    private function toAggregate(array $row): Participant
+    {
         return Participant::reconstitute(
             id: Row::int($row, 'participant_id'),
             userId: Row::nullableInt($row, 'user_id'),
             displayName: new DisplayName(Row::string($row, 'display_name')),
-            isActive: Row::bool($row, 'is_active'),
+            status: new ParticipantStatus(Row::string($row, 'status')),
+            keycloakSubject: Row::nullableString($row, 'keycloak_subject'),
             registeredAt: new DateTimeImmutable(Row::string($row, 'registered_at')),
             version: Row::int($row, 'version')
         );
@@ -103,15 +124,17 @@ final class ParticipantRepository extends EventSourcedRepository implements Part
     private function writeProjection(Participant $participant, int $version, bool $exists): void
     {
         if ($exists) {
+            // The subject is not updated: an account is settled when the
+            // participant is created and never moves to somebody else.
             $this->db->execute(
                 '
                 UPDATE participant
-                SET display_name = ?, is_active = ?, version = ?
+                SET display_name = ?, status = ?, version = ?
                 WHERE participant_id = ?
                 ',
                 [
                     $participant->displayName()->value(),
-                    $participant->isActive() ? 1 : 0,
+                    $participant->status()->value(),
                     $version,
                     $participant->id(),
                 ]
@@ -120,18 +143,21 @@ final class ParticipantRepository extends EventSourcedRepository implements Part
             return;
         }
 
-        // uk_user must reject a second participant for the same account
+        // uk_user must reject a second participant for the same account, and
+        // uk_keycloak_subject a second registration from the same login
         $this->db->execute(
             '
-            INSERT INTO participant (participant_id, user_id, display_name, registered_at, is_active, version)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO participant (
+                participant_id, user_id, display_name, keycloak_subject, registered_at, status, version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ',
             [
                 $participant->id(),
                 $participant->userId(),
                 $participant->displayName()->value(),
+                $participant->keycloakSubject(),
                 $participant->registeredAt()->format('Y-m-d H:i:s'),
-                $participant->isActive() ? 1 : 0,
+                $participant->status()->value(),
                 $version,
             ]
         );

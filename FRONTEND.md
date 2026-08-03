@@ -22,10 +22,10 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 
 | Metric | Value |
 |--------|-------|
-| Views | 14 (1 login, 5 participant, 7 admin, 1 not-found) |
+| Views | 15 (1 login, 6 participant, 7 admin, 1 not-found) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
 | Components | 13 shared + `App.vue` |
-| Routes | 16 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
+| Routes | 17 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 2 stores, 1 stylesheet |
 
@@ -36,13 +36,17 @@ axios 1.19, keycloak-js 26, Vite 8.
 
 Participants only read, the administrator writes everything. The SPA mirrors that — the five
 participant views have not a single submit button, because there is no endpoint for one.
-Self-service is E1 and not implemented.
+
+**One exception, E1-01:** `/register` is a participant route that writes. Somebody who is
+signed in but is nobody to the application yet registers there, and the administrator
+approves it in the roster. The rest of E1 is not implemented.
 
 ## Views and routes
 
 | View | Route | Endpoint | Story |
 |------|-------|----------|-------|
 | LoginView | `/login` | — (Keycloak) | |
+| RegisterView | `/register` | `POST /registrations`, `GET /registrations/me` | E1-01 |
 | BetRowView | `/bet-row` | `GET /participants/{id}/bet-row` | B-01 |
 | MembershipsView | `/memberships` | `GET /participants/{id}/memberships` | B-02 |
 | FeesView | `/fees` | `GET /participants/{id}/fees` | B-03 |
@@ -202,15 +206,29 @@ carries its own `useCommand`, so no idempotency key is shared between two partic
 who has left must not be offered, and B-11 refuses them anyway. The fee view is deliberately
 *not* filtered: an inactive participant can still owe money.
 
-### The `participant_id` claim
+### Who the token is, and what happens when it is nobody
 
-The four participant views and `DrawsView` need the `participant_id` claim from the token.
-If it is missing, `ParticipantScope.vue` shows a note instead of data.
+The four participant views and `DrawsView` need a participant behind the token. The
+`participant_id` claim is the first source; since E1-01 it is no longer the only one.
 
-That is deliberate and not a gap: the API derives identity from the token, never from the
-path, and `Authorization::requireSelf()` does not let an administrator through there either.
-An admin without a `participant_id` of their own sees these views empty — their view of
-other people's data is the admin endpoints.
+**The store asks the API once.** Where the claim is absent, `loadRegistration()` calls
+`GET /registrations/me` during the Keycloak bootstrap and takes the participant from there —
+but only for an **approved** one. A pending registration deliberately leaves
+`participantId` empty: opening the views for it would show empty pages instead of "waiting
+for approval".
+
+`ParticipantScope.vue` therefore has three cases rather than one, and all three are
+actionable:
+
+| State | What it shows |
+|---|---|
+| no registration | "Du spielst noch nicht mit" + link to `/register` |
+| `pending` | "Deine Anmeldung wird noch geprüft" + link to the state of it |
+| `active` | the view's own content |
+
+An admin without a participant of their own still sees these views empty — their view of
+other people's data is the admin endpoints, and `Authorization::requireSelf()` does not let
+them through here either.
 
 ## API integration
 
@@ -325,7 +343,7 @@ frontend/src/
 ├── layouts/
 │   ├── ParticipantLayout.vue  light top bar, the five read-only views
 │   └── AdminLayout.vue        dark bar + sidebar, everything under /admin
-├── views/                 14 pages, one per view in the table above
+├── views/                 15 pages, one per view in the table above
 ├── components/
 │   ├── CommandFeedback.vue      a command's response including commandId
 │   ├── DrawRows.vue             B-24: the ticket's rows in a draw, winners marked
@@ -335,7 +353,7 @@ frontend/src/
 │   ├── SuperzahlPicker.vue      the same gesture for the one digit 0-9
 │   ├── TippYearPicker.vue       the caller's own tipp years, chosen by name
 │   ├── WinningsEntry.vue        B-23: the winnings as a sum or per row of a winning class
-│   ├── ParticipantScope.vue     note shown when the token lacks participant_id
+│   ├── ParticipantScope.vue     note + registration link where the account is nobody yet
 │   ├── TippYearSetupWizard.vue  B-10 → B-14 → B-11 → B-18 in four steps
 │   ├── TippYearChecklist.vue    what is still missing on an existing year
 │   └── TippYearStatusSelect.vue B-18: the status, in the list and on the year
@@ -626,7 +644,7 @@ implementation:
 | `components/SuperzahlPicker.spec.js` | Ten digits, one at a time, a second click on the chosen one lets go — and 0 is a Superzahl like any other, which is where a truthiness check would drop it |
 | `components/DrawRows.spec.js` | B-24: the winning row is highlighted and the losing one is still listed; within a row the numbers that were not drawn are the ones greyed back, and a draw without numbers marks none of them as hits |
 | `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the running total, `amountPerRow` times the rows of the class, multiplied in cents |
-| `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
+| `components/ParticipantScope.spec.js` | Who the token is: the slot renders for a claim and for an account E1-01 resolved without one; without a participant the note offers the registration, or reports that one is pending — and the realm diagnosis stays in the console |
 | `components/TippYearStatusSelect.spec.js` | B-18: the chosen status is sent and the year that changed is named — and a refused change puts the dropdown back, which Vue will not do by itself |
 | `layouts/ParticipantLayout.spec.js` | B-17 at the door: the `Verwaltung` link is offered to an admin and withheld from a participant, and no `/admin/*` link ever appears in the participant navigation |
 | `support/betPeriods.spec.js` | B-14: generated periods tile the tipp year exactly — no gap, no overlap, first and last day on the year's boundaries — for calendar years, leap years and ranges that are neither; plus the three rejection reasons and the suggested next start |

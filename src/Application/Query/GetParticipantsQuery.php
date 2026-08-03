@@ -8,12 +8,14 @@ namespace BettingGame\Application\Query;
 final class GetParticipantsQuery
 {
     /**
-     * @param bool|null $isActive null for everybody, true for the ones still
-     *     playing. A picker asks for the second: offering someone who has left
-     *     the syndicate only leads to the `409` B-11 answers with.
+     * @param string|null $status null for everybody, or one of ParticipantStatus.
+     *     A picker asks for `active`: offering someone who has left the
+     *     syndicate - or has not been approved yet - only leads to the `409`
+     *     B-11 answers with. The administrator asks for `pending` to see what
+     *     is waiting for a decision (E1-01).
      */
     public function __construct(
-        public readonly ?bool $isActive = null
+        public readonly ?string $status = null
     ) {
     }
 }

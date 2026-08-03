@@ -19,6 +19,7 @@ use BettingGame\Presentation\Controller\AdminTippYearController;
 use BettingGame\Presentation\Controller\CommandStatusController;
 use BettingGame\Presentation\Controller\HealthController;
 use BettingGame\Presentation\Controller\ParticipantController;
+use BettingGame\Presentation\Controller\RegistrationController;
 use BettingGame\Presentation\Controller\TippYearController;
 use BettingGame\Presentation\Http\ErrorMapper;
 use BettingGame\Presentation\Http\JsonResponse;
@@ -68,6 +69,10 @@ abstract class HttpTestCase extends ApplicationTestCase
             ),
             'BettingGame\Presentation\Controller\AdminBetRowController' => new AdminBetRowController(
                 $this->assignBetRow()
+            ),
+            'BettingGame\Presentation\Controller\RegistrationController' => new RegistrationController(
+                $this->registerParticipant(),
+                $this->myRegistration()
             ),
             'BettingGame\Presentation\Controller\AdminParticipantController' => new AdminParticipantController(
                 $this->createParticipant(),
@@ -131,6 +136,9 @@ abstract class HttpTestCase extends ApplicationTestCase
             ),
             new ErrorMapper(true),
             $this->commandLog,
+            // E1-01: the kernel resolves a token without a participant_id claim
+            // through the account it names.
+            $this->participants,
             // Captured rather than silenced: what the kernel logs about a
             // command is now the only record of it outside the database, since
             // the interface stopped printing command ids. CommandLoggingTest
@@ -158,6 +166,27 @@ abstract class HttpTestCase extends ApplicationTestCase
             'iat' => time(),
             'participant_id' => $participantId,
             'preferred_username' => $username,
+            'realm_access' => ['roles' => $roles],
+        ]);
+    }
+
+    /**
+     * A signed-in account with **no** `participant_id` claim (E1-01).
+     *
+     * What a Keycloak user looks like before anybody has linked them to a
+     * participant - and, after a self-registration, still looks like: the link
+     * lives in the read model, not in the realm.
+     *
+     * @param list<string> $roles
+     */
+    protected function accountToken(string $subject, array $roles = []): string
+    {
+        return SigningKey::shared()->token([
+            'iss' => self::ISSUER,
+            'sub' => $subject,
+            'exp' => time() + 3600,
+            'iat' => time(),
+            'preferred_username' => 'neuling',
             'realm_access' => ['roles' => $roles],
         ]);
     }

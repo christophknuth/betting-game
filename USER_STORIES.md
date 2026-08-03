@@ -207,21 +207,31 @@ change unattended.
 
 Everything that gives participants write access to their own data.
 
-| ID | Story | Endpoint |
-|---|---|---|
-| **E1-01** | Self-registration as a participant | `POST /registrations` |
-| **E1-02** | See and change one's own profile | `GET`/`PUT /participants/{id}` |
-| **E1-03** | Choose one's own bet row for the next period | `PUT /participants/{id}/bet-row` |
-| **E1-04** | Request to join the next tipp year | `POST /tipp-years/{id}/join-requests` |
-| **E1-05** | Declare leaving at the end of the year | `POST /tipp-years/{id}/leave-requests` |
-| **E1-06** | Report a payment oneself | `POST /participants/{id}/fees/{feeId}/payment` |
-| **E1-07** | Be notified about due fees, evaluated draws and the distribution | `GET .../notifications`, SSE stream |
-| **E1-08** | Find and inspect open syndicates | `GET /tipp-years` |
-| **E1-09** | Export one's own data and demand deletion (GDPR) | `GET .../data-export`, `DELETE /participants/{id}` |
+| ID | Story | Endpoint | Status |
+|---|---|---|---|
+| **E1-01** | Self-registration as a participant | `POST /registrations`, `GET /registrations/me` | 🟢 |
+| **E1-02** | See and change one's own profile | `GET`/`PUT /participants/{id}` | 🔵 |
+| **E1-03** | Choose one's own bet row for the next period | `PUT /participants/{id}/bet-row` | 🔵 |
+| **E1-04** | Request to join the next tipp year | `POST /tipp-years/{id}/join-requests` | 🔵 |
+| **E1-05** | Declare leaving at the end of the year | `POST /tipp-years/{id}/leave-requests` | 🔵 |
+| **E1-06** | Report a payment oneself | `POST /participants/{id}/fees/{feeId}/payment` | 🔵 |
+| **E1-07** | Be notified about due fees, evaluated draws and the distribution | `GET .../notifications`, SSE stream | 🔵 |
+| **E1-08** | Find and inspect open syndicates | `GET /tipp-years` | 🔵 |
+| **E1-09** | Export one's own data and demand deletion (GDPR) | `GET .../data-export`, `DELETE /participants/{id}` | 🔵 |
 
-**Why not in the base version:** E1-03 through E1-05 shift decisions from the admin to the
-participant and need an approval flow. In the base version the admin records everything
-directly.
+**Acceptance criteria (E1-01):**
+
+- the registration creates a **pending** participant — a request, not a member. `pending` is a status of its own precisely because "not approved yet" and "left the syndicate" are different things, and a roster that cannot tell them apart would either hide the request or offer a stranger for a tipp year
+- the account comes from the token's `sub` and is **never** read from the body. A caller who could name somebody else's account would be occupying it before they get there
+- `409` on a second registration from the same account — checked for the sentence, held by the unique key `participant.keycloak_subject`
+- the administrator decides through B-25's status route. Saying yes to a **pending** participant records `ParticipantApproved` rather than `ParticipantStatusChanged`: an audit trail that cannot tell an approval from a reactivation has lost the more interesting of the two. Saying no makes them `inactive`
+- **identity no longer depends on the `participant_id` claim.** Where a token carries none, the kernel resolves the account through `participant.keycloak_subject`. That is what makes this self-service: before it, becoming visible to the application meant an administrator typing an id into a Keycloak user attribute (see [KEYCLOAK.md](KEYCLOAK.md))
+- a pending participant is resolved as well — every rule that matters checks the status, and answering "you are nobody" to somebody whose registration is on a desk would be a lie
+- `GET /registrations/me` answers `registered: false` rather than `404`: asking is legitimate for anyone signed in, and that is the answer
+
+**Why the rest is not in the base version:** E1-03 through E1-05 shift decisions from the
+admin to the participant and need an approval flow. In the base version the admin records
+everything directly.
 
 ---
 
@@ -348,7 +358,7 @@ model.
 |---|---|
 | Tests | Domain and infrastructure tests stay; sport-specific tests move to E2. Currently 456 test methods (258 unit, 198 integration) |
 | `demo/` | The read-only demo for Prediction/Result disappeared with the change of course and has not been replaced |
-| [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.5.0, 23 paths, 26 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
+| [betting_game_api.yaml](betting_game_api.yaml) | Rewritten onto the base version (v2.6.0, 25 paths, 28 operations; `/health` is deliberately absent). The sport-driven v1.1 is ready as [betting_game_api_e2_sports.yaml](betting_game_api_e2_sports.yaml) for E2 |
 | PHPStan level 10, PSR-12 | Unchanged and still met |
 
 ---
@@ -358,7 +368,7 @@ model.
 | Stage | Stories | Done |
 |---|---|---|
 | Base | 18 | **18** — all |
-| E1 | 9 | 0 |
+| E1 | 9 | 1 — E1-01 (self-registration) |
 | E2 | 7 | partly present, but no longer routed |
 | Operations | 4 | **4** — all |
 
@@ -401,8 +411,9 @@ prevented that are closed: the tipp year's lifecycle through B-18
 (`POST /admin/participants`). A walkthrough therefore no longer needs a hand-written
 `INSERT` — see [QUICKSTART.md](QUICKSTART.md).
 
-As far as **self**-registration goes, E1-01 still stands: B-21 is the administrator's view,
-not the participant's.
+**Self-registration is in as of E1-01.** `POST /registrations` creates a pending participant
+for the account that asked; the administrator decides through B-25's status route. B-21 is
+still the administrator's own way in — for somebody who has no login, or none yet.
 
 ## The HTTP layer
 

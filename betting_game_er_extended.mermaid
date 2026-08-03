@@ -75,8 +75,9 @@ erDiagram
         int participant_id PK
         int user_id FK "nullable, UK - optional account link"
         string display_name
+        string keycloak_subject "E1-01: UK, the account that registered; null where entered by the admin"
         datetime registered_at
-        boolean is_active
+        string status "pending / active / inactive"
         int version "Optimistic locking"
     }
 

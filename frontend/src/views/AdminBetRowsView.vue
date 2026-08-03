@@ -191,6 +191,6 @@ onMounted(() => {
   years.load(() => api.admin.getTippYears())
   // Only the ones still playing: this is a picker, and a row for someone who
   // has left the syndicate is not something to make easy (B-25).
-  people.load(() => api.admin.getParticipants(true))
+  people.load(() => api.admin.getParticipants('active'))
 })
 </script>
