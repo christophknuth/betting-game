@@ -11,6 +11,7 @@ use BettingGame\Domain\Service\WinningsDistribution;
 use BettingGame\Domain\ValueObject\LottoNumbers;
 use BettingGame\Domain\ValueObject\Superzahl;
 use BettingGame\Infrastructure\Persistence\Db;
+use BettingGame\Infrastructure\Persistence\TicketRepository;
 use BettingGame\Support\Row;
 
 /**
@@ -100,7 +101,9 @@ final class DrawProjector implements Projector
     }
 
     /**
-     * The ticket a draw belongs to: the one whose period contains its date.
+     * The ticket a draw belongs to: the one whose period contains its date,
+     * and where several do, the one TicketRepository::COVERING_TICKET_ORDER
+     * picks - the same one the write path evaluated.
      *
      * On a rebuild this can legitimately come back empty - the ticket's own
      * event may not have been replayed yet, or the draw was recorded before the
@@ -113,9 +116,7 @@ final class DrawProjector implements Projector
             SELECT ticket_id
             FROM ticket
             WHERE tipp_year_id = ? AND period_start <= ? AND period_end >= ?
-            ORDER BY period_start DESC
-            LIMIT 1
-            ',
+            ' . TicketRepository::COVERING_TICKET_ORDER,
             [$tippYearId, $drawDate, $drawDate]
         );
 

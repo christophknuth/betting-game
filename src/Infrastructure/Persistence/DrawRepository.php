@@ -137,6 +137,10 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
      * before anyone knows what they won. `total_amount` stays null until then,
      * which is not the same as zero.
      *
+     * Which ticket that is where periods overlap is one rule, and it lives in
+     * TicketRepository::COVERING_TICKET_ORDER - the write path picks the same
+     * one, otherwise this would list the rows of a ticket nobody evaluated.
+     *
      * @return list<array<string, mixed>>
      */
     public function findWithWinnings(int $tippYearId): array
@@ -152,8 +156,7 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
                 SELECT ticket_id FROM ticket
                 WHERE tipp_year_id = d.tipp_year_id
                   AND d.draw_date BETWEEN period_start AND period_end
-                ORDER BY period_start DESC
-                LIMIT 1
+                ' . TicketRepository::COVERING_TICKET_ORDER . '
             )
             LEFT JOIN ticket_draw_result r ON r.draw_id = d.draw_id
             WHERE d.tipp_year_id = ?
