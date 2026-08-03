@@ -92,8 +92,9 @@ final class GermanMessages
         'No ticket covers the draw of %s' => 'Kein Tippschein umfasst die Ziehung vom %s',
         'Record either the ticket total or the amounts per winning class'
             => 'Entweder den Gesamtgewinn des Scheins oder die Beträge je Gewinnklasse angeben',
-        'The winning classes add up to %.2f, more than the ticket total of %.2f'
-            => 'Die Gewinnklassen ergeben zusammen %s und damit mehr als der Gesamtgewinn von %s',
+        'The ticket total follows from the amounts per winning class and is not recorded with them'
+            => 'Der Gesamtgewinn ergibt sich aus den Beträgen je Gewinnklasse und wird nicht '
+                . 'zusätzlich angegeben',
         'Winning class %d is listed twice' => 'Die Gewinnklasse %d ist doppelt angegeben',
 
         // --- Fees and the distribution --------------------------------------

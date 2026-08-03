@@ -6,6 +6,46 @@ what was changed when, and why.
 
 ---
 
+## The winnings are worked out, not typed out (2026-08-03)
+
+Recording a ticket's winnings class by class asked for the amount **the class** paid the
+ticket — which meant reading the Quote off the statement, counting how many of the
+syndicate's rows were in that class and multiplying, by hand, before typing the result. The
+system already knew the second factor: the rows are evaluated the moment a draw is recorded
+(B-22), so which class each row is in is settled long before the money is.
+
+Now the entry is the amount **one row** of a class was paid, exactly as the statement
+prints it, and the ticket's total is derived:
+
+    total = Σ over the classes: amount for one row × rows of the ticket in that class
+
+Which rows are in which class comes from the ticket's own row snapshots through
+`WinningsDistribution::rowsPerClass()` — so a class nobody reached contributes nothing
+however large its amount, and no figure can be booked that the rows do not support. The
+multiplication runs in whole cents: three rows at 0.07 are 0.21, not 0.21000000000000002.
+
+`totalAmount` **and** `winningClasses` together is now refused. It used to mean "the total
+is what came in, the classes attribute part of it"; with the total derived, a second figure
+beside it is either the same number twice or a contradiction, and nothing can tell which
+from the outside. One figure for the whole Spielauftrag stays available on its own — spread
+over the rows that won, as before.
+
+The statement's shape is checked before anything is loaded, but what it *comes to* needs the
+rows, so the two halves are now two types: `WinningStatement` is what was entered, `settle()`
+applies it to the rows, and `DrawWinnings` is the money. No object is ever half-settled.
+
+**Nothing had to be rewritten in the event log.** `draw.winnings_recorded` gained
+`amount_per_row` and `row_count` next to the `amount` a class contributed, and the
+attribution still divides that amount among the rows of the class — which for `rows × the
+amount per row` hands each of them exactly what the statement said, and keeps the older
+events, whose classes carry a lump sum, attributable by the same path.
+
+In the frontend the form no longer offers nine fields, eight of which could do nothing: it
+lists the classes the ticket actually reached, says how many rows are in each, and shows
+the line and the ticket total while the Quoten are being typed.
+
+---
+
 ## A ticket is handed in for weeks, not for a period (2026-08-03)
 
 Submitting a ticket asked for a start date, an end date **and** a number of draws. That is

@@ -164,6 +164,7 @@
       <!-- B-09, B-23 -->
       <WinningsEntry
         :draw-id="draw.drawId"
+        :winning-classes="draw.ticket?.winningClasses ?? []"
         :pending="winningsCmds[draw.drawId]?.pending ?? false"
         @submit="payload => recordWinnings(draw.drawId, payload)"
       />

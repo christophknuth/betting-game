@@ -253,7 +253,7 @@ final class ApiTest extends HttpTestCase
         ])->statusCode());
 
         // B-23: the second statement was read class by class, so no total comes
-        // with it - the classes add up to one.
+        // with it - the amount per row and the rows make one.
         $second = $this->send('POST', '/admin/draws', $admin, [
             'tippYearId' => $tippYearId,
             'drawDate' => '2026-01-10',
@@ -264,10 +264,12 @@ final class ApiTest extends HttpTestCase
         $secondId = $second->data()['resourceId'];
         self::assertIsInt($secondId);
 
+        // The single row hits five numbers plus the Superzahl, so class 3 is
+        // the one it is in; class 8 is on the statement and reaches nobody.
         self::assertSame(202, $this->send('PUT', "/admin/draws/$secondId/winnings", $admin, [
             'winningClasses' => [
-                ['winningClass' => 7, 'amount' => 10.30],
-                ['winningClass' => 8, 'amount' => 5.20],
+                ['winningClass' => 3, 'amountPerRow' => 15.50],
+                ['winningClass' => 8, 'amountPerRow' => 5.20],
             ],
         ])->statusCode());
 

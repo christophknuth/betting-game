@@ -8,11 +8,12 @@ namespace BettingGame\Application\Command;
 final class RecordDrawWinningsCommand
 {
     /**
-     * @param float|null $totalAmount what the whole ticket won. Optional since
-     *     B-23: a breakdown states the same figure class by class, and
-     *     DrawWinnings adds it up rather than asking for it twice
-     * @param list<array{winningClass: int, amount: float}> $winningClasses
-     *     optional breakdown; when empty the total is spread over the rows that won
+     * @param float|null $totalAmount what the whole ticket won, for a statement
+     *     that gives one figure. Left out where the classes are recorded: the
+     *     total follows from them and is not entered twice
+     * @param list<array{winningClass: int, amountPerRow: float}> $winningClasses
+     *     what *one* row of each class was paid. How many rows of the ticket
+     *     that applies to is the system's to work out, not the caller's
      */
     public function __construct(
         public readonly int $drawId,

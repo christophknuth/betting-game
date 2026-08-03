@@ -103,7 +103,7 @@ The period length is therefore a **configuration, not an assumption in code**. T
 | **B-08** | As an **administrator** I want to record a draw with its numbers and bonus number. | `POST /admin/draws` | **Draw** | 🟢 |
 | **B-09** | As an **administrator** I want to record the winnings of a draw, so that they feed into the yearly total. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 🟢 |
 | **B-22** | As an **administrator** I want the winning classes of every row of the active ticket to be worked out and stored as soon as I record a draw, so that I can see what the syndicate hit without waiting for the statement. | `POST /admin/draws` | **TicketRowMatch** | 🟢 |
-| **B-23** | As an **administrator** I want to record a ticket's winnings either as one sum or as the individual amounts per winning class, so that I can enter what the statement actually says. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult** | 🟢 |
+| **B-23** | As an **administrator** I want to record a ticket's winnings either as one sum or as the amount one row of each winning class was paid, so that I enter what the statement says and the system does the multiplying. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult** | 🟢 |
 
 **Acceptance criteria:**
 
@@ -115,9 +115,10 @@ The period length is therefore a **configuration, not an assumption in code**. T
 - B-22: the draw stays `drawn`. `evaluated` says the money is booked, and that is what B-13 sums the year from
 - B-22: a draw with no covering ticket is recorded all the same — nothing to evaluate against is not an error, and B-09 catches the evaluation up when the winnings arrive
 - B-22: the evaluation runs on the `TicketRow` snapshots, like B-09, and through the same `WinningsDistribution` — the projection recomputes it on a rebuild, so two implementations would drift apart into different money
-- B-23: `totalAmount` **or** `winningClasses`, at least one of them — `400` when both are missing. Without a total, the class amounts are added up into one (in whole cents, not as floats)
+- B-23: `totalAmount` **or** `winningClasses`, exactly one of them — `400` when both are missing, `400` when both are sent. Class by class the total is derived, so a second figure beside it is either the same number twice or a contradiction, and nothing can tell which
+- B-23: `winningClasses[].amountPerRow` is what **one** row of that class was paid, as the statement prints it. `total = Σ amountPerRow × rows of the ticket in that class`, multiplied in whole cents rather than as floats. Which rows are in which class comes from the `TicketRow` snapshots through `WinningsDistribution`, so a class no row reached contributes nothing however large its amount
+- B-23: every class that was entered is recorded with what it was worth for one row, how many rows it applied to and what came of it — including the ones that reached nobody. What was typed has to stay readable next to the statement it came from
 - B-23: a class listed twice is `400`. Which of the two amounts counts is not for the system to guess, and taking the last one would book half the statement
-- B-23: sending both stays allowed and keeps its older meaning — the total is what the ticket won, the breakdown says how much of it is attributable to named classes, and the remainder counts towards the year without any row being able to claim it. Only a breakdown adding up to **more** than the total is `400`
 
 ## Implicitly required
 

@@ -122,7 +122,8 @@ final class ProjectionRebuildTest extends ApplicationTestCase
         );
         self::assertNotNull($second->resourceId);
         $this->recordDrawWinnings()->handle(
-            new RecordDrawWinningsCommand($second->resourceId, 500.00, [['winningClass' => 5, 'amount' => 300.00]])
+            // Class by class: Anna's row hits five numbers plus the Superzahl
+            new RecordDrawWinningsCommand($second->resourceId, null, [['winningClass' => 3, 'amountPerRow' => 300.00]])
         );
 
         $this->recordDraw()->handle(
