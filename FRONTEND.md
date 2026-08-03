@@ -22,10 +22,10 @@ Setup notes are in [`frontend/README.md`](frontend/README.md), the auth details 
 
 | Metric | Value |
 |--------|-------|
-| Views | 13 (1 login, 5 participant, 6 admin, 1 not-found) |
+| Views | 14 (1 login, 5 participant, 7 admin, 1 not-found) |
 | Layouts | 2 (`ParticipantLayout`, `AdminLayout`) |
-| Components | 12 shared + `App.vue` |
-| Routes | 15 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
+| Components | 13 shared + `App.vue` |
+| Routes | 16 (incl. the redirects `/` → `/bet-row`, `/admin` → `/admin/tipp-years`, and a catch-all) |
 | Services | 3 (API client, error messages, Keycloak wrapper) |
 | Other | 1 composable, 1 formatting module, 2 stores, 1 stylesheet |
 
@@ -287,7 +287,7 @@ frontend/src/
 ├── layouts/
 │   ├── ParticipantLayout.vue  light top bar, the five read-only views
 │   └── AdminLayout.vue        dark bar + sidebar, everything under /admin
-├── views/                 11 pages, one per view in the table above
+├── views/                 14 pages, one per view in the table above
 ├── components/
 │   ├── CommandFeedback.vue      a command's response including commandId
 │   ├── DrawRows.vue             B-24: the ticket's rows in a draw, winners marked
@@ -296,10 +296,11 @@ frontend/src/
 │   ├── NumberGrid.vue           7x7 grid, the six numbers are picked off it
 │   ├── SuperzahlPicker.vue      the same gesture for the one digit 0-9
 │   ├── TippYearPicker.vue       the caller's own tipp years, chosen by name
-│   ├── WinningsEntry.vue        B-23: the winnings as a sum or per winning class
+│   ├── WinningsEntry.vue        B-23: the winnings as a sum or per row of a winning class
 │   ├── ParticipantScope.vue     note shown when the token lacks participant_id
 │   ├── TippYearSetupWizard.vue  B-10 → B-14 → B-11 → B-18 in four steps
-│   └── TippYearChecklist.vue    what is still missing on an existing year
+│   ├── TippYearChecklist.vue    what is still missing on an existing year
+│   └── TippYearStatusSelect.vue B-18: the status, in the list and on the year
 ├── composables/useCommand.js  useCommand, useBatch (n commands) and useQuery
 ├── services/
 │   ├── api.js                 one method per route
@@ -586,8 +587,9 @@ implementation:
 | `components/NumberGrid.spec.js` (keyboard) | One number in the tab order rather than forty-nine, the arrows and Home/End move it, the edges stop instead of wrapping, and a locked number stays focusable |
 | `components/SuperzahlPicker.spec.js` | Ten digits, one at a time, a second click on the chosen one lets go — and 0 is a Superzahl like any other, which is where a truthiness check would drop it |
 | `components/DrawRows.spec.js` | B-24: the winning row is highlighted and the losing one is still listed; within a row the numbers that were not drawn are the ones greyed back, and a draw without numbers marks none of them as hits |
-| `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the class sum added up in cents |
+| `components/WinningsEntry.spec.js` | B-23: which of the two shapes leaves the component — a `totalAmount` alone, or only the winning classes that were filled in, never both — plus the running total, `amountPerRow` times the rows of the class, multiplied in cents |
 | `components/ParticipantScope.spec.js` | A missing `participant_id` claim shows the note instead of the participant views |
+| `components/TippYearStatusSelect.spec.js` | B-18: the chosen status is sent and the year that changed is named — and a refused change puts the dropdown back, which Vue will not do by itself |
 | `layouts/ParticipantLayout.spec.js` | B-17 at the door: the `Verwaltung` link is offered to an admin and withheld from a participant, and no `/admin/*` link ever appears in the participant navigation |
 | `support/betPeriods.spec.js` | B-14: generated periods tile the tipp year exactly — no gap, no overlap, first and last day on the year's boundaries — for calendar years, leap years and ranges that are neither; plus the three rejection reasons and the suggested next start |
 

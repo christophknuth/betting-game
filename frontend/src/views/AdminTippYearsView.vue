@@ -61,383 +61,208 @@
       Einrichtung.
     </div>
 
-    <div
-      v-else-if="tippYears.length"
-      ref="yearTable"
-      class="section card table-wrap"
-      :class="{ refreshing: years.loading }"
-    >
-      <table class="data">
-        <thead>
-          <tr>
-            <th scope="col">
-              ID
-            </th>
-            <th scope="col">
-              Name
-            </th>
-            <th scope="col">
-              Zeitraum
-            </th>
-            <th scope="col">
-              Status
-            </th>
-            <th
-              scope="col"
-              class="numeric"
-            >
-              Reihenpreis
-            </th>
-            <th
-              scope="col"
-              class="numeric"
-            >
-              Mitglieder
-            </th>
-            <th
-              scope="col"
-              class="numeric"
-            >
-              Scheine
-            </th>
-            <th
-              scope="col"
-              class="numeric"
-            >
-              Ziehungen
-            </th>
-            <th
-              scope="col"
-              class="numeric"
-            >
-              Gewinne
-            </th>
-            <th scope="col" />
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="year in tippYears"
-            :key="year.tippYearId"
-            :data-year="year.tippYearId"
-            :class="{
-              selected: selectedId === year.tippYearId,
-              'just-changed': changedId === year.tippYearId
-            }"
-          >
-            <td>#{{ year.tippYearId }}</td>
-            <td>{{ year.name }}</td>
-            <td>{{ formatDate(year.startDate) }} – {{ formatDate(year.endDate) }}</td>
-            <!-- B-18: every transition is allowed, hence a dropdown rather
-                 than a row of buttons for whatever the next step would be. -->
-            <td>
-              <select
-                :value="year.status"
-                class="status-select"
-                :class="year.status"
-                :disabled="statusCommands[year.tippYearId]?.pending"
-                :aria-label="`Status von ${year.name}`"
-                @change="changeStatus(year, $event)"
+    <template v-else-if="tippYears.length">
+      <!--
+        Ein Tippjahr läuft, eins ist geplant, der Rest ist Geschichte - aber die
+        Liste wächst mit jedem Jahr weiter. Der Filter trennt danach, ob noch
+        etwas zu tun ist: ausgeschüttet ist erledigt, alles davor nicht.
+      -->
+      <div
+        class="filters section"
+        role="group"
+        aria-label="Tippjahre filtern"
+      >
+        <button
+          v-for="option in FILTERS"
+          :key="option.value"
+          type="button"
+          class="filter"
+          :class="{ active: filter === option.value }"
+          :aria-pressed="filter === option.value"
+          @click="filter = option.value"
+        >
+          {{ option.label }}
+          <span class="count">{{ counted(option.value) }}</span>
+        </button>
+      </div>
+
+      <div
+        v-if="!visibleYears.length"
+        class="state empty"
+      >
+        {{ filter === 'current' ? 'Kein Tippjahr, das noch etwas braucht.' : 'Noch kein Jahr ausgeschüttet.' }}
+        <button
+          class="btn-link"
+          type="button"
+          @click="filter = 'all'"
+        >
+          Alle anzeigen
+        </button>
+      </div>
+
+      <div
+        v-else
+        ref="yearTable"
+        class="section card table-wrap"
+        :class="{ refreshing: years.loading }"
+      >
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">
+                ID
+              </th>
+              <th scope="col">
+                Name
+              </th>
+              <th scope="col">
+                Zeitraum
+              </th>
+              <th scope="col">
+                Status
+              </th>
+              <th
+                scope="col"
+                class="numeric"
               >
-                <option
-                  v-for="status in TIPP_YEAR_STATUSES"
-                  :key="status"
-                  :value="status"
+                Reihenpreis
+              </th>
+              <th
+                scope="col"
+                class="numeric"
+              >
+                Mitglieder
+              </th>
+              <th
+                scope="col"
+                class="numeric"
+              >
+                Scheine
+              </th>
+              <th
+                scope="col"
+                class="numeric"
+              >
+                Ziehungen
+              </th>
+              <th
+                scope="col"
+                class="numeric"
+              >
+                Gewinne
+              </th>
+              <th scope="col" />
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="year in visibleYears"
+              :key="year.tippYearId"
+              :data-year="year.tippYearId"
+              :class="{ 'just-changed': changedId === year.tippYearId }"
+            >
+              <td>#{{ year.tippYearId }}</td>
+              <td>{{ year.name }}</td>
+              <td>{{ formatDate(year.startDate) }} – {{ formatDate(year.endDate) }}</td>
+              <td>
+                <TippYearStatusSelect
+                  :year="year"
+                  @changed="statusChanged"
+                />
+              </td>
+              <td class="numeric">
+                {{ formatAmount(year.ticketCostPerRow) }}
+              </td>
+              <td class="numeric">
+                {{ year.memberCount }}
+              </td>
+              <td class="numeric">
+                {{ year.ticketCount }}
+              </td>
+              <td class="numeric">
+                {{ year.drawCount }}
+              </td>
+              <td class="numeric">
+                {{ formatAmount(year.totalWinnings) }}
+              </td>
+              <td>
+                <!-- Ein Link, keine Schaltfläche: das Jahr hat eine eigene
+                     Adresse, die sich merken und teilen lässt. -->
+                <RouterLink
+                  class="btn-link"
+                  :to="{ name: 'AdminTippYear', params: { tippYearId: year.tippYearId } }"
                 >
-                  {{ statusLabel(status) }}
-                </option>
-              </select>
-            </td>
-            <td class="numeric">
-              {{ formatAmount(year.ticketCostPerRow) }}
-            </td>
-            <td class="numeric">
-              {{ year.memberCount }}
-            </td>
-            <td class="numeric">
-              {{ year.ticketCount }}
-            </td>
-            <td class="numeric">
-              {{ year.drawCount }}
-            </td>
-            <td class="numeric">
-              {{ formatAmount(year.totalWinnings) }}
-            </td>
-            <td>
-              <button
-                class="btn-link"
-                @click="select(year.tippYearId)"
-              >
-                {{ selectedId === year.tippYearId ? 'ausgewählt' : 'öffnen' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+                  öffnen
+                </RouterLink>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <p
-      v-if="tippYears.length"
-      class="state note"
-    >
-      <strong>Laufen darf immer nur ein Tippjahr.</strong> Nur ein laufendes nimmt
-      Tippscheine an, ausgeschüttet wird nur aus einem abgeschlossenen. Der Status lässt
-      sich jederzeit auch zurücksetzen.
-    </p>
-  </template>
-
-  <template v-if="selectedYear">
-    <!-- What is still missing on this year, with the matching action in place -->
-    <TippYearChecklist
-      class="section"
-      :year="selectedYear"
-      :periods="betPeriods"
-      :participants="participants"
-      :running-year="runningYear"
-      @changed="reloadSelected"
-    />
-
-    <div
-      v-if="betPeriods.length"
-      class="card section table-wrap"
-    >
-      <h3>Tippperioden</h3>
-      <table class="data">
-        <thead>
-          <tr>
-            <th scope="col">
-              ID
-            </th>
-            <th scope="col">
-              Name
-            </th>
-            <th scope="col">
-              Zeitraum
-            </th>
-            <th
-              scope="col"
-              class="numeric"
-            >
-              Folge
-            </th>
-            <th
-              scope="col"
-              class="numeric"
-            >
-              Reihen
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="period in betPeriods"
-            :key="period.betPeriodId"
-          >
-            <td>#{{ period.betPeriodId }}</td>
-            <td>{{ period.name }}</td>
-            <td>{{ formatDate(period.startDate) }} – {{ formatDate(period.endDate) }}</td>
-            <td class="numeric">
-              {{ period.sequence }}
-            </td>
-            <td class="numeric">
-              {{ period.betRowCount }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!--
-      Below here is running operations, not setup: a ticket is submitted every
-      month and the distribution happens once at the end. Keeping them in the
-      same stack of forms as "create a tipp year" was what made the page read
-      like a pile of unrelated fields.
-    -->
-    <h2 class="section-title">
-      Laufender Betrieb
-    </h2>
-
-    <!-- B-12 -->
-    <div class="card section">
-      <h3>Tippschein erfassen</h3>
-      <form @submit.prevent="submitTicket">
-        <div class="field-row">
-          <div class="field">
-            <label for="t-start">Zeitraum von</label>
-            <input
-              id="t-start"
-              v-model="newTicket.periodStart"
-              type="date"
-              required
-            >
-          </div>
-          <div class="field">
-            <label for="t-end">Zeitraum bis</label>
-            <input
-              id="t-end"
-              v-model="newTicket.periodEnd"
-              type="date"
-              required
-            >
-          </div>
-          <div class="field">
-            <label for="t-draws">Ziehungen</label>
-            <input
-              id="t-draws"
-              v-model="newTicket.drawCount"
-              type="number"
-              min="1"
-              required
-            >
-          </div>
-          <div class="field">
-            <label for="t-sz">Superzahl</label>
-            <input
-              id="t-sz"
-              v-model="newTicket.superzahl"
-              type="number"
-              min="0"
-              max="9"
-            >
-            <span class="hint">aus der Losnummer, gilt für alle Reihen</span>
-          </div>
-          <div class="field">
-            <label for="t-ref">Losnummer / Referenz</label>
-            <input
-              id="t-ref"
-              v-model="newTicket.lotteryReference"
-            >
-          </div>
-        </div>
-        <p
-          v-if="selectedYear.status !== 'running'"
-          class="state note"
-        >
-          <strong>{{ selectedYear.name }} läuft nicht.</strong> Ein Tippschein wird nur von
-          einem laufenden Tippjahr angenommen — siehe die Checkliste oben.
-        </p>
-        <p class="state note">
-          Der Schein übernimmt alle Reihen mit aktiver Teilnahme und erzeugt je Teilnehmer
-          eine Gebühr. Eine spätere Korrektur einer Reihe ändert ihn nicht mehr.
-        </p>
-        <p
-          v-if="applicableFee !== null"
-          class="state note"
-        >
-          Für diesen Zeitraum gilt das <strong>{{ applicableFee.label }}</strong>
-          Bearbeitungsentgelt von {{ formatAmount(applicableFee.amount) }} — einmal je
-          Schein, zusätzlich zu den Reihenkosten.
-        </p>
-        <button
-          class="btn-primary"
-          :disabled="submitTicketCmd.pending"
-          type="submit"
-        >
-          {{ submitTicketCmd.pending ? 'Wird gesendet …' : 'Tippschein einreichen' }}
-        </button>
-        <CommandFeedback :command="submitTicketCmd" />
-      </form>
-    </div>
-
-    <!-- B-13 -->
-    <div class="card section">
-      <h3>Jahresausschüttung buchen</h3>
-      <form @submit.prevent="distributePayout">
-        <div class="field">
-          <label for="p-note">Notiz</label>
-          <input
-            id="p-note"
-            v-model="payout.note"
-          >
-        </div>
-        <label class="checkbox">
-          <input
-            v-model="payout.confirm"
-            type="checkbox"
-          >
-          Ja, ausschütten — die Buchung ist nicht rücknehmbar.
-        </label>
-        <p class="state note">
-          Alle Gewinne des Jahres werden gleichmäßig auf die Teilnehmer verteilt —
-          unabhängig davon, wie viele Perioden jemand bezahlt hat. Möglich erst, wenn das
-          Tippjahr abgeschlossen ist.
-        </p>
-        <button
-          class="btn-danger"
-          :disabled="!payout.confirm || payoutCmd.pending"
-          type="submit"
-        >
-          {{ payoutCmd.pending ? 'Wird gesendet …' : 'Ausschüttung buchen' }}
-        </button>
-        <CommandFeedback :command="payoutCmd" />
-      </form>
-    </div>
+      <p class="state note">
+        <strong>Laufen darf immer nur ein Tippjahr.</strong> Nur ein laufendes nimmt
+        Tippscheine an, ausgeschüttet wird nur aus einem abgeschlossenen. Der Status lässt
+        sich jederzeit auch zurücksetzen. <strong>Aktuell</strong> zeigt alles, was noch
+        etwas braucht — auch ein abgeschlossenes Jahr, solange die Ausschüttung fehlt.
+      </p>
+    </template>
   </template>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, useTemplateRef } from 'vue'
-import CommandFeedback from '@/components/CommandFeedback.vue'
-import TippYearChecklist from '@/components/TippYearChecklist.vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import TippYearSetupWizard from '@/components/TippYearSetupWizard.vue'
+import TippYearStatusSelect from '@/components/TippYearStatusSelect.vue'
 import api from '@/services/api'
-import { useCommand, useQuery } from '@/composables/useCommand'
-import { TIPP_YEAR_STATUSES, formatAmount, formatDate, statusLabel } from '@/support/format'
-import { useNotificationStore } from '@/stores/notifications'
-import { applicableProcessingFee } from '@/support/processingFee'
+import { useQuery } from '@/composables/useCommand'
+import { formatAmount, formatDate } from '@/support/format'
+
+const router = useRouter()
 
 const years = useQuery()
-const periods = useQuery()
 const people = useQuery()
 
-const submitTicketCmd = useCommand()
-const payoutCmd = useCommand()
-
-const selectedId = ref(null)
 const wizardOpen = ref(false)
 
 const tippYears = computed(() => years.data?.tippYears ?? [])
-const betPeriods = computed(() => periods.data?.betPeriods ?? [])
 const participants = computed(() => people.data?.participants ?? [])
 
-const selectedYear = computed(() =>
-  tippYears.value.find(year => year.tippYearId === selectedId.value) ?? null
-)
-
-// B-18 allows exactly one running year at a time; the components use this to
-// say *why* a start is unavailable rather than leaving a button that 409s.
+// B-18 allows exactly one running year at a time; the wizard uses this to say
+// *why* a start is unavailable rather than leaving a button that 409s.
 const runningYear = computed(() =>
   tippYears.value.find(year => year.status === 'running') ?? null
 )
 
-const newTicket = reactive({
-  periodStart: '',
-  periodEnd: '',
-  drawCount: '',
-  superzahl: '',
-  lotteryReference: ''
-})
-const payout = reactive({ confirm: false, note: '' })
+/**
+ * "Erledigt" is one status, not a date.
+ *
+ * A distributed year is closed business: everyone has their share and nothing
+ * can be booked on it any more. Everything before that still owes something -
+ * a planned year its start, a running one its tickets, a closed one its
+ * distribution - so all three belong in the same view, however long ago they
+ * ran.
+ */
+const isCurrent = year => year.status !== 'distributed'
 
-// Shown while the dates are being filled in, so the cost is visible before the
-// ticket is submitted rather than after. The API decides the actual rate.
-const applicableFee = computed(() => applicableProcessingFee(
-  newTicket.periodStart,
-  newTicket.periodEnd,
-  selectedYear.value
-))
+const FILTERS = [
+  { value: 'current', label: 'Aktuell', matches: isCurrent },
+  { value: 'archive', label: 'Archiv', matches: year => !isCurrent(year) },
+  { value: 'all', label: 'Alle', matches: () => true }
+]
+
+const filter = ref('current')
+
+const matcher = value => FILTERS.find(option => option.value === value).matches
+
+const visibleYears = computed(() => tippYears.value.filter(matcher(filter.value)))
+
+const counted = value => tippYears.value.filter(matcher(value)).length
 
 const loadYears = () => years.load(() => api.admin.getTippYears())
-const loadPeriods = () => periods.load(() => api.admin.getBetPeriods(selectedId.value))
 
 // --- B-18: Statuswechsel ---
-
-const statusCommands = reactive({})
-const notifications = useNotificationStore()
-
-// One command state per year so the idempotency keys cannot get mixed up - a
-// key left over from one year must not answer the change of another.
-const commandFor = (tippYearId) => (statusCommands[tippYearId] ??= useCommand())
 
 /**
  * The row that was just written to, so the list can be found again.
@@ -463,7 +288,8 @@ function markChanged(tippYearId) {
     changedId.value = null
   }, HIGHLIGHT_MS)
 
-  // After the reloaded rows have rendered, or the row is not there to scroll to
+  // After the reloaded rows have rendered, or the row is not there to scroll
+  // to - a year that has just been distributed leaves the current filter.
   nextTick(() => {
     yearTable.value?.querySelector(`[data-year="${tippYearId}"]`)?.scrollIntoView({
       block: 'nearest',
@@ -476,93 +302,26 @@ function markChanged(tippYearId) {
 
 onUnmounted(() => clearTimeout(highlightTimer))
 
-async function changeStatus(year, event) {
-  const status = event.target.value
-
-  const command = commandFor(year.tippYearId)
-  const accepted = await command.run(
-    key => api.admin.changeTippYearStatus(year.tippYearId, { status }, key)
-  )
-
-  if (!accepted) {
-    // Reported by hand rather than through CommandFeedback: this command has
-    // no form of its own, it hangs off a dropdown in a table row.
-    notifications.error(command.error)
-
-    // Put the dropdown back by hand. Vue will not do it: the model never
-    // changed, so from its side there is nothing to patch - only the DOM is
-    // showing a status the server just refused.
-    event.target.value = year.status
-
-    return
-  }
-
-  // Names both halves rather than saying "Angenommen.": with a dropdown per
-  // row, "which year" is the part that is easy to get wrong, and this is the
-  // only place the answer confirms what was actually written.
-  notifications.success(`${year.name} ist jetzt ${statusLabel(status)}.`)
-
+async function statusChanged(tippYearId) {
   await loadYears()
-  markChanged(year.tippYearId)
-}
-
-function select(tippYearId) {
-  selectedId.value = tippYearId
-  loadPeriods()
+  markChanged(tippYearId)
 }
 
 function openWizard() {
   wizardOpen.value = true
-  selectedId.value = null
 }
 
 /** The wizard has written everything itself - open the finished year. */
-async function finishWizard(tippYearId) {
+function finishWizard(tippYearId) {
   wizardOpen.value = false
-  await loadYears()
-  select(tippYearId)
-}
-
-async function reloadSelected() {
-  await Promise.all([loadYears(), loadPeriods()])
-}
-
-/**
- * Every command below refreshes the list afterwards.
- *
- * The API answers 202 and describes the write as asynchronous, but it runs
- * synchronously: when the response arrives, the read models are already
- * current, so re-reading immediately is safe rather than a race.
- */
-async function submitTicket() {
-  const accepted = await submitTicketCmd.run(key => api.admin.submitTicket(selectedId.value, {
-    periodStart: newTicket.periodStart,
-    periodEnd: newTicket.periodEnd,
-    drawCount: Number(newTicket.drawCount),
-    ...(newTicket.superzahl === '' ? {} : { superzahl: Number(newTicket.superzahl) }),
-    ...(newTicket.lotteryReference === '' ? {} : { lotteryReference: newTicket.lotteryReference })
-  }, key))
-
-  if (accepted) {
-    await loadYears()
-  }
-}
-
-async function distributePayout() {
-  const accepted = await payoutCmd.run(key => api.admin.distributePayout(selectedId.value, {
-    confirm: payout.confirm,
-    ...(payout.note === '' ? {} : { note: payout.note })
-  }, key))
-
-  if (accepted) {
-    payout.confirm = false
-    await loadYears()
-  }
+  router.push({ name: 'AdminTippYear', params: { tippYearId } })
 }
 
 onMounted(() => {
   loadYears()
-  people.load(() => api.admin.getParticipants())
+  // The wizard offers these for the new year's members, so only the ones still
+  // playing (B-25) - B-11 refuses the others anyway.
+  people.load(() => api.admin.getParticipants(true))
 })
 </script>
 
@@ -572,8 +331,35 @@ onMounted(() => {
   gap: 0.75rem;
 }
 
-tr.selected {
-  background: var(--gray-50);
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  background: var(--white, #fff);
+  color: var(--gray-600);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.filter.active {
+  border-color: var(--gray-900);
+  background: var(--gray-900);
+  color: #fff;
+}
+
+.filter .count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  opacity: 0.75;
 }
 
 /*
@@ -602,46 +388,5 @@ tr.just-changed td {
     animation: none;
     background: #d1fae5;
   }
-}
-
-/* Looks like the badge that used to sit here - but is operable. */
-.status-select {
-  padding: 0.125rem 0.5rem;
-  border: 1px solid var(--gray-300);
-  border-radius: 12px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  background: var(--gray-100);
-  color: var(--gray-600);
-  cursor: pointer;
-}
-
-.status-select:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.status-select.running {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-select.planned {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-select.closed,
-.status-select.distributed {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.section-title {
-  color: var(--gray-900);
-  font-size: 1.25rem;
-  margin: 2rem 0 1rem;
-  padding-top: 1rem;
-  border-top: 2px solid var(--gray-300);
 }
 </style>

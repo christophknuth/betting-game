@@ -6,6 +6,33 @@ what was changed when, and why.
 
 ---
 
+## A tipp year is a page, not a panel under the list (2026-08-03)
+
+The administration of a tipp year was one screen doing two jobs. It listed every year the
+syndicate had ever played — of which one runs, one is planned and the rest is history — and
+clicking a row unfolded that year's checklist, its periods and both operation forms *below*
+the table. Nothing in the address bar said which year was open, so there was no link to it,
+no bookmark, and the back button left the page rather than the year.
+
+`AdminTippYearView` at `/admin/tipp-years/{id}` is now a route of its own, and **öffnen** is
+a link rather than a button. The list keeps the overview and the status; the year's page
+keeps the checklist, the periods, the ticket and the distribution — with a way back at the
+top. The wizard hands over to the finished year's page instead of selecting a row.
+
+**The list filters on what still owes something.** `Aktuell` is everything not yet
+`distributed` — including a `closed` year, because its distribution is outstanding and
+hiding it would hide work. `Archiv` holds the distributed ones, `Alle` everything, and the
+counts sit on the filters so nothing disappears without saying how much.
+
+The status dropdown moved into `TippYearStatusSelect`, used by the list row and by the
+year's header. Each instance carries its own command state: two of them sharing an
+idempotency key would let a request that never came back replay its answer for the wrong
+year (OPS-02). Its own test now pins the case that is easy to get wrong — where the server
+refuses the change, the dropdown is put back by hand, because the model never changed and
+Vue has nothing to patch.
+
+---
+
 ## The winnings are worked out, not typed out (2026-08-03)
 
 Recording a ticket's winnings class by class asked for the amount **the class** paid the

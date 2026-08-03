@@ -60,9 +60,12 @@ test.describe('admin sets up a tipp year (B-10, B-14, B-11)', () => {
     await page.getByRole('button', { name: 'Ohne Start beenden' }).click()
 
     // --- The read models, not the wizard's own optimism -------------------
-    const row = page.locator(`tr:has(td:text-is("${name}"))`)
-    await expect(row).toHaveCount(1)
-    await expect(row.locator('.status-select')).toHaveValue('planned')
+    //
+    // The wizard hands over to the finished year's own page, so the assertions
+    // are made where an administrator would carry on working.
+    await expect(page).toHaveURL(/\/admin\/tipp-years\/\d+$/)
+    await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible()
+    await expect(page.locator('.status-select')).toHaveValue('planned')
 
     // Four quarters that tile the year exactly: this is what the generator is
     // for, and what the overlap rule would have rejected if it were wrong.
@@ -78,9 +81,13 @@ test.describe('admin sets up a tipp year (B-10, B-14, B-11)', () => {
     await loginAs(page, 'admin', 'admin123')
     await enterAdmin(page)
 
+    // The seeded year is `closed` and therefore still current - the default
+    // filter is about what a year still owes, and its distribution is missing.
     await page.locator(`tr:has(td:text-is("#${tippYearId}"))`)
-      .getByRole('button', { name: 'öffnen' })
+      .getByRole('link', { name: 'öffnen' })
       .click()
+
+    await expect(page).toHaveURL(new RegExp(`/admin/tipp-years/${tippYearId}$`))
 
     // The seeded year is complete: a period, members, and it was closed again
     // at the end of the setup - so only the status step is still open.
