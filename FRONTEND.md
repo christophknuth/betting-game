@@ -45,7 +45,7 @@ approves it in the roster. The rest of E1 is not implemented.
 
 | View | Route | Endpoint | Story |
 |------|-------|----------|-------|
-| LoginView | `/login` | — (Keycloak) | |
+| LoginView | `/login` | — (Keycloak) | landing page after a logout, not a station on the way in |
 | RegisterView | `/register` | `POST /registrations`, `GET /registrations/me` | E1-01 |
 | BetRowView | `/bet-row` | `GET /participants/{id}/bet-row` | B-01 |
 | MembershipsView | `/memberships` | `GET /participants/{id}/memberships` | B-02 |
@@ -66,6 +66,18 @@ unknown paths — among them all URLs of the old SPA, which otherwise ended as a
 Routes with `requiresAuth` demand a login, `/admin/*` additionally `requiresAdmin`.
 The guard only hides the entrance; the API checks the role itself on every admin route, and
 that is where the decision is made.
+
+**An anonymous visitor is handed to Keycloak, not to a page of ours.** `/login` used to sit
+in between and carried a single button, plus a box of technical detail nobody in the
+syndicate needs — PKCE, where the token lives, the demo accounts, a link into the Keycloak
+admin console. Saving the click by embedding Keycloak's form in an `<iframe>` is not
+available: Keycloak sends `X-Frame-Options: SAMEORIGIN` and `frame-ancestors 'self'` with
+it, and that refusal is exactly what stops another page from laying an invisible overlay
+over the password field. So the detour is made invisible instead — the guard calls
+`login({ redirectUri: … + to.fullPath })`, which is also what keeps a deep link alive
+across it, and aborts its own navigation rather than flashing a view the visitor may not
+see. `/login` stays: it is where `logout()` lands, and bouncing it onwards would make
+**Abmelden** look like it had done nothing.
 
 ### Two areas, two layouts
 
@@ -107,7 +119,8 @@ router.beforeEach(async (to, from, next) => {
   await authStore.ready()
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
+    authStore.login({ redirectUri: window.location.origin + to.fullPath })
+    next(false)
   } else if (to.meta.requiresAdmin && !authStore.isAdmin()) {
     next(HOME)
   } else if (to.path === '/login' && authStore.isAuthenticated) {
@@ -380,12 +393,14 @@ frontend/src/
 ## Authentication
 
 Login runs entirely through Keycloak (OAuth2/OIDC with PKCE). Tokens live exclusively in the
-memory of the keycloak-js adapter, **not** in localStorage.
+memory of the keycloak-js adapter, **not** in localStorage. The login form is Keycloak's own
+page and cannot be anything else — see the navigation guard above for why an `<iframe>` is
+not an option, and for the redirect that makes the detour invisible anyway.
 
 ```javascript
 await authStore.initKeycloak()   // at app start (main.js)
-await authStore.login()          // redirect to the Keycloak login page
-await authStore.logout()         // Keycloak logout + clear local state
+await authStore.login(options)   // hand over to the Keycloak login page
+await authStore.logout()         // Keycloak logout, back to /login, clear local state
 
 keycloakService.onTokenExpired(() => keycloakService.updateToken(30))
 ```
@@ -640,7 +655,7 @@ implementation:
 | `components/MoneyInput.spec.js` | The comma works, the dot still works, blur rounds to cents and rewrites the field German — and what the field shows is the figure that was emitted |
 | `components/NumberGrid.spec.js` | B-06 through the grid the numbers are picked off: 49 numbers, ascending whatever the click order, a second click releases one again, and a full grid locks the rest — so a seventh number, a 50 or a duplicate is unreachable |
 | `stores/auth.spec.js` | `isAdmin()`/`hasRole()` (B-17), the `displayName` fallback, `logout()` clears local state even when the Keycloak logout itself fails |
-| `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → `/login`, participant → no entry to `/admin/*` |
+| `router/guard.spec.js` | `requiresAuth`/`requiresAdmin` (B-15 through B-17): anonymous → straight to Keycloak with the requested route as the redirect, `/login` itself still shown, participant → no entry to `/admin/*` |
 | `stores/notifications.spec.js` | A success takes itself away after five seconds, an error waits to be dismissed, five in a row drop the oldest, and one expiring does not take a later one with it |
 | `components/CommandFeedback.spec.js` | The headless reporter: nothing is announced before the command answers, an accepted one becomes a success, a rejected one carries the rule that said no, and the resource id appears only where the caller has to act on it |
 | `components/NumberGrid.spec.js` (keyboard) | One number in the tab order rather than forty-nine, the arrows and Home/End move it, the edges stop instead of wrapping, and a locked number stays focusable |
@@ -669,7 +684,7 @@ docker run --rm -v "$PWD/frontend:/app" -w /app node:24-alpine sh -c "npm instal
 
 | File | Checks |
 |---|---|
-| `auth.spec.js` | A real Keycloak login (B-15), the admin area unreachable for participants (B-17), the crossing into the admin layout and back, logout |
+| `auth.spec.js` | A real Keycloak login (B-15) including the hand-over without a page in between, the admin area unreachable for participants (B-17), the crossing into the admin layout and back, logout |
 | `participant-views.spec.js` | B-01, B-03, B-05 with real, seeded data for `testuser` |
 | `admin-fee-payment.spec.js` | B-07 as a real write through the interface, not just a read |
 | `admin-participants.spec.js` | B-21: creating a participant, and that they then turn up in the dropdowns |
@@ -728,7 +743,8 @@ test.
 
 A manual checklist for what Playwright does not cover either:
 
-- [ ] Login through Keycloak, logout, redirect to `/login` without a session
+- [ ] Any protected URL without a session goes straight to the Keycloak form and comes back
+      to that same URL; logout lands on `/login`
 - [ ] The session survives a reload (silent SSO)
 - [ ] `/admin/*` reachable only with the admin role
 - [ ] Crossing between the two areas in both directions, and the admin sidebar collapsing

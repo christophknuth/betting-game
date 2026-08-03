@@ -56,6 +56,21 @@ test.describe('authentication and role gating', () => {
     await page.getByRole('button', { name: 'Abmelden' }).click()
 
     await expect(page).toHaveURL(/\/login$/)
-    await expect(page.getByRole('button', { name: 'Mit Keycloak anmelden' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Anmelden' })).toBeVisible()
+  })
+
+  test('an anonymous visitor is handed to Keycloak without a page in between', async ({ page }) => {
+    // Deliberately a protected route, not /login: the SPA used to answer this
+    // with its own screen carrying a single button. Now the login form itself
+    // is what comes up, and it comes back to the route that was asked for.
+    await page.goto('/fees')
+
+    await expect(page.locator('#kc-login')).toBeVisible()
+
+    await page.locator('#username').fill('testuser')
+    await page.locator('#password').fill('test123')
+    await page.locator('#kc-login').click()
+
+    await expect(page).toHaveURL(/\/fees$/)
   })
 })

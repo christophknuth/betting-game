@@ -212,6 +212,12 @@ change unattended.
 | **B-16** | As a **participant** I want to be sure nobody sees my data. | `403` when `participantId` in the path ≠ the claim | 🟢 ♻️ |
 | **B-17** | As an **operator** I want the admin area to be role-protected. | `realm_access.roles` contains `admin` | 🟢 ♻️ |
 
+- B-15: **there is no login page of ours.** Asking for any protected route hands the browser
+  to Keycloak's own form, with that route as the redirect URI, and it comes straight back
+  there. Keycloak's page cannot be embedded — it refuses to be framed, which is what
+  protects the password field — so the detour is made invisible rather than shortened.
+  `/login` remains as the place a logout lands
+
 ---
 
 # E1 — self-service

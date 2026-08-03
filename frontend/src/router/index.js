@@ -16,7 +16,9 @@ const router = createRouter({
   routes: [
     {
       // No layout: the login page is the one screen with neither navigation
-      // nor a user to show in it.
+      // nor a user to show in it. Nobody is sent here on the way in any more -
+      // the guard below goes straight to Keycloak. This is where a logout
+      // lands, and it stays reachable by hand.
       path: '/login',
       name: 'Login',
       meta: { title: 'Anmelden' },
@@ -171,7 +173,21 @@ router.beforeEach(async (to, from, next) => {
   await authStore.ready()
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
+    // Straight to Keycloak, with no page of our own in between. The one that
+    // used to sit here carried a single button and nothing a member could act
+    // on. Saving the click by embedding Keycloak's form is not an option -
+    // it refuses to be framed, and that refusal is what protects the password
+    // field - so the detour is made invisible instead.
+    //
+    // Naming the target as the redirect URI is what keeps a deep link alive
+    // across it: Keycloak returns to the route that was asked for, not to
+    // whichever page the redirect happened to start from.
+    authStore.login({ redirectUri: window.location.origin + to.fullPath })
+
+    // Abort rather than route somewhere: the browser is leaving this document.
+    // Rendering another view first would show a flash of a page the visitor is
+    // not allowed to see.
+    next(false)
   } else if (to.meta.requiresAdmin && !authStore.isAdmin()) {
     // The guard only hides the entrance. The API checks the role itself on
     // every admin route, which is where the decision actually is.

@@ -10,13 +10,14 @@ export function readFixture() {
 }
 
 /**
- * Logs in through the real Keycloak redirect - not a mocked token. The SPA's
- * "Mit Keycloak anmelden" button redirects to Keycloak's own login page,
- * which is what this fills in and submits.
+ * Logs in through the real Keycloak redirect - not a mocked token.
+ *
+ * Asking for a protected route is the whole login gesture: the SPA has no
+ * page of its own in between any more, it hands an anonymous visitor straight
+ * to Keycloak's login form. That form is what this fills in and submits.
  */
 export async function loginAs(page, username, password) {
-  await page.goto('/login')
-  await page.getByRole('button', { name: 'Mit Keycloak anmelden' }).click()
+  await page.goto('/bet-row')
   await page.locator('#username').fill(username)
   await page.locator('#password').fill(password)
   await page.locator('#kc-login').click()

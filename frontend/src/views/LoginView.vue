@@ -3,96 +3,47 @@
     <div class="login-card">
       <h1>🎲 Tippgemeinschaft</h1>
       <p class="subtitle">
-        Lotto 6 aus 49 — Anmeldung über Keycloak
+        Lotto 6 aus 49
       </p>
 
-      <div
-        v-if="loading"
-        class="loading-state"
+      <p class="lead">
+        Melde dich an, um deine Tippreihe, deine Gebühren und deinen Gewinnanteil zu sehen.
+      </p>
+
+      <button
+        class="btn-login"
+        :disabled="loggingIn"
+        @click="handleLogin"
       >
-        <div class="spinner" />
-        <p>Wird initialisiert …</p>
-      </div>
+        {{ loggingIn ? 'Weiterleitung …' : 'Anmelden' }}
+      </button>
 
-      <div v-else>
-        <div class="info-box">
-          <p>
-            Die Anmeldung läuft vollständig über Keycloak (OIDC mit PKCE). Das Token liegt
-            im Speicher des Adapters, nicht im localStorage.
-          </p>
-        </div>
-
-        <button
-          class="btn-login"
-          :disabled="loggingIn"
-          @click="handleLogin"
-        >
-          {{ loggingIn ? 'Weiterleitung …' : 'Mit Keycloak anmelden' }}
-        </button>
-
-        <div
-          v-if="error"
-          class="error-message"
-        >
-          {{ error }}
-        </div>
-
-        <div class="demo-credentials">
-          <p><strong>Demo-Zugänge:</strong></p>
-          <ul>
-            <li>
-              <strong>admin</strong> / admin123
-              <span class="role-badge admin">Administrator</span>
-            </li>
-            <li>
-              <strong>testuser</strong> / test123
-              <span class="role-badge user">Teilnehmer</span>
-            </li>
-            <li>
-              <strong>john.doe</strong> / password
-              <span class="role-badge user">Teilnehmer</span>
-            </li>
-          </ul>
-          <p class="small">
-            Die Teilnehmeransichten brauchen den <code>participant_id</code>-Claim aus dem
-            Benutzerattribut im Realm — ohne ihn zeigen sie nichts an.
-          </p>
-        </div>
-
-        <div class="keycloak-info">
-          <p class="small">
-            <a
-              href="http://localhost:8090/admin/master/console/#/betting-game"
-              target="_blank"
-            >
-              Keycloak Admin Console
-            </a> (admin/admin)
-          </p>
-        </div>
+      <div
+        v-if="error"
+        class="error-message"
+      >
+        {{ error }}
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
-const loading = ref(true)
 const loggingIn = ref(false)
 const error = ref(null)
 
-onMounted(() => {
-  if (authStore.isAuthenticated) {
-    router.push('/bet-row')
-  }
-  loading.value = false
-})
-
+/**
+ * This page is the landing spot after a logout, not a station on the way in -
+ * every protected route hands an anonymous visitor to Keycloak itself. So no
+ * initialisation state is shown here: the navigation guard has already awaited
+ * the Keycloak bootstrap before this view renders, and an already-signed-in
+ * visitor never gets this far.
+ */
 const handleLogin = async () => {
   loggingIn.value = true
   error.value = null
@@ -139,42 +90,10 @@ h1 {
   margin-bottom: 2rem;
 }
 
-.loading-state {
+.lead {
   text-align: center;
-  padding: 2rem 0;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  margin: 0 auto 1rem;
-  border: 4px solid #f3f4f6;
-  border-top: 4px solid #2563eb;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.info-box {
-  padding: 1rem;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 6px;
+  color: #374151;
   margin-bottom: 1.5rem;
-}
-
-.info-box p {
-  margin: 0.5rem 0;
-  color: #0c4a6e;
-  font-size: 0.875rem;
-}
-
-.info-box strong {
-  color: #0369a1;
 }
 
 .btn-login {
@@ -207,78 +126,5 @@ h1 {
   border-radius: 6px;
   color: #dc2626;
   text-align: center;
-}
-
-.demo-credentials {
-  margin-top: 2rem;
-  padding: 1rem;
-  background: #f9fafb;
-  border-radius: 6px;
-  font-size: 0.875rem;
-}
-
-.demo-credentials p {
-  margin: 0 0 0.5rem 0;
-  color: #666;
-}
-
-.demo-credentials strong {
-  color: #2563eb;
-}
-
-.demo-credentials ul {
-  margin: 0.5rem 0 0 0;
-  padding-left: 1.5rem;
-}
-
-.demo-credentials li {
-  margin: 0.5rem 0;
-  color: #374151;
-}
-
-.role-badge {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-left: 0.5rem;
-}
-
-.role-badge.admin {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.role-badge.user {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.keycloak-info {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-  text-align: center;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.keycloak-info strong {
-  color: #2563eb;
-}
-
-.keycloak-info .small {
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-}
-
-.keycloak-info a {
-  color: #2563eb;
-  text-decoration: none;
-}
-
-.keycloak-info a:hover {
-  text-decoration: underline;
 }
 </style>

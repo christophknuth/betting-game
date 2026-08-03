@@ -122,9 +122,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login() {
+  async function login(options) {
     try {
-      await keycloakService.login()
+      await keycloakService.login(options)
     } catch (error) {
       console.error('Login failed:', error)
       throw error
