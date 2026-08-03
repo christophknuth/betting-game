@@ -182,10 +182,20 @@ export default {
       return client.put(`/admin/fees/${feeId}/payment`, data, command(idempotencyKey))
     },
 
-    // --- Draws (B-08, B-09) ---
+    // --- Draws (B-08, B-09, B-28) ---
 
     recordDraw(data, idempotencyKey) {
       return client.post('/admin/draws', data, command(idempotencyKey))
+    },
+
+    /**
+     * B-28: date, numbers and Superzahl as they should have been entered.
+     *
+     * Always all three, like recording one - the API takes a correction as a
+     * statement of what is right, not as a list of what changed.
+     */
+    correctDraw(drawId, data, idempotencyKey) {
+      return client.put(`/admin/draws/${drawId}`, data, command(idempotencyKey))
     },
 
     recordDrawWinnings(drawId, data, idempotencyKey) {

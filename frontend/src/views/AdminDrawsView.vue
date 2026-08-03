@@ -48,25 +48,12 @@
   <div class="card section">
     <h3>Ziehung eintragen</h3>
     <form @submit.prevent="recordDraw">
-      <div class="field">
-        <label for="drawDate">Ziehungsdatum</label>
-        <input
-          id="drawDate"
-          v-model="newDraw.drawDate"
-          type="date"
-          required
-        >
-      </div>
-
-      <div class="field">
-        <span class="label">Gewinnzahlen</span>
-        <NumberGrid v-model="newDraw.numbers" />
-      </div>
-
-      <div class="field">
-        <span class="label">Superzahl</span>
-        <SuperzahlPicker v-model="newDraw.superzahl" />
-      </div>
+      <DrawFields
+        v-model:draw-date="newDraw.drawDate"
+        v-model:numbers="newDraw.numbers"
+        v-model:superzahl="newDraw.superzahl"
+        id-prefix="new"
+      />
 
       <!--
         The note that used to stand here explained that a duplicate draw date is
@@ -76,7 +63,7 @@
 
       <button
         class="btn-primary"
-        :disabled="recordCmd.pending || !tippYearId || newDraw.numbers.length !== 6 || newDraw.superzahl === null"
+        :disabled="recordCmd.pending || !tippYearId || !isComplete(newDraw)"
         type="submit"
       >
         {{ recordCmd.pending ? 'Wird gesendet …' : 'Ziehung eintragen' }}
@@ -123,10 +110,25 @@
             Ziehung #{{ draw.drawId }}
           </p>
         </div>
-        <span
-          class="badge"
-          :class="draw.status"
-        >{{ statusLabel(draw.status) }}</span>
+        <div class="header-actions">
+          <!--
+            B-28: Solange nichts gebucht ist, ist ein Tippfehler ein Tippfehler.
+            Danach nicht mehr — dann hängen Gebühren und Jahressumme daran, und
+            der Weg zurück ist der Gewinn, nicht die Zahl.
+          -->
+          <button
+            v-if="draw.status !== 'evaluated'"
+            class="btn-secondary small"
+            type="button"
+            @click="toggleEdit(draw)"
+          >
+            {{ editing[draw.drawId] ? 'Abbrechen' : 'Ändern' }}
+          </button>
+          <span
+            class="badge"
+            :class="draw.status"
+          >{{ statusLabel(draw.status) }}</span>
+        </div>
       </div>
 
       <div class="numbers section">
@@ -140,6 +142,39 @@
           class="ball superzahl"
         >{{ draw.superzahl }}</span>
       </div>
+
+      <!-- B-28 -->
+      <form
+        v-if="editing[draw.drawId]"
+        class="section correction"
+        @submit.prevent="correctDraw(draw.drawId)"
+      >
+        <h4>Ziehung ändern</h4>
+        <p class="state note">
+          Datum, Zahlen und Superzahl werden so gespeichert, wie sie hier stehen. Die
+          Reihen des Scheins werden danach neu ausgewertet — ein geändertes Datum kann
+          auch einen anderen Schein betreffen.
+        </p>
+
+        <DrawFields
+          v-model:draw-date="editing[draw.drawId].drawDate"
+          v-model:numbers="editing[draw.drawId].numbers"
+          v-model:superzahl="editing[draw.drawId].superzahl"
+          :id-prefix="`draw-${draw.drawId}`"
+        />
+
+        <button
+          class="btn-primary"
+          type="submit"
+          :disabled="correctCmds[draw.drawId]?.pending || !isComplete(editing[draw.drawId])"
+        >
+          {{ correctCmds[draw.drawId]?.pending ? 'Wird gesendet …' : 'Änderung speichern' }}
+        </button>
+        <CommandFeedback
+          v-if="correctCmds[draw.drawId]"
+          :command="correctCmds[draw.drawId]"
+        />
+      </form>
 
       <div
         v-if="draw.ticket"
@@ -229,9 +264,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import CommandFeedback from '@/components/CommandFeedback.vue'
+import DrawFields from '@/components/DrawFields.vue'
 import DrawRows from '@/components/DrawRows.vue'
-import NumberGrid from '@/components/NumberGrid.vue'
-import SuperzahlPicker from '@/components/SuperzahlPicker.vue'
 import WinningsEntry from '@/components/WinningsEntry.vue'
 import api from '@/services/api'
 import { useCommand, useQuery } from '@/composables/useCommand'
@@ -243,6 +277,10 @@ const recordCmd = useCommand()
 
 const tippYearId = ref('')
 const winningsCmds = reactive({})
+const correctCmds = reactive({})
+
+/** Per draw the values being edited, or nothing while it is not (B-28). */
+const editing = reactive({})
 
 const tippYears = computed(() => years.data?.tippYears ?? [])
 const drawList = computed(() => draws.data?.draws ?? [])
@@ -273,6 +311,52 @@ function loadDraws() {
 // Choosing a year loads it; the button beside the dropdown is for fetching the
 // same year again, which is a different intention and keeps its own word.
 watch(tippYearId, loadDraws)
+
+/** A day, six numbers and a Superzahl - the same three for entry and correction. */
+const isComplete = draw =>
+  Boolean(draw?.drawDate) && draw?.numbers?.length === 6 && draw?.superzahl !== null
+
+/**
+ * B-28: opens the correction with what is on screen, closes it without saving.
+ *
+ * The values are copied out of the draw rather than bound to it - the list is
+ * reloaded after every command, and editing the row in place would have the
+ * fields jump back mid-typing.
+ */
+function toggleEdit(draw) {
+  if (editing[draw.drawId]) {
+    delete editing[draw.drawId]
+
+    return
+  }
+
+  editing[draw.drawId] = {
+    drawDate: draw.drawDate,
+    numbers: [...(draw.numbers ?? [])],
+    superzahl: draw.superzahl
+  }
+}
+
+async function correctDraw(drawId) {
+  const values = editing[drawId]
+
+  if (!values || !isComplete(values)) {
+    return
+  }
+
+  const command = (correctCmds[drawId] ??= useCommand())
+
+  const accepted = await command.run(key => api.admin.correctDraw(drawId, {
+    drawDate: values.drawDate,
+    numbers: [...values.numbers],
+    superzahl: values.superzahl
+  }, key))
+
+  if (accepted) {
+    delete editing[drawId]
+    loadDraws()
+  }
+}
 
 async function recordDraw() {
   // Nothing to parse or check about the numbers here: the grid hands over six
@@ -318,5 +402,22 @@ onMounted(() => years.load(() => api.admin.getTippYears()))
   color: var(--gray-500);
   font-weight: 400;
   font-size: 0.8125rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-secondary.small {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.8125rem;
+}
+
+/* Abgesetzt, weil hier bestehende Daten überschrieben werden */
+.correction {
+  border-left: 3px solid var(--gray-300);
+  padding-left: 1rem;
 }
 </style>

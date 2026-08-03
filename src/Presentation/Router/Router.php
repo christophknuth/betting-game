@@ -129,11 +129,17 @@ final class Router
                 'command' => true,
             ]);
 
-            // --- Admin: draws (B-08, B-09) ---
+            // --- Admin: draws (B-08, B-09, B-28) ---
 
             $r->addRoute('POST', '/admin/draws', [
                 'controller' => 'AdminDrawController',
                 'method' => 'record',
+                'role' => 'admin',
+                'command' => true,
+            ]);
+            $r->addRoute('PUT', '/admin/draws/{drawId:\d+}', [
+                'controller' => 'AdminDrawController',
+                'method' => 'correct',
                 'role' => 'admin',
                 'command' => true,
             ]);

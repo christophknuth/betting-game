@@ -3,8 +3,8 @@
 How the application is built, and why. The domain is in
 [USER_STORIES.md](USER_STORIES.md), the working guide in [AGENTS.md](AGENTS.md).
 
-State: expansion stage base, fully implemented — 18 domain stories, 4 operations stories,
-23 routes.
+State: expansion stage base, fully implemented — 28 domain stories, 4 operations stories,
+30 routes.
 
 ---
 
@@ -157,7 +157,7 @@ useful nonetheless — that is where a retry looks up what the first attempt pro
 
 ## 4. Class map
 
-155 files under `src/`, one class per file, PSR-4 mapping 1:1 onto the namespace structure.
+186 files under `src/`, one class per file, PSR-4 mapping 1:1 onto the namespace structure.
 The namespace root is historically `BettingGame\`, despite the lotto domain.
 
 ### Domain (`src/Domain/`)
@@ -166,7 +166,7 @@ The namespace root is historically `BettingGame\`, despite the lotto domain.
 |---|---|
 | `Model/` | 7 aggregates — `TippYear`, `BetPeriod`, `BetRow`, `Ticket`, `Draw`, `Fee`, `Participant` — plus the trait `RecordsEvents` |
 | `ValueObject/` | `LottoNumbers`, `Superzahl`, `DateRange`, `EvenSplit`, `WinningClass`, `TippYearStatus`, `ParticipantId`, `Email`, `DisplayName` |
-| `Event/` | `DomainEvent` + 14 concrete events |
+| `Event/` | `DomainEvent` + 17 concrete events |
 | `Repository/` | 10 interfaces + `RecordedEvent` |
 | `Service/` | `WinningsDistribution` |
 | `Exception/` | 7 classes under `DomainException` |

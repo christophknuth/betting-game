@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BettingGame\Domain\Model;
 
+use BettingGame\Domain\Event\DrawCorrected;
 use BettingGame\Domain\Event\DrawRecorded;
 use BettingGame\Domain\Event\DrawWinningsRecorded;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
@@ -82,6 +83,60 @@ final class Draw
         $draw->markCommitted($version);
 
         return $draw;
+    }
+
+    /**
+     * B-28: puts a mistyped draw right.
+     *
+     * **Only while nothing has been booked against it.** Once the winnings are
+     * recorded the draw is not a set of numbers any more but the basis of the
+     * fees and the year's total, and changing the numbers underneath that would
+     * silently rewrite what everybody already saw. `evaluated` is therefore
+     * where correcting stops - the way back is to record the winnings again,
+     * which is a decision with a figure attached rather than a typo.
+     *
+     * The date is correctable too, and deliberately so: it decides which ticket
+     * played, so a draw entered under the wrong date belongs to the wrong slip
+     * entirely. Whether the new date is still inside the tipp year, and whether
+     * a draw already exists for it, is checked outside - the first needs the
+     * year, the second is the unique key's business.
+     */
+    public function correct(DateTimeImmutable $drawDate, LottoNumbers $numbers, Superzahl $superzahl): void
+    {
+        if ($this->status === self::EVALUATED) {
+            throw new BusinessRuleViolationException(
+                'This draw has been evaluated and cannot be corrected. '
+                . 'Record its winnings again if the figures were wrong.'
+            );
+        }
+
+        $unchanged = $drawDate->format('Y-m-d') === $this->drawDate->format('Y-m-d')
+            && $this->numbers !== null && $numbers->equals($this->numbers)
+            && $this->superzahl !== null && $superzahl->equals($this->superzahl);
+
+        if ($unchanged) {
+            throw new BusinessRuleViolationException('The corrected draw is identical to the current one');
+        }
+
+        $previousDate = $this->drawDate;
+        $previousNumbers = $this->numbers;
+        $previousSuperzahl = $this->superzahl;
+
+        $this->drawDate = $drawDate;
+        $this->numbers = $numbers;
+        $this->superzahl = $superzahl;
+        $this->status = self::DRAWN;
+        $this->version++;
+
+        $this->recordEvent(new DrawCorrected(
+            (string) $this->id,
+            $drawDate->format('Y-m-d'),
+            $numbers->toArray(),
+            $superzahl->value(),
+            $previousDate->format('Y-m-d'),
+            $previousNumbers?->toArray() ?? [],
+            $previousSuperzahl?->value()
+        ));
     }
 
     /**

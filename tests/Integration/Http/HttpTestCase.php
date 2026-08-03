@@ -82,6 +82,7 @@ abstract class HttpTestCase extends ApplicationTestCase
             ),
             'BettingGame\Presentation\Controller\AdminDrawController' => new AdminDrawController(
                 $this->recordDraw(),
+                $this->correctDraw(),
                 $this->recordDrawWinnings()
             ),
             'BettingGame\Presentation\Controller\AdminFeeController' => new AdminFeeController(

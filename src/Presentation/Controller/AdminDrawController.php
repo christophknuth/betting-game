@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BettingGame\Presentation\Controller;
 
+use BettingGame\Application\Command\CorrectDrawCommand;
+use BettingGame\Application\Command\CorrectDrawHandler;
 use BettingGame\Application\Command\RecordDrawCommand;
 use BettingGame\Application\Command\RecordDrawHandler;
 use BettingGame\Application\Command\RecordDrawWinningsCommand;
@@ -20,6 +22,7 @@ final class AdminDrawController
 {
     public function __construct(
         private RecordDrawHandler $recordDraw,
+        private CorrectDrawHandler $correctDraw,
         private RecordDrawWinningsHandler $recordWinnings
     ) {
     }
@@ -36,6 +39,29 @@ final class AdminDrawController
         return JsonResponse::accepted(
             $this->recordDraw->handle(new RecordDrawCommand(
                 Input::int($body, 'tippYearId'),
+                Input::string($body, 'drawDate'),
+                Input::intList($body, 'numbers'),
+                Input::int($body, 'superzahl')
+            ))->toArray()
+        );
+    }
+
+    /**
+     * B-28: the draw as it should have been entered.
+     *
+     * The same three fields as recording it, all of them required - a
+     * correction states what is right rather than what changed. Which of them
+     * may still be changed at all is the aggregate's business.
+     *
+     * @param array<string, string> $params
+     */
+    public function correct(Request $request, array $params): JsonResponse
+    {
+        $body = $request->jsonBody();
+
+        return JsonResponse::accepted(
+            $this->correctDraw->handle(new CorrectDrawCommand(
+                Input::pathInt($params, 'drawId'),
                 Input::string($body, 'drawDate'),
                 Input::intList($body, 'numbers'),
                 Input::int($body, 'superzahl')

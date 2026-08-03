@@ -127,6 +127,14 @@ final class GermanMessages
         'An amount cannot be split into fewer than one share'
             => 'Ein Betrag lässt sich nicht auf weniger als einen Anteil aufteilen',
 
+        // --- Correcting a draw (B-28) ----------------------------------------
+        'This draw has been evaluated and cannot be corrected. '
+        . 'Record its winnings again if the figures were wrong.'
+            => 'Diese Ziehung ist bereits ausgewertet und kann nicht mehr geändert werden. '
+                . 'Stimmen die Beträge nicht, ist der Gewinn neu einzutragen.',
+        'The corrected draw is identical to the current one'
+            => 'Die Änderung entspricht der bisherigen Ziehung',
+
         // --- Nothing of that name -------------------------------------------
         'No such tipp year' => 'Dieses Tippjahr gibt es nicht',
         'Tipp year %d does not exist' => 'Das Tippjahr %d gibt es nicht',
