@@ -17,6 +17,10 @@ final class ParticipantProjector implements Projector
 
     public const EVENT_APPROVED = 'participant.approved';
 
+    public const EVENT_RENAMED = 'participant.renamed';
+
+    public const EVENT_STATUS_CHANGED = 'participant.status_changed';
+
     public function __construct(private Db $db)
     {
     }
@@ -29,7 +33,12 @@ final class ParticipantProjector implements Projector
     /** @return list<string> */
     public function eventTypes(): array
     {
-        return [self::EVENT_CREATED, self::EVENT_APPROVED];
+        return [
+            self::EVENT_CREATED,
+            self::EVENT_APPROVED,
+            self::EVENT_RENAMED,
+            self::EVENT_STATUS_CHANGED,
+        ];
     }
 
     public function reset(): void
@@ -56,9 +65,28 @@ final class ParticipantProjector implements Projector
                     $record->version,
                 ]
             ),
+            // E1's approval of a self-registration. B-25's status change lands
+            // in the same column and is a different thing - an administrator
+            // saying who still plays.
             self::EVENT_APPROVED => $this->db->execute(
                 'UPDATE participant SET is_active = 1, version = ? WHERE participant_id = ?',
                 [$record->version, Row::int($data, 'participant_id')]
+            ),
+            self::EVENT_RENAMED => $this->db->execute(
+                'UPDATE participant SET display_name = ?, version = ? WHERE participant_id = ?',
+                [
+                    Row::string($data, 'display_name'),
+                    $record->version,
+                    Row::int($data, 'participant_id'),
+                ]
+            ),
+            self::EVENT_STATUS_CHANGED => $this->db->execute(
+                'UPDATE participant SET is_active = ?, version = ? WHERE participant_id = ?',
+                [
+                    Row::bool($data, 'is_active') ? 1 : 0,
+                    $record->version,
+                    Row::int($data, 'participant_id'),
+                ]
             ),
             default => null,
         };

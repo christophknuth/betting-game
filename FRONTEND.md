@@ -48,11 +48,12 @@ Self-service is E1 and not implemented.
 | FeesView | `/fees` | `GET /participants/{id}/fees` | B-03 |
 | PayoutShareView | `/payout-share` | `GET /participants/{id}/payout-share` | B-04 |
 | DrawsView | `/draws` | `GET /tipp-years/{id}/draws` | B-05, B-24 |
-| AdminParticipantsView | `/admin/participants` | `GET`/`POST /admin/participants` | B-21 |
+| AdminParticipantsView | `/admin/participants` | `GET`/`POST /admin/participants`, `PUT /admin/participants/{id}`, `…/status` | B-21, B-25 |
 | AdminBetRowsView | `/admin/bet-rows` | `PUT /admin/participants/{id}/bet-row` | B-06 |
 | AdminFeesView | `/admin/fees` | `GET /admin/fees`, `PUT /admin/fees/{id}/payment` | B-07 |
 | AdminDrawsView | `/admin/draws` | `POST /admin/draws`, `PUT /admin/draws/{id}/winnings` | B-08, B-09, B-22, B-23, B-24 |
-| AdminTippYearsView | `/admin/tipp-years` | tipp years, status, periods, members, tickets, distribution | B-10 – B-14, B-18 |
+| AdminTippYearsView | `/admin/tipp-years` | `GET /admin/tipp-years`, `PUT /admin/tipp-years/{id}/status` | B-10, B-18 |
+| AdminTippYearView | `/admin/tipp-years/{id}` | periods, members, tickets, distribution of one year | B-11 – B-14, B-18 |
 | AdminOperationsView | `/admin/operations` | `GET /commands/{id}`, `GET /admin/audit/…`, `GET/POST /admin/projections…` | OPS-01, OPS-03, OPS-04 |
 
 `/` redirects to `/bet-row`, `/admin` to `/admin/tipp-years`. A catch-all route catches
@@ -163,6 +164,43 @@ The parts below the checklist are **running operations**, not setup: a ticket is
 monthly (B-12), the distribution happens once at year end (B-13). They used to sit in the same
 stack of forms as "create a tipp year", which is what made the page read as a pile of
 unrelated fields.
+
+### A year is a page, the list is a list
+
+`AdminTippYearsView` is the list, `AdminTippYearView` is one year — two routes, not one page
+that unfolds. Opening a year used to reveal the checklist, the periods and both operation
+forms *below* the table, with nothing in the address bar to say which year was open: no link
+to it, no bookmark, and the back button left the page instead of the year.
+
+**The list shows what still owes something.** The years accumulate — one runs, one is planned,
+the rest is history — so the default filter is `Aktuell`: everything not yet `distributed`.
+That deliberately keeps a `closed` year in view, because its distribution is still outstanding;
+`Archiv` holds the distributed ones and `Alle` everything. The counts sit on the filters, so
+nothing is hidden without saying how much.
+
+**The status control is one component,** `TippYearStatusSelect`, used by the list row and by
+the year's own header. Each instance carries its own `useCommand` — two rows sharing an
+idempotency key would let a request that never came back replay its answer for the wrong year
+(OPS-02). Where the server refuses a change, the dropdown is put back by hand: the model never
+changed, so Vue has nothing to patch, and a select left standing on `laufend` would be a lie
+about the read model.
+
+### Editing the roster
+
+`AdminParticipantsView` edits in the row: **umbenennen** turns the name cell into a field,
+**deaktivieren** / **aktivieren** sits beside it. Lifting a name out of the table to edit it
+elsewhere would lose the comparison with the nineteen others, which is usually the reason
+for looking at it.
+
+Both answers are announced through the notification store rather than `CommandFeedback` —
+these commands hang off a table row and have no form of their own to sit under. Each row
+carries its own `useCommand`, so no idempotency key is shared between two participants
+(OPS-02).
+
+**The roster shows everybody; the pickers do not.** `getParticipants(true)` asks for
+`?active=true` and is what the tipp year's member picker and the bet-row view use — someone
+who has left must not be offered, and B-11 refuses them anyway. The fee view is deliberately
+*not* filtered: an inactive participant can still owe money.
 
 ### The `participant_id` claim
 

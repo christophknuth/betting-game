@@ -56,14 +56,18 @@ final class GermanMessages
         'Invalid email address' => 'Ungültige E-Mail-Adresse',
         'Participant ID must be positive' => 'Die Teilnehmer-ID muss positiv sein',
         'Participant is already active' => 'Dieser Teilnehmer ist bereits aktiv',
+        'The new display name is identical to the current one'
+            => 'Der neue Anzeigename ist mit dem bisherigen identisch',
+        'This participant is already active' => 'Dieser Teilnehmer ist bereits aktiv',
+        'This participant is already inactive' => 'Dieser Teilnehmer ist bereits inaktiv',
+        'Participant %d is inactive and cannot join a tipp year'
+            => 'Der Teilnehmer %d ist inaktiv und kann keinem Tippjahr beitreten',
 
         // --- Tipp year, periods, tickets ------------------------------------
         'Cost per row must be positive' => 'Der Preis je Reihe muss positiv sein',
         'A processing fee cannot be negative' => 'Das Bearbeitungsentgelt darf nicht negativ sein',
         'End date must be after start date' => 'Das Ende muss nach dem Beginn liegen',
         'End date must not be before start date' => 'Das Ende darf nicht vor dem Beginn liegen',
-        'Period end must be after period start'
-            => 'Das Ende der Tippperiode muss nach ihrem Beginn liegen',
         'A bet period needs a name' => 'Eine Tippperiode braucht einen Namen',
         'The period %s is not inside the tipp year %s'
             => 'Die Tippperiode %s liegt nicht innerhalb des Tippjahres %s',
@@ -157,6 +161,10 @@ final class GermanMessages
         '%s must be an array of integers' => '%s muss eine Liste ganzer Zahlen sein',
         '%s must contain integers only' => '%s darf nur ganze Zahlen enthalten',
         '%s must be an integer' => '%s muss eine ganze Zahl sein',
+        // Before the general one, which would otherwise match this too and
+        // translate only its second half
+        '%s is required and must be a boolean'
+            => '%s muss angegeben werden und ein Wahrheitswert sein',
         '%s must be a boolean' => '%s muss ein Wahrheitswert sein',
         '%s must be a non-empty string' => '%s darf nicht leer sein',
         '%s must be a number' => '%s muss eine Zahl sein',

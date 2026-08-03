@@ -11,8 +11,12 @@ interface ParticipantRepositoryInterface
     /** @return array<string, mixed>|null */
     public function findById(int $id): ?array;
 
-    /** @return list<array<string, mixed>> */
-    public function findAll(): array;
+    /**
+     * @param bool|null $isActive null for everybody, true for the ones still playing
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findAll(?bool $isActive = null): array;
 
     public function findParticipant(int $id): ?Participant;
 

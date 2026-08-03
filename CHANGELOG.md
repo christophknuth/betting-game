@@ -6,6 +6,48 @@ what was changed when, and why.
 
 ---
 
+## A participant can be corrected, and can leave (2026-08-03, B-25)
+
+The roster was write-once. A participant could be created and listed, and that was the end
+of it: a typo in a name was permanent and showed up on every fee, every row and every payout
+share, and somebody leaving the syndicate stayed in the picker forever.
+
+Two commands close that, both admin-only and both writing an event:
+
+- `PUT /admin/participants/{id}` corrects the display name. Nothing copies the name — fees,
+  rows, memberships and payout shares all join the participant — so one write fixes it
+  everywhere it is read. `ParticipantRenamed` carries the **previous** name as well: a
+  rename changes who a reader thinks a booking belonged to, and the history has to be able
+  to say what it was at the time.
+- `PUT /admin/participants/{id}/status` records that somebody plays no more, or has come
+  back. `isActive` is required rather than defaulted — a body without it would deactivate
+  a participant by default, which is not a request anybody made.
+
+**There is deliberately no delete.** A participant is referenced by memberships, bet rows,
+fees and payout shares of years that have been played and paid; removing the row would
+either take those with it or leave them pointing nowhere. Somebody leaving is not a
+correction of the past.
+
+**Inactive had to mean something, or it would be a badge that changes colour.** It now does
+two things: B-11 refuses an inactive participant with a `409`, and
+`GET /admin/participants?active=true` leaves them out — which is what the pickers of the
+tipp year and the bet-row view ask for. The roster itself still shows everybody, because
+otherwise nobody could be brought back.
+
+Both rules that reject a no-op follow the house line: renaming to the same name and setting
+the status that is already set are `409`, because an event describing no change does not
+belong in the history (B-06 says it for a bet row, B-18 for a tipp year).
+
+`Input::requiredBool()` is new and exists for one reason: `bool()` takes a default, which is
+right for a flag like `confirm` and wrong for a value that *is* the instruction.
+
+In the frontend the roster edits in place — **umbenennen** turns the name cell into a field,
+**deaktivieren**/**aktivieren** sits next to it, and an inactive row is greyed back. Each row
+carries its own command state, so no idempotency key is shared between two participants
+(OPS-02).
+
+---
+
 ## A tipp year is a page, not a panel under the list (2026-08-03)
 
 The administration of a tipp year was one screen doing two jobs. It listed every year the

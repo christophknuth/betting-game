@@ -47,7 +47,7 @@ up on 2026-07-29.
 | Document | State |
 |---|---|
 | [USER_STORIES.md](USER_STORIES.md) | ✅ **Current and authoritative.** The domain reference, including per-story status |
-| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Current** (v2.3.0, "Lottery Syndicate API"). The authoritative API contract |
+| [betting_game_api.yaml](betting_game_api.yaml) | ✅ **Current** (v2.5.0, "Lottery Syndicate API"). The authoritative API contract |
 | [betting_game_er_extended.mermaid](betting_game_er_extended.mermaid) | ✅ Current |
 | [database/schema.sql](database/schema.sql) | ✅ Current |
 | [README.md](README.md) | ✅ Current. Overview, endpoints, installation |
@@ -165,15 +165,15 @@ src/                              155 files, one class per file
 ├── Domain/                       THE CORE — no outward dependencies
 │   ├── Model/                    aggregates: TippYear, BetPeriod, BetRow, Ticket,
 │   │                             Draw, Fee, Participant + the RecordsEvents trait
-│   ├── ValueObject/              LottoNumbers, Superzahl, DateRange, EvenSplit,
+│   ├── ValueObject/              LottoNumbers, Superzahl, DateRange, EvenSplit, DrawSchedule,
 │   │                             WinningClass, TippYearStatus, Email, DisplayName, …
-│   ├── Event/                    DomainEvent + 14 concrete events
+│   ├── Event/                    DomainEvent + 16 concrete events
 │   ├── Repository/               repository interfaces + RecordedEvent
 │   ├── Service/                  WinningsDistribution (used by the handler AND the projector)
 │   └── Exception/                the exception hierarchy under DomainException
 ├── Application/
-│   ├── Command/                  9 commands + handlers, CommandResult
-│   ├── Query/                    10 queries + handlers, QueryResult
+│   ├── Command/                  13 commands + handlers, CommandResult
+│   ├── Query/                    11 queries + handlers, QueryResult
 │   └── Projection/               ProjectionManager, Projector, ProjectionStatus
 ├── Infrastructure/
 │   ├── Auth/                     TokenVerifier, JwkSet, KeycloakKeys, AuthMiddleware

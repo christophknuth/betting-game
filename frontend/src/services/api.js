@@ -119,14 +119,32 @@ export default {
   },
 
   admin: {
-    // --- Participants (B-21) ---
+    // --- Participants (B-21, B-25) ---
 
-    getParticipants() {
-      return client.get('/admin/participants')
+    /**
+     * @param {boolean} activeOnly for a picker: someone who has left the
+     *   syndicate must not be offered, and B-11 refuses them anyway
+     */
+    getParticipants(activeOnly = false) {
+      return client.get('/admin/participants', query({ active: activeOnly || null }))
     },
 
     createParticipant(data, idempotencyKey) {
       return client.post('/admin/participants', data, command(idempotencyKey))
+    },
+
+    renameParticipant(participantId, data, idempotencyKey) {
+      return client.put(`/admin/participants/${participantId}`, data, command(idempotencyKey))
+    },
+
+    // B-25. Inactive is not deleted: memberships, fees and rows of past years
+    // stay, only new ones are refused.
+    changeParticipantStatus(participantId, data, idempotencyKey) {
+      return client.put(
+        `/admin/participants/${participantId}/status`,
+        data,
+        command(idempotencyKey)
+      )
     },
 
     // --- Bet rows (B-06) ---

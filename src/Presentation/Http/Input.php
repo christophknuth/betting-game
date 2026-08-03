@@ -194,6 +194,28 @@ final class Input
     }
 
     /**
+     * A boolean the caller has to state.
+     *
+     * `bool()` above takes a default because most flags have a sensible one -
+     * an unconfirmed distribution is refused, a filter nobody asked for is
+     * off. Where the value *is* the instruction, a default would carry it out
+     * on its own: "set the status" with no status in the body would deactivate
+     * a participant.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @throws InvalidInputException
+     */
+    public static function requiredBool(array $data, string $key): bool
+    {
+        if (!array_key_exists($key, $data)) {
+            throw new InvalidInputException("$key is required and must be a boolean");
+        }
+
+        return self::bool($data, $key, false);
+    }
+
+    /**
      * @param array<string, mixed> $data
      *
      * @return array<string, mixed>

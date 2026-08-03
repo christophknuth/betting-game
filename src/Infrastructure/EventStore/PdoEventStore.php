@@ -15,6 +15,8 @@ use BettingGame\Domain\Event\FeePaymentRecorded;
 use BettingGame\Domain\Event\MemberAdded;
 use BettingGame\Domain\Event\ParticipantApproved;
 use BettingGame\Domain\Event\ParticipantCreated;
+use BettingGame\Domain\Event\ParticipantRenamed;
+use BettingGame\Domain\Event\ParticipantStatusChanged;
 use BettingGame\Domain\Event\PayoutDistributed;
 use BettingGame\Domain\Event\TicketSubmitted;
 use BettingGame\Domain\Event\TippYearCreated;
@@ -441,6 +443,23 @@ final class PdoEventStore implements EventStoreInterface
             ),
             'participant.approved' => new ParticipantApproved(
                 Row::string($eventData, 'participant_id'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'participant.renamed' => new ParticipantRenamed(
+                Row::string($eventData, 'participant_id'),
+                Row::string($eventData, 'previous_display_name'),
+                Row::string($eventData, 'display_name'),
+                $domainEventId,
+                $occurredAt,
+                $causationId,
+                $correlationId
+            ),
+            'participant.status_changed' => new ParticipantStatusChanged(
+                Row::string($eventData, 'participant_id'),
+                Row::bool($eventData, 'is_active'),
                 $domainEventId,
                 $occurredAt,
                 $causationId,

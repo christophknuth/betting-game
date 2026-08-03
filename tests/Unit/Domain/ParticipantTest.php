@@ -7,12 +7,23 @@ namespace BettingGame\Tests\Unit\Domain;
 use BettingGame\Domain\Model\Participant;
 use BettingGame\Domain\Event\ParticipantCreated;
 use BettingGame\Domain\Event\ParticipantApproved;
+use BettingGame\Domain\Event\ParticipantRenamed;
+use BettingGame\Domain\Event\ParticipantStatusChanged;
 use BettingGame\Domain\ValueObject\DisplayName;
 use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use PHPUnit\Framework\TestCase;
 
 final class ParticipantTest extends TestCase
 {
+    /** A participant as the administrator creates them: active, with no events pending. */
+    private function active(string $displayName): Participant
+    {
+        $participant = Participant::create(1, null, new DisplayName($displayName), true);
+        $participant->releaseEvents();
+
+        return $participant;
+    }
+
     public function testCreateParticipant(): void
     {
         $participant = Participant::create(
@@ -81,6 +92,62 @@ final class ParticipantTest extends TestCase
         );
 
         $participant->approve();
+    }
+
+    public function testRenamingRecordsBothNames(): void
+    {
+        // B-25: the previous name travels with the event. A rename changes who
+        // a reader thinks a fee or a payout share belonged to, and the history
+        // has to be able to say what the name was at the time.
+        $participant = $this->active('Erika Musterman');
+        $participant->rename(new DisplayName('Erika Mustermann'));
+
+        $this->assertSame('Erika Mustermann', $participant->displayName()->value());
+
+        $events = $participant->releaseEvents();
+        $this->assertCount(1, $events);
+        $this->assertInstanceOf(ParticipantRenamed::class, $events[0]);
+        $this->assertSame(
+            [
+                'participant_id' => '1',
+                'previous_display_name' => 'Erika Musterman',
+                'display_name' => 'Erika Mustermann',
+            ],
+            $events[0]->toArray()
+        );
+    }
+
+    public function testRenamingToTheSameNameIsRejected(): void
+    {
+        // An event that describes no change does not belong in the history.
+        $this->expectException(BusinessRuleViolationException::class);
+        $this->expectExceptionMessage('identical to the current one');
+
+        $this->active('Erika Mustermann')->rename(new DisplayName('Erika Mustermann'));
+    }
+
+    public function testDeactivatingAndReactivatingRecordTheNewState(): void
+    {
+        $participant = $this->active('Erika Mustermann');
+
+        $participant->changeStatus(false);
+        $this->assertFalse($participant->isActive());
+
+        $events = $participant->releaseEvents();
+        $this->assertInstanceOf(ParticipantStatusChanged::class, $events[0]);
+        $this->assertFalse($events[0]->toArray()['is_active']);
+
+        $participant->changeStatus(true);
+        $this->assertTrue($participant->isActive());
+        $this->assertTrue($participant->releaseEvents()[0]->toArray()['is_active']);
+    }
+
+    public function testSettingTheStatusThatIsAlreadySetIsRejected(): void
+    {
+        $this->expectException(BusinessRuleViolationException::class);
+        $this->expectExceptionMessage('already active');
+
+        $this->active('Erika Mustermann')->changeStatus(true);
     }
 
     public function testReleaseEventsClears(): void
