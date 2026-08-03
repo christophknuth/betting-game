@@ -6,6 +6,25 @@ what was changed when, and why.
 
 ---
 
+## A draw that won nothing can be closed (2026-08-03, B-27)
+
+Where no row of the ticket reached a winning class, the entry form stayed on screen with
+the class-by-class option greyed out and an empty amount field waiting — which reads as
+something somebody forgot to fill in, while the only figure such a draw can possibly have
+is zero. The draw itself then stayed `gezogen` forever, because reaching `ausgewertet`
+meant typing that zero into a field that looked like a mistake.
+
+The fields are gone in that case. What is left is the one decision there is: **Ohne Gewinn
+abschließen**, a button where the form used to be. It sends the same command as any other
+statement, with a total of `0,00 €` — "nothing won" is a figure read off a statement like
+any other, and a status change with no amount behind it would be a decision without its
+reason. Once the draw is evaluated the button gives way to a sentence saying so.
+
+A draw that no ticket covers gets neither: the winnings belong to the slip, not to the
+draw, so there is nothing to close until one exists.
+
+---
+
 ## Which slip took part in a draw (2026-08-03, B-26)
 
 A draw showed six numbers, a Superzahl and the rows of a ticket — but not **which** ticket,

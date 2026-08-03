@@ -107,6 +107,7 @@ The period length is therefore a **configuration, not an assumption in code**. T
 | **B-09** | As an **administrator** I want to record the winnings of a draw, so that they feed into the yearly total. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult**, **TicketRowMatch** | 🟢 |
 | **B-22** | As an **administrator** I want the winning classes of every row of the active ticket to be worked out and stored as soon as I record a draw, so that I can see what the syndicate hit without waiting for the statement. | `POST /admin/draws` | **TicketRowMatch** | 🟢 |
 | **B-23** | As an **administrator** I want to record a ticket's winnings either as one sum or as the amount one row of each winning class was paid, so that I enter what the statement says and the system does the multiplying. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult** | 🟢 |
+| **B-27** | As an **administrator** I want to close a draw in which no row reached a winning class with one press, so that a draw without winnings does not stay open forever. | `PUT /admin/draws/{drawId}/winnings` | **TicketDrawResult** | 🟢 |
 
 **Acceptance criteria:**
 
@@ -122,6 +123,8 @@ The period length is therefore a **configuration, not an assumption in code**. T
 - B-23: `winningClasses[].amountPerRow` is what **one** row of that class was paid, as the statement prints it. `total = Σ amountPerRow × rows of the ticket in that class`, multiplied in whole cents rather than as floats. Which rows are in which class comes from the `TicketRow` snapshots through `WinningsDistribution`, so a class no row reached contributes nothing however large its amount
 - B-23: every class that was entered is recorded with what it was worth for one row, how many rows it applied to and what came of it — including the ones that reached nobody. What was typed has to stay readable next to the statement it came from
 - B-23: a class listed twice is `400`. Which of the two amounts counts is not for the system to guess, and taking the last one would book half the statement
+- B-27: no separate endpoint and no separate event. "Nothing won" is a figure read off a statement like any other, so it is B-09 with a `totalAmount` of `0.00` — the draw reaches `evaluated` with the amount that belongs to it, rather than through a status change with nothing behind it
+- B-27: the interface offers this **instead of** the entry fields, not beside them. Where no row reached a class the only possible figure is zero, so fields to type one in are an invitation to type something wrong
 
 ## Implicitly required
 
@@ -396,6 +399,7 @@ mainly the infrastructure that is usable for the base version, not the domain lo
 | B-22 | `POST /admin/draws` | `RecordDrawHandler` | — |
 | B-09 | `PUT /admin/draws/{id}/winnings` | `RecordDrawWinningsHandler` | — |
 | B-23 | `PUT /admin/draws/{id}/winnings` | `RecordDrawWinningsHandler` | — |
+| B-27 | `PUT /admin/draws/{id}/winnings` | `RecordDrawWinningsHandler` | — |
 | B-10 | `POST`/`GET /admin/tipp-years` | `CreateTippYearHandler` | `GetTippYearsHandler` |
 | B-11 | `POST /admin/tipp-years/{id}/members` | `AddMemberHandler` | — |
 | B-12 | `POST /admin/tipp-years/{id}/tickets` | `SubmitTicketHandler` | — |

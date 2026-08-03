@@ -12,6 +12,11 @@ import WinningsEntry from '@/components/WinningsEntry.vue'
  * Sending both is a contradiction the API rejects, so "only one of them, ever"
  * is the rule under test - together with the running total, which has to be the
  * same multiplication the backend will do.
+ *
+ * B-27 adds the case where there is nothing to enter: no row reached a class,
+ * so the only figure the draw can have is zero. The fields go away entirely and
+ * a button takes their place - the form used to stay on screen with one option
+ * greyed out, which read as an entry somebody had forgotten to make.
  */
 describe('WinningsEntry', () => {
   // Two rows in class 5, one in class 8 - as the read model reports them once
@@ -86,11 +91,42 @@ describe('WinningsEntry', () => {
     expect(entry.text()).toContain('0,21')
   })
 
-  it('leaves only the sum where no row won anything', async () => {
+  // --- B-27: nothing was won ---
+
+  it('shows no fields at all where no row reached a class', () => {
     const entry = mountEntry([])
 
-    expect(entry.findAll('input[type="radio"]')[1].attributes('disabled')).toBeDefined()
+    expect(entry.find('form').exists()).toBe(false)
+    expect(entry.findAll('input')).toHaveLength(0)
     expect(entry.text()).toContain('Keine Reihe')
+  })
+
+  it('offers to close the draw instead, and sends a total of zero', async () => {
+    const entry = mountEntry([])
+
+    await entry.find('button').trigger('click')
+
+    expect(submitted(entry)).toEqual({ totalAmount: 0 })
+  })
+
+  it('says the draw is closed rather than offering to close it again', () => {
+    const entry = mount(WinningsEntry, {
+      props: { drawId: 3, winningClasses: [], status: 'evaluated' }
+    })
+
+    expect(entry.find('button').exists()).toBe(false)
+    expect(entry.text()).toContain('Bereits ohne Gewinn abgeschlossen')
+  })
+
+  it('keeps both ways of entering open while classes were reached', () => {
+    // The status does not narrow the entry down: a draw whose figures were
+    // wrong is corrected by recording them again.
+    const entry = mount(WinningsEntry, {
+      props: { drawId: 3, winningClasses: ACHIEVED, status: 'evaluated' }
+    })
+
+    expect(entry.findAll('input[type="radio"]')).toHaveLength(2)
+    expect(entry.findAll('input[type="radio"]')[1].attributes('disabled')).toBeUndefined()
   })
 
   it('will not submit an empty entry', async () => {
