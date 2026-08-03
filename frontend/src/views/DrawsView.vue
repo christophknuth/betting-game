@@ -124,8 +124,31 @@
 
       <template v-else>
         <dl class="facts section">
+          <!--
+            B-26: Der Schein wird über seine Losnummer benannt, nicht über die
+            interne Id — die steht so auf dem Abschnitt in der Hand des Lesers.
+          -->
           <dt>Tippschein</dt>
-          <dd>{{ draw.ticket.rowCount }} Reihen</dd>
+          <dd>
+            {{ draw.ticket.lotteryReference ?? 'ohne Losnummer' }}
+            <span class="muted">· {{ draw.ticket.rowCount }} Reihen</span>
+          </dd>
+
+          <dt>Superzahl des Scheins</dt>
+          <dd>
+            {{ draw.ticket.superzahl ?? '–' }}
+            <span class="muted">
+              <template v-if="draw.ticket.superzahl === null">
+                nicht erfasst — ohne sie erreicht keine Reihe eine Klasse mit Superzahl
+              </template>
+              <template v-else-if="draw.ticket.superzahl === draw.superzahl">
+                — trifft die gezogene Superzahl
+              </template>
+              <template v-else>
+                — letzte Ziffer der Losnummer, gezogen wurde {{ draw.superzahl }}
+              </template>
+            </span>
+          </dd>
 
           <dt>Gewinn des Scheins</dt>
           <dd>{{ formatAmount(draw.ticket.totalAmount) }}</dd>
@@ -227,6 +250,13 @@ watch([tippYearId, filters], reload)
 </script>
 
 <style scoped>
+/* Beisatz zu einer Angabe, nicht die Angabe selbst */
+.muted {
+  color: var(--gray-500);
+  font-weight: 400;
+  font-size: 0.8125rem;
+}
+
 .figure {
   font-size: 1.75rem;
   font-weight: 700;

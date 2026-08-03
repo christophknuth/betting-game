@@ -1572,9 +1572,28 @@ components:
             The ticket that took part in this draw - the one whose period contains the draw
             date. Present from the moment the ticket exists, which is generally before
             anyone knows what it won; `null` only when no ticket covers the date at all.
+
+            Periods may overlap, so where several tickets cover the date this is the one
+            handed in last. It is the same one the evaluation used, which is why the
+            Losnummer is part of the answer: it identifies the slip this all refers to.
           properties:
             ticketId:
               type: integer
+            lotteryReference:
+              type: string
+              nullable: true
+              description: |
+                B-26: the Losnummer of the Spielauftrag, as printed on the slip. `null`
+                where none was recorded.
+            superzahl:
+              type: integer
+              minimum: 0
+              maximum: 9
+              nullable: true
+              description: |
+                B-26: the ticket's own Superzahl - the last digit of the Losnummer, and the
+                one every row of this ticket is measured against. Not to be confused with
+                the `superzahl` of the draw above, which is the one that was drawn.
             rowCount:
               type: integer
             totalAmount:
