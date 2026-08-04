@@ -763,6 +763,12 @@ paths:
         nobody multiplies anything by hand. Since B-22 the hits are already known from the
         draw — this recomputes them with the money in hand, which is also how a draw
         recorded before its ticket gets its evaluation.
+
+        **An evaluated draw may be recorded again** to correct a statement read wrongly;
+        it is also where B-28 sends a draw whose figures were wrong rather than its
+        numbers. One draw has one result: every recording replaces the one before it,
+        including which ticket it is booked to, and the rows are evaluated afresh against
+        the ticket covering the draw now.
       operationId: recordDrawWinnings
       security:
         - bearerAuth: []

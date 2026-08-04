@@ -30,6 +30,11 @@ use BettingGame\Domain\ValueObject\WinningStatement;
  * place: the hits are a function of the numbers and cannot have changed, and
  * recomputing is also the path that catches up a draw recorded before its
  * ticket was handed in.
+ *
+ * **An evaluated draw may be recorded again**, and that is deliberate - a
+ * statement read wrongly is corrected here, which is also where B-28 sends a
+ * draw whose figures were wrong rather than its numbers. Every recording
+ * replaces the one before it: one draw, one result.
  */
 final class RecordDrawWinningsHandler
 {
@@ -90,6 +95,12 @@ final class RecordDrawWinningsHandler
 
         $draw->recordWinnings($ticket->id(), $winnings->total(), $this->classSummary($winnings));
         $this->draws->save($draw);
+
+        // Winnings may be recorded again to correct them, and this run works
+        // the covering ticket out afresh - where two tickets overlap it can be
+        // another one than last time. Its rows are not the rows written before,
+        // so recomputing would leave those behind rather than replace them.
+        $this->draws->clearRowMatches($draw->id());
         $this->draws->saveRowMatches($draw->id(), $matches);
 
         return CommandResult::accepted(

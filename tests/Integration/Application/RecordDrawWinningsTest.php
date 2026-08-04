@@ -329,4 +329,29 @@ final class RecordDrawWinningsTest extends ApplicationTestCase
         self::assertSame(4, $best['matchedNumbers']);
         self::assertTrue($best['superzahlMatched']);
     }
+
+    public function testWinningsReadOffWronglyCanBeRecordedAgain(): void
+    {
+        $this->recordDrawWinnings()->handle(new RecordDrawWinningsCommand($this->drawId, 100.00));
+
+        // The statement said 120, and the second look is the one that counts.
+        // Deliberately allowed: it is where B-28 sends a draw whose figures are
+        // wrong rather than its numbers.
+        $this->recordDrawWinnings()->handle(new RecordDrawWinningsCommand($this->drawId, 120.00));
+
+        $results = $this->db->fetchAll(
+            'SELECT total_amount FROM ticket_draw_result WHERE draw_id = ?',
+            [$this->drawId]
+        );
+
+        self::assertCount(1, $results, 'a correction replaces the result, it does not add one');
+        self::assertSame(120.0, Row::float($results[0], 'total_amount'));
+        self::assertSame(120.0, $this->draws->totalWinnings($this->tippYearId));
+
+        // And the attribution follows the new figure rather than staying on the
+        // old one - 60 each, not 50.
+        $matches = $this->matchesByParticipant();
+        self::assertSame(60.0, Row::float($matches[7], 'amount'));
+        self::assertSame(60.0, Row::float($matches[8], 'amount'));
+    }
 }

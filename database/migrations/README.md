@@ -23,7 +23,7 @@ four `ALTER`s on the same table.
 ## Writing one
 
 ```
-database/migrations/0004_short_description.sql
+database/migrations/0005_short_description.sql
 ```
 
 The number decides the order and is what gets recorded, so it must not change afterwards —

@@ -226,8 +226,6 @@ final class GermanMessages
         'This email address is already taken' => 'Diese E-Mail-Adresse ist bereits vergeben',
         'This bet row has already been evaluated for this draw'
             => 'Diese Tippreihe ist für diese Ziehung bereits ausgewertet',
-        'The winnings of this ticket have already been recorded for this draw'
-            => 'Der Gewinn dieses Tippscheins ist für diese Ziehung bereits eingetragen',
         'This command has already been sent with the same idempotency key'
             => 'Dieses Kommando wurde mit demselben Idempotenzschlüssel bereits gesendet',
         'This entry already exists' => 'Diesen Eintrag gibt es bereits',
