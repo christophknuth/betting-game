@@ -322,6 +322,16 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
         );
     }
 
+    /**
+     * What the draw brought in - one row per draw, replaced when it is
+     * recorded again.
+     *
+     * `ticket_id` is written on the update too, and that is the point of the
+     * key sitting on `draw_id` alone: a second recording works the covering
+     * ticket out afresh, and where two tickets overlap it can name another one
+     * than the first did. Keyed on the pair, that correction inserted a second
+     * row instead - and both were then summed into the year's total.
+     */
     private function projectWinnings(DrawWinningsRecorded $event): void
     {
         $payload = $event->toArray();
@@ -331,6 +341,7 @@ final class DrawRepository extends EventSourcedRepository implements DrawReposit
             INSERT INTO ticket_draw_result (ticket_id, draw_id, total_amount, winning_classes, recorded_at)
             VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
+                ticket_id = VALUES(ticket_id),
                 total_amount = VALUES(total_amount),
                 winning_classes = VALUES(winning_classes),
                 recorded_at = VALUES(recorded_at)

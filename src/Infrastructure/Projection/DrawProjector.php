@@ -185,10 +185,20 @@ final class DrawProjector implements Projector
         $ticketId = Row::int($data, 'ticket_id');
         $totalAmount = Row::float($data, 'total_amount');
 
+        // Replaced, not added to. Winnings can be recorded again to correct
+        // them, so a draw can carry several of these events - and a plain
+        // INSERT made the last two of them into two results of one draw, or
+        // broke the rebuild outright on the unique key when both named the
+        // same ticket.
         $this->db->execute(
             '
             INSERT INTO ticket_draw_result (ticket_id, draw_id, total_amount, winning_classes, recorded_at)
             VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                ticket_id = VALUES(ticket_id),
+                total_amount = VALUES(total_amount),
+                winning_classes = VALUES(winning_classes),
+                recorded_at = VALUES(recorded_at)
             ',
             [
                 $ticketId,
@@ -203,6 +213,11 @@ final class DrawProjector implements Projector
             'UPDATE draw SET status = ?, version = ? WHERE draw_id = ?',
             [Draw::EVALUATED, $record->version, $drawId]
         );
+
+        // For the same reason the correction drops them: this recording may
+        // name another ticket than the one evaluated before, and the rows of
+        // that one would stay behind as results of a draw they never played.
+        $this->db->execute('DELETE FROM ticket_row_match WHERE draw_id = ?', [$drawId]);
 
         $this->rebuildRowMatches($drawId, $ticketId, $totalAmount, $data);
     }

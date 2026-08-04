@@ -75,7 +75,6 @@ final class ConstraintMessages
 
         // B-09/B-22: one evaluation per row and draw
         'uk_row_draw' => 'This bet row has already been evaluated for this draw',
-        'uk_ticket_draw' => 'The winnings of this ticket have already been recorded for this draw',
 
         // OPS-02: the idempotency key was claimed by another attempt
         'uk_idempotency_key' => 'This command has already been sent with the same idempotency key',

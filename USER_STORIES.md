@@ -116,6 +116,7 @@ The period length is therefore a **configuration, not an assumption in code**. T
 - B-06: exactly six distinct numbers from 1–49, stored ascending
 - B-08: `409` on a duplicate draw date; numbers and bonus number (0–9) are checked against the same rules
 - B-09: computes the hits per row (**TicketRowMatch**) from `Draw.numbers` and the `TicketRow` snapshots, and sums the ticket's winnings
+- B-09: an `evaluated` draw may be recorded again — a statement read wrongly is corrected here, and it is where B-28 sends a draw whose figures were wrong rather than its numbers. **One draw, one result:** every recording replaces the one before it, including which ticket it is booked to, and the rows are evaluated against the ticket that plays now. Keyed on (ticket, draw) instead, a correction that landed on another overlapping Spielauftrag inserted a second result — the draw appeared twice and the year's total counted both amounts
 - B-22: recording the draw evaluates the rows of the ticket covering its date — every row, not only the winning ones. The amounts stay at `0.00`: what the ticket won is not known yet, and a guessed figure would be indistinguishable from a booked one
 - B-22: the draw stays `drawn`. `evaluated` says the money is booked, and that is what B-13 sums the year from
 - B-22: a draw with no covering ticket is recorded all the same — nothing to evaluate against is not an error, and B-09 catches the evaluation up when the winnings arrive

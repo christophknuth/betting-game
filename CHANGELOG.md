@@ -6,6 +6,37 @@ what was changed when, and why.
 
 ---
 
+## A corrected winning was a second draw (2026-08-03, B-09)
+
+Recording the winnings of a draw again is meant to correct them — and against the same
+Spielauftrag it did. But the covering ticket is worked out afresh on every recording, and
+where two of them overlap, a slip handed in between the two entries takes the Wednesday
+over. The correction then landed on a key nothing occupied: `ticket_draw_result` was unique
+on **(ticket_id, draw_id)**, so it inserted rather than replaced.
+
+The draw then had two results. The read path joins them onto the draw, so it appeared
+**twice** in the list, and the year's total summed both amounts — 19,80 € that had been
+corrected away plus the 14,50 € that replaced it, money nobody ever won.
+
+A draw is played by exactly one ticket, so it has exactly one result. The unique key is on
+`draw_id` alone now, and both write paths upsert against it — including `ticket_id`, which
+is the whole point: the correction is allowed to name another slip than the entry before it.
+The projector was writing a plain `INSERT`, which made the same two rows again on a rebuild
+and would have died on the key outright once both events named the same ticket.
+
+The rows have to follow. Recording the winnings again re-evaluates against the ticket that
+plays now, and the rows of the one it left were staying behind as results of a draw they
+never took part in — `bestMatchOf` and the class summary read the matches by draw, without
+asking whose they are. Both paths drop them first, the way B-28 already does for a corrected
+draw.
+
+`0004_one_result_per_draw.sql` keeps the newest result per draw, drops the orphaned row
+evaluations and moves the key. What it cannot repair is a draw whose winnings are not
+recorded yet — there is no result to compare its rows against; rebuilding the
+`draw_read_model` projection is what puts those right.
+
+---
+
 ## No page between the visitor and the login (2026-08-03, B-15)
 
 The login screen told the syndicate about PKCE, about where the token is kept, listed three

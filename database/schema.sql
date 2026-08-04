@@ -235,8 +235,14 @@ CREATE TABLE ticket_draw_result (
     version INT DEFAULT 0 COMMENT 'Optimistic locking',
     FOREIGN KEY (ticket_id) REFERENCES ticket(ticket_id) ON DELETE CASCADE,
     FOREIGN KEY (draw_id) REFERENCES draw(draw_id) ON DELETE CASCADE,
-    UNIQUE KEY uk_ticket_draw (ticket_id, draw_id),
-    INDEX idx_draw (draw_id)
+    -- One result per draw, not one per ticket and draw. A draw is played by
+    -- exactly one ticket, so recording the winnings again corrects that one
+    -- figure. Keyed on the pair it did not: as soon as the covering ticket was
+    -- a different one than the first time, the correction became a second row,
+    -- the draw appeared twice in the list, and both amounts were summed into
+    -- the year's total.
+    UNIQUE KEY uk_draw (draw_id),
+    INDEX idx_ticket (ticket_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE ticket_row_match (
