@@ -37,7 +37,14 @@ RUN if [ -f composer.json ]; then \
 RUN sed -i 's/user = nobody/user = www-data/g' /usr/local/etc/php-fpm.d/www.conf && \
     sed -i 's/group = nobody/group = www-data/g' /usr/local/etc/php-fpm.d/www.conf
 
+# Outside /var/www/html on purpose: docker-compose.yml bind-mounts the
+# repository over that path, which would hide anything placed there at build
+# time - including this script.
+COPY docker/docker-entrypoint-php.sh /usr/local/bin/docker-entrypoint-php.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-php.sh
+
 # Expose PHP-FPM port
 EXPOSE 9000
 
+ENTRYPOINT ["docker-entrypoint-php.sh"]
 CMD ["php-fpm"]

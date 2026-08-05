@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# Turns the container's environment into the two things the application cannot
-# get any other way at start-up: the SPA's runtime configuration, and a
-# writable cache directory.
+# Turns the container's environment into the things the application cannot get
+# any other way at start-up: the SPA's runtime configuration, a writable cache
+# directory, and a database whose schema matches this image.
 set -eu
 
 SPA_CONFIG=/app/spa/config.js
@@ -37,6 +37,30 @@ if [ ! -w /app/var/cache ]; then
     echo "entrypoint: /app/var/cache is not writable by $(id -un), refusing to start" >&2
     echo "entrypoint: a volume mounted there must be owned by uid $(id -u)" >&2
     exit 1
+fi
+
+# --- The schema -------------------------------------------------------------
+#
+# `database/schema.sql` is only read into an empty data directory, so from the
+# second release onwards nothing brings an existing database up to what the new
+# image expects. Doing it here is what makes a deployment one step: the server
+# starts against a schema it fits, or it does not start.
+#
+# Here rather than in a request: this runs once, before the server forks, so
+# the four workers that would otherwise start four ALTERs on the same table do
+# not exist yet. Two *containers* starting together still can, and the migrator
+# takes a lock on the database for exactly that - the second one waits, then
+# finds nothing pending.
+#
+# A failure is fatal on purpose. An application whose schema is older than its
+# code answers 500 on the pages that need the new column, and it does so at a
+# moment nobody is watching; refusing to start says the same thing while
+# somebody still is.
+#
+# MIGRATE_ON_START=0 for a deployment that would rather run `bin/migrate` as a
+# job of its own - the entrypoint then leaves the schema entirely alone.
+if [ "${MIGRATE_ON_START:-1}" = "1" ]; then
+    php /app/bin/migrate --wait=60
 fi
 
 exec "$@"

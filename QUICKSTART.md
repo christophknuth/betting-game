@@ -31,8 +31,12 @@ empty. What brings an existing database up to date is
 ```bash
 git pull
 docker-compose exec php composer install
-docker-compose exec php php bin/migrate      # or: make db-migrate
+docker-compose exec php php bin/migrate      # or: make db-migrate, or composer migrate
 ```
+
+Restarting the container does the same on its own — its entrypoint applies what is pending
+before php-fpm starts. The line above is for a stack that is already running, and for
+seeing what happened.
 
 > This walkthrough deliberately goes through `curl`. The same steps also exist as a user
 > interface in the `frontend` container on port 3000 ([FRONTEND.md](FRONTEND.md)); if you

@@ -20,9 +20,10 @@ use RuntimeException;
  *
  * So every schema change is also a file in `database/migrations/`, applied in
  * the order of its number and written down in `schema_migration` once it has
- * run. Applying is a deliberate step - `bin/migrate`, part of a version switch
- * - and never something a request does on the side: a web server with four
- * workers would otherwise start four ALTERs on the same table.
+ * run. Applying is a deliberate step - `bin/migrate`, part of a version switch,
+ * and since then also the container's entrypoint, which runs it once before the
+ * server starts. Never something a request does on the side: a web server with
+ * four workers would otherwise start four ALTERs on the same table.
  *
  * Migrations are written so that running them a second time changes nothing
  * (`ADD COLUMN IF NOT EXISTS` and friends). MariaDB commits DDL implicitly, so
@@ -32,6 +33,12 @@ use RuntimeException;
 final class Migrator
 {
     public const TABLE = 'schema_migration';
+
+    /** The database name is appended, so one server can hold several of them. */
+    private const LOCK_PREFIX = 'betting_game:migrate:';
+
+    /** Longer than any migration here takes, short enough to fail a stuck deployment. */
+    private const LOCK_TIMEOUT = 120;
 
     public function __construct(
         private Db $db,
@@ -95,16 +102,60 @@ final class Migrator
      */
     public function migrate(): array
     {
-        $this->ensureTable();
+        $this->lock();
 
-        $applied = [];
+        try {
+            $this->ensureTable();
 
-        foreach ($this->pending() as $migration) {
-            $this->apply($migration);
-            $applied[] = $migration;
+            $applied = [];
+
+            foreach ($this->pending() as $migration) {
+                $this->apply($migration);
+                $applied[] = $migration;
+            }
+
+            return $applied;
+        } finally {
+            $this->unlock();
         }
+    }
 
-        return $applied;
+    /**
+     * Waits until nothing else is applying migrations to this database.
+     *
+     * "Deliberate" stopped meaning "one at a time" when the entrypoint took
+     * this over: two application containers starting together would run the
+     * same `ALTER` twice. MariaDB commits DDL implicitly, so the loser cannot
+     * be rolled back out of the way - it fails partway and leaves the schema
+     * in between.
+     *
+     * Waiting rather than refusing when somebody else holds it: the second run
+     * is supposed to let the first finish and then find nothing pending. That
+     * is a no-op, not a failed deployment. Only a wait longer than any real
+     * migration is a fault worth reporting.
+     *
+     * The name carries the database, so the test database and the development
+     * one on the same server do not queue behind each other.
+     */
+    private function lock(): void
+    {
+        $row = $this->db->fetchOne(
+            'SELECT GET_LOCK(CONCAT(?, DATABASE()), ?) AS acquired',
+            [self::LOCK_PREFIX, self::LOCK_TIMEOUT]
+        );
+
+        // 0 is the timeout, NULL an error - neither is the lock
+        if ($row === null || Row::nullableInt($row, 'acquired') !== 1) {
+            throw new RuntimeException(sprintf(
+                'Gave up after %d seconds waiting for another migration run to finish',
+                self::LOCK_TIMEOUT
+            ));
+        }
+    }
+
+    private function unlock(): void
+    {
+        $this->db->fetchOne('SELECT RELEASE_LOCK(CONCAT(?, DATABASE())) AS released', [self::LOCK_PREFIX]);
     }
 
     /**

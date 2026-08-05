@@ -34,6 +34,8 @@
         }
     },
     "scripts": {
+        "migrate": "@php bin/migrate",
+        "migrate-status": "@php bin/migrate --status",
         "test": "phpunit --testdox",
         "test-coverage": "phpunit --coverage-html coverage --coverage-text",
         "phpstan": "phpstan analyse",

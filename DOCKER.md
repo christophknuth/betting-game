@@ -130,12 +130,21 @@ change is also a file there, and a version switch applies it:
 
 ```bash
 docker-compose exec php php bin/migrate --status   # what is pending (exit 1 if any)
-docker-compose exec php php bin/migrate            # apply it
+docker-compose exec php php bin/migrate            # apply it, same as composer migrate
 ```
 
-Nothing does this on its own — four PHP-FPM workers would otherwise start four `ALTER`s on
-the same table. Until it has run, the API answers `500` with "Die Datenbank ist nicht auf
-dem Stand der Anwendung", naming the column; that message is the reminder.
+**The entrypoint does it as well**, once per container start, before the server forks — so a
+deployment is one step and the application never runs against a schema older than itself. A
+failure takes the container down rather than letting it answer `500` on the pages that need
+the new column at a moment nobody is watching. `MIGRATE_ON_START=0` hands the job back to a
+deployment script.
+
+A *request* still never does it — four PHP-FPM workers would start four `ALTER`s on the same
+table. Two containers starting together are handled by a named lock the migrator takes on the
+database: the second waits, then finds nothing pending.
+
+Until it has run, the API answers `500` with "Die Datenbank ist nicht auf dem Stand der
+Anwendung", naming the column; that message is the reminder.
 
 ## 🚀 Quick Start
 

@@ -14,11 +14,33 @@ docker-compose exec php php bin/migrate --status   # what is pending
 docker-compose exec php php bin/migrate            # apply it
 ```
 
-`make db-migrate` is the same thing. It belongs to a version switch, next to
-`composer install` — see [QUICKSTART.md](../../QUICKSTART.md).
+`make db-migrate` and `composer migrate` are the same thing. It belongs to a version switch,
+next to `composer install` — see [QUICKSTART.md](../../QUICKSTART.md).
 
-Nothing applies migrations on its own. A request must not: four PHP-FPM workers would start
-four `ALTER`s on the same table.
+### The container does it too
+
+Since the entrypoint took it on, starting the application container applies what is pending
+first. That makes a deployment one step: the server comes up against a schema it fits, or it
+does not come up. Set `MIGRATE_ON_START=0` where the migration is to be a job of its own.
+
+**A request still must not** — four PHP-FPM workers would start four `ALTER`s on the same
+table. The entrypoint runs once, before the server forks, so those workers do not exist yet.
+Two *containers* starting together still could, and `Migrator::migrate()` therefore takes a
+named lock on the database: the second one waits for the first and then finds nothing
+pending. Waiting rather than refusing is the point — a second container is a normal
+deployment, not a fault.
+
+`bin/migrate --wait=SECONDS` sits out a database that is still coming up. Only the entrypoint
+uses it; by hand, an unreachable database is an answer rather than something to wait through.
+
+A migration that fails takes the container down with it. That is deliberate: an application
+whose schema is older than its code answers `500` on the pages that need the new column, and
+it does so at a moment nobody is watching.
+
+**Not a Composer hook.** `post-install-cmd` would fire while the image is being built, where
+there is no database to reach and a non-zero exit breaks the build; keeping it out of the
+build with `--no-scripts` would leave it firing only on a developer's machine, which is the
+one place it is not needed.
 
 ## Writing one
 
