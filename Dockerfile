@@ -70,6 +70,13 @@ WORKDIR /app
 COPY --chown=www-data:www-data src/ ./src/
 COPY --chown=www-data:www-data public/ ./public/
 COPY --chown=www-data:www-data config/ ./config/
+
+# The entrypoint migrates before the server starts, so these two belong to the
+# runtime now rather than to the repository only. Without them the image would
+# start against whatever schema the database happens to have - which is how a
+# new column becomes a 500 on a participant's screen.
+COPY --chown=www-data:www-data bin/ ./bin/
+COPY --chown=www-data:www-data database/migrations/ ./database/migrations/
 COPY --chown=www-data:www-data --from=vendor /build/vendor/ ./vendor/
 COPY --chown=www-data:www-data --from=spa /build/dist/ ./spa/
 

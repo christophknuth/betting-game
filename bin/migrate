@@ -8,6 +8,13 @@
  *
  *     docker-compose exec php php bin/migrate --status
  *     docker-compose exec php php bin/migrate
+ *     composer migrate
+ *
+ * The container's entrypoint runs it too, once, before the server starts.
+ * `--wait=SECONDS` is for that case: a database that is still coming up refuses
+ * connections for a while, and a container must not die of a race it only has
+ * to sit out. Without it there is no waiting at all - by hand, an unreachable
+ * database is an answer, not something to sit through.
  *
  * Exits 1 when something failed, and with --status 1 when migrations are
  * pending - so a deployment script can ask without applying anything.
@@ -25,31 +32,57 @@ use BettingGame\Infrastructure\Persistence\Migrator;
 $config = require __DIR__ . '/../config/config.php';
 $settings = new Config($config);
 
-$statusOnly = in_array('--status', array_slice($argv, 1), true);
+$arguments = array_slice($argv, 1);
+
+$statusOnly = in_array('--status', $arguments, true);
+$wait = 0;
+
+foreach ($arguments as $argument) {
+    if (str_starts_with($argument, '--wait=')) {
+        $wait = max(0, (int) substr($argument, strlen('--wait=')));
+    }
+}
 
 // The container is not built here on purpose: it wires controllers, Keycloak
 // and a logger, none of which a schema change needs, and every one of which is
 // a way for this to fail for a reason that has nothing to do with the database.
-try {
-    $pdo = new PDO(
-        sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $settings->string('db.host', 'localhost'),
-            $settings->int('db.port', 3306),
-            $settings->string('db.database', 'betting_game')
-        ),
-        $settings->string('db.username', 'root'),
-        $settings->string('db.password', ''),
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]
-    );
-} catch (Throwable $e) {
-    fwrite(STDERR, 'No database: ' . $e->getMessage() . PHP_EOL);
+$deadline = microtime(true) + $wait;
+$announced = false;
+$pdo = null;
 
-    exit(1);
+while ($pdo === null) {
+    try {
+        $pdo = new PDO(
+            sprintf(
+                'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+                $settings->string('db.host', 'localhost'),
+                $settings->int('db.port', 3306),
+                $settings->string('db.database', 'betting_game')
+            ),
+            $settings->string('db.username', 'root'),
+            $settings->string('db.password', ''),
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]
+        );
+    } catch (Throwable $e) {
+        if (microtime(true) >= $deadline) {
+            fwrite(STDERR, 'No database: ' . $e->getMessage() . PHP_EOL);
+
+            exit(1);
+        }
+
+        // Said once, not once per attempt: a container log that repeats the
+        // same line every two seconds hides what happens after it.
+        if (!$announced) {
+            echo "Waiting up to {$wait}s for the database …" . PHP_EOL;
+            $announced = true;
+        }
+
+        sleep(2);
+    }
 }
 
 $migrator = new Migrator(new Db($pdo), Migrator::defaultDirectory());

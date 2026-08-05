@@ -253,8 +253,8 @@ A complete run from an empty tipp year to the distribution is in
 
 21 tables in [database/schema.sql](database/schema.sql) — which is read into an **empty**
 database only. An existing one is brought up to date by
-[database/migrations/](database/migrations/README.md), applied with `bin/migrate` as part of
-a version switch.
+[database/migrations/](database/migrations/README.md), applied with `bin/migrate` — by hand
+as part of a version switch, and by the container's entrypoint before the server starts.
 
 **Read model (13, built from events):** `participant`, `tipp_year`, `membership`,
 `bet_period`, `bet_row`, `ticket`, `ticket_row`, `draw`, `ticket_draw_result`,

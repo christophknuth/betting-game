@@ -7,6 +7,7 @@ namespace BettingGame\Tests\Integration;
 use BettingGame\Infrastructure\Persistence\Migrator;
 use BettingGame\Support\Row;
 use BettingGame\Support\SchemaOutOfDateException;
+use RuntimeException;
 
 /**
  * Bringing a database that already holds data up to the current schema.
@@ -146,6 +147,56 @@ final class MigratorTest extends IntegrationTestCase
         }
     }
 
+    /**
+     * The lock that keeps two container starts from applying the same `ALTER`
+     * at once has to be given back afterwards - a held one would make the next
+     * start wait out its full timeout and then refuse to boot.
+     */
+    public function testTheMigrationLockIsReleasedAfterwards(): void
+    {
+        $this->forgetMigrations();
+        $this->migrator->migrate();
+
+        $row = $this->db->fetchOne(
+            "SELECT IS_FREE_LOCK(CONCAT('betting_game:migrate:', DATABASE())) AS free"
+        );
+
+        self::assertNotNull($row);
+        self::assertSame(1, Row::int($row, 'free'));
+    }
+
+    /**
+     * And it is given back when the migration fails, too. Otherwise the first
+     * broken deployment would leave every later start waiting on a lock whose
+     * holder is long gone - a second failure, with nothing to do with the
+     * first one's cause.
+     */
+    public function testTheLockIsReleasedWhenAMigrationFails(): void
+    {
+        // A directory of its own with one migration that cannot work. The real
+        // ones are left alone on purpose: this is about what happens after a
+        // failure, and breaking the schema to provoke one would leave the rest
+        // of the suite to clean up.
+        $directory = $this->givenABrokenMigration();
+
+        try {
+            (new Migrator($this->db, $directory))->migrate();
+            self::fail('a migration against a table that does not exist should have failed');
+        } catch (RuntimeException $e) {
+            self::assertStringContainsString('9999_breaks', $e->getMessage());
+
+            $row = $this->db->fetchOne(
+                "SELECT IS_FREE_LOCK(CONCAT('betting_game:migrate:', DATABASE())) AS free"
+            );
+
+            self::assertNotNull($row);
+            self::assertSame(1, Row::int($row, 'free'), 'a lock nobody releases blocks every later start');
+        } finally {
+            unlink($directory . '/9999_breaks.sql');
+            rmdir($directory);
+        }
+    }
+
     public function testAMissingTableIsTheSameDiagnosis(): void
     {
         $this->expectException(SchemaOutOfDateException::class);
@@ -167,6 +218,23 @@ final class MigratorTest extends IntegrationTestCase
         );
 
         return array_map(static fn (array $row): string => Row::string($row, 'column_name'), $rows);
+    }
+
+    /** @return string the directory holding it */
+    private function givenABrokenMigration(): string
+    {
+        $directory = sys_get_temp_dir() . '/migrator-test-' . getmypid();
+
+        if (!is_dir($directory) && !mkdir($directory) && !is_dir($directory)) {
+            self::fail("could not create $directory");
+        }
+
+        file_put_contents(
+            $directory . '/9999_breaks.sql',
+            "ALTER TABLE table_that_does_not_exist ADD COLUMN x INT;\n"
+        );
+
+        return $directory;
     }
 
     /**

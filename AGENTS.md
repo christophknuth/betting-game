@@ -499,9 +499,11 @@ tables, a route without the `command` flag, a controller method with
 
   **For a schema change the answer is `bin/migrate`**, not one of the two below: it brings
   an existing database up to date without emptying it, and a version switch is where it
-  belongs (see [database/migrations/README.md](database/migrations/README.md)). Until it
-  has run, every request that touches the new column answers `500` — "Die Datenbank ist
-  nicht auf dem Stand der Anwendung", with the column named.
+  belongs (see [database/migrations/README.md](database/migrations/README.md)). The
+  container's entrypoint runs it at every start as well, so a rebuilt stack migrates itself;
+  by hand it is `make db-migrate` or `composer migrate`. Until it has run, every request that
+  touches the new column answers `500` — "Die Datenbank ist nicht auf dem Stand der
+  Anwendung", with the column named.
 
   Reloading the whole schema **discards all data** and is for a database that has gone
   wrong, not for an upgrade. It works without deleting the volume — `schema.sql` starts

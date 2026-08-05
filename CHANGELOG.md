@@ -6,6 +6,44 @@ what was changed when, and why.
 
 ---
 
+## The container migrates itself (2026-08-03)
+
+Applying migrations was a step someone had to remember. Forgetting it is what produced
+"Unknown column 't.duration_weeks'" on a participant's screen in the first place, and the
+mechanism built afterwards did nothing about the remembering.
+
+**Not as a Composer hook**, which was the obvious idea. `composer install` runs here while
+the *image is being built* ([docker/Dockerfile.php](docker/Dockerfile.php), and the `vendor`
+stage of the production [Dockerfile](Dockerfile)) — there is no database to reach at that
+point, and a `post-install-cmd` that exits non-zero breaks the build. Keeping it out of the
+build with `--no-scripts` would leave it firing only on a developer's machine, which is the
+one place nobody needs it. It would also turn `composer install` into a command that writes
+to a database, which nobody expects of it.
+
+The entrypoint is the right moment: **once per container start, before the server forks.**
+The four PHP-FPM workers that must never each start their own `ALTER` do not exist yet. Two
+*containers* starting together still could, so `Migrator::migrate()` now takes a named lock
+on the database — the second waits for the first and then finds nothing pending. Waiting
+rather than refusing, because a second container is a normal deployment and not a fault.
+
+A failure takes the container down. An application whose schema is older than its code
+answers `500` on exactly the pages the new release was about, and it does so at a moment
+nobody is watching; refusing to start says the same thing while somebody still is.
+`MIGRATE_ON_START=0` hands the job back to a deployment script.
+
+Two things the production image was missing for this: `bin/` and `database/migrations/`
+were never copied in. It would have started against whatever schema the database happened
+to have — which is the fault this whole mechanism exists for.
+
+`bin/migrate --wait=SECONDS` is new and only the entrypoint uses it: development has no
+health condition on the database, so the container starts while MariaDB is still reading
+`schema.sql`. By hand an unreachable database is an answer, not something to sit through.
+
+And the small half of the same question: `composer migrate` and `composer migrate-status`
+now exist beside `composer test` — an alias, not a hook, so nothing runs by surprise.
+
+---
+
 ## A corrected winning was a second draw (2026-08-03, B-09)
 
 Recording the winnings of a draw again is meant to correct them — and against the same
