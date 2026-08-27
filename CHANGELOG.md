@@ -6,6 +6,58 @@ what was changed when, and why.
 
 ---
 
+## Four things a full verification run found (2026-08-27)
+
+Every suite was run to establish the current figures: PHPUnit against a real MariaDB with
+`--fail-on-skipped`, PHPStan level 10, PSR-12, ESLint, Vitest. The checks themselves came
+back clean — **559 tests, 2146 assertions, PHPStan and phpcs with nothing to say.** What the
+run turned up was four things beside the pass or fail, and **three of them were warnings that
+had been printing all along**. None was a red test, which is exactly why they had survived.
+
+**The test count was wrong in four places.** `AGENTS.md`, `README.md` and `USER_STORIES.md`
+(twice) all said 456 test methods — the figure from a count in early August. It is 529 now,
+and PHPUnit reports **559 tests**, because a data provider counts each of its data sets
+separately. Both numbers are right and they are not interchangeable, so the documentation now
+carries both and says which is which; a reader who finds two numbers and no explanation
+assumes one of them is stale. `CLAUDE.md` said 173 integration tests skip themselves in the
+`php` container, which was true when the guard was built; it is 258, and rather than leave
+another number to rot, the file now names the command that reads it off — pointing the suite
+at a database the guard refuses and letting it report how many it turned away.
+
+**Vue Router 5 no longer wants `next()`.** The navigation guard called it, so every guarded
+navigation printed `VUE_ROUTER_R0025`, and the Vitest output carried a screenful of them. The
+decision is returned now — `return false`, `return HOME`, `return true`. That also removes
+the one failure the callback form allows and the return form does not: a branch that forgets
+to call `next` hangs the navigation, while a branch that returns nothing means "carry on".
+The guard's tests did not change, and that is the point — they drive the real router and
+assert where it ends up, not how the guard was told.
+
+**A test mounted a component without the router it uses.** `ParticipantLayout` calls
+`useRouter()` for its logout, and the spec stubbed `<router-link>` but provided no router, so
+Vue warned `injection "Symbol(router)" not found` on every mount and `router` was `undefined`.
+The tests passed regardless, because not one of them clicked the button that would have
+thrown. The router is supplied now, and the logout is asserted: it has to name `/login`,
+because every other route hands an anonymous visitor back to Keycloak (B-15) and staying put
+would make **Abmelden** look like it had done nothing. 175 frontend tests now, up from 174 —
+the extra one is the behaviour that was silently unreachable.
+
+**One data provider was still a doc-comment.** `TippYearTest` declared `@dataProvider`, which
+PHPUnit 11 deprecates; the other two provider sites already used `#[DataProvider]`. That was
+the single `PHPUnit Deprecations: 1` on every run. It is an attribute now, and the run is
+quiet.
+
+The common thread is worth keeping: a warning that appears on every run stops being read, and
+then it is indistinguishable from no warning at all. That is the same failure OPS-04 was
+about, one layer down — see *OPS-04 reported a backlog that was not there*.
+
+Verified: PHPStan level 10 clean, phpcs clean, PHPUnit 559 tests / 2146 assertions with
+`--fail-on-skipped` against a real database and no deprecations, ESLint clean, Vitest 175/175
+with no warnings left in the output. Playwright was **not** run — it needs the full stack
+including the Keycloak import, and nothing here touches a path it covers that the other suites
+do not.
+
+---
+
 ## The container migrates itself (2026-08-03)
 
 Applying migrations was a step someone had to remember. Forgetting it is what produced

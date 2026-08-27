@@ -21,7 +21,11 @@ PHP, Composer and PHPUnit do not have to be installed locally — they run in th
 **Tests belong in the dedicated test environment**, not in the `php` container: that one's
 `DB_DATABASE` is the development database, and the integration suite truncates every table
 before each test. `IntegrationTestCase` now refuses anything that does not end in `_test` —
-so inside the `php` container all 173 integration tests skip themselves.
+so inside the `php` container all 258 integration tests skip themselves. That is a count to
+re-check rather than to trust: it grows with the suite, and the way to read it off is
+`docker-compose -f docker-compose.test.yml run --rm -e DB_DATABASE=betting_game test
+vendor/bin/phpunit --no-coverage`, which points the suite at a name the guard refuses and
+reports how many it turned away.
 
 ```bash
 docker-compose -f docker-compose.test.yml up -d test-db
