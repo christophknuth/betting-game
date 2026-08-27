@@ -12,6 +12,7 @@ use BettingGame\Domain\Exception\BusinessRuleViolationException;
 use BettingGame\Domain\Model\TippYear;
 use BettingGame\Domain\ValueObject\TippYearStatus;
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class TippYearTest extends TestCase
@@ -96,9 +97,8 @@ final class TippYearTest extends TestCase
      * machine would forbid. A year closed too early has to be reopenable, and
      * that correction belongs in the event history rather than in a manual
      * UPDATE nobody can see afterwards.
-     *
-     * @dataProvider allowedTransitions
      */
+    #[DataProvider('allowedTransitions')]
     public function testEveryTransitionIsAllowed(string $from, string $to): void
     {
         $year = $this->year();
