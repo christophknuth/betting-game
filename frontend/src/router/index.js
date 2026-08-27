@@ -167,7 +167,14 @@ const router = createRouter({
 // original target was gone - every deep link and every reload of a protected
 // page ended up on HOME. Awaiting the store's `ready()` makes the guard judge
 // the session it is actually about to render.
-router.beforeEach(async (to, from, next) => {
+//
+// The decision is *returned*, not handed to a `next` callback: Vue Router 5
+// deprecates that third argument (VUE_ROUTER_R0025), and every guarded
+// navigation printed a warning for it. Returning also removes the one way the
+// callback form can go wrong - calling `next` twice, or forgetting it on a
+// branch and hanging the navigation - because a branch that returns nothing
+// still means "carry on".
+router.beforeEach(async to => {
   const authStore = useAuthStore()
 
   await authStore.ready()
@@ -187,16 +194,20 @@ router.beforeEach(async (to, from, next) => {
     // Abort rather than route somewhere: the browser is leaving this document.
     // Rendering another view first would show a flash of a page the visitor is
     // not allowed to see.
-    next(false)
-  } else if (to.meta.requiresAdmin && !authStore.isAdmin()) {
+    return false
+  }
+
+  if (to.meta.requiresAdmin && !authStore.isAdmin()) {
     // The guard only hides the entrance. The API checks the role itself on
     // every admin route, which is where the decision actually is.
-    next(HOME)
-  } else if (to.path === '/login' && authStore.isAuthenticated) {
-    next(HOME)
-  } else {
-    next()
+    return HOME
   }
+
+  if (to.path === '/login' && authStore.isAuthenticated) {
+    return HOME
+  }
+
+  return true
 })
 
 /**
