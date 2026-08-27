@@ -357,10 +357,14 @@ class belongs to. No comments that restate the signature.
 
 | Suite | Scope | Prerequisite |
 |---|---|---|
-| `tests/Unit` | 22 files, 258 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
-| `tests/Integration` | 17 files, 198 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
+| `tests/Unit` | 26 files, 271 test methods — domain logic, value objects, auth/JWT, HTTP helpers | none |
+| `tests/Integration` | 24 files, 258 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
 
-456 test methods in total.
+529 test methods in total — **PHPUnit reports 559 tests**, because a data provider counts
+each of its data sets as a test of its own. Both numbers are right; count methods with
+`grep -rhoE "public function test[A-Za-z0-9_]*\(" tests | wc -l`, and take 559 from the run
+itself. The three base classes (`IntegrationTestCase`, `ApplicationTestCase`, `HttpTestCase`)
+are not counted as files here.
 
 - Integration tests **skip themselves** when no database is reachable
   (`IntegrationTestCase::setUpBeforeClass()`). The suite therefore stays green without a DB —

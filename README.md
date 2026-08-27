@@ -334,8 +334,11 @@ the full stack.
 
 | Suite | Scope | Prerequisite |
 |---|---|---|
-| `tests/Unit` | 22 files, 258 test methods — domain logic, value objects, JWT, HTTP helpers | none |
-| `tests/Integration` | 17 files, 198 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
+| `tests/Unit` | 26 files, 271 test methods — domain logic, value objects, JWT, HTTP helpers | none |
+| `tests/Integration` | 24 files, 258 test methods — repositories, command flows, HTTP chain, projection rebuild | MariaDB |
+
+529 test methods, which PHPUnit reports as **559 tests** — a data provider counts each of its
+data sets separately.
 
 The integration tests **skip themselves** when no database is reachable. A green suite
 without a running database therefore says nothing about persistence.
